@@ -1,0 +1,10 @@
+*.fastq.gz
+*.fa*.gz
+*.fasta
+*.fastq
+*.fa
+*.kraken
+*.report
+*.html
+*.json
+
