@@ -7,4 +7,13 @@
 *.report
 *.html
 *.json
+*.csv
+*.txt
+.agents
+.agents/*
+.codex
+.codex/*
+.gitignore
+*.log
+*/logs/*
 
