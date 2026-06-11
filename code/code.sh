@@ -1,41 +1,9 @@
 conda activate saproxdna
 
-# check paths throughout the metabarcoding folder
-# merge failed and passed reads by barcode
-# create a folder ../data/merged/
-# create folders "barcode[0-9]+" from 1 to 24 or 96
-# mv *fastq.gz from passed/failed to corresponding ../data/merged/barcode
-set -euo pipefail
-mkdir -p data/merged
-
-for i in $(seq 1 96); do
-  mkdir -p "data/merged/$(printf 'barcode%02d' "$i")"
-done
-
-moved=0
-
-while IFS= read -r -d '' file; do
-  source_barcode=$(basename "$(dirname "$file")")
-  barcode_num="${source_barcode#barcode}"
-  dest_barcode="$(printf 'barcode%02d' "$barcode_num")"
-
-  dest="data/merged/${dest_barcode}/$(basename "$file")"
-
-  if [ -e "$dest" ]; then
-    printf 'collision: %s -> %s\n' "$file" "$dest" >&2
-    exit 1
-  fi
-
-  cp "$file" "../data/merged/${dest_barcode}/"
-  moved=$((moved + 1))
-done < <(find data \( -path '*/fastq_pass/barcode*/*.fastq.gz' -o -path '*/fastq_fail/barcode*/*.fastq.gz' \) -print0)
-
-printf 'moved %s files\n' "$moved"
-
 # I could pass a fasta file with adapter and see if I can force fastplong to
 # output sequences trimmed by adaptor sequences
-# running from metabarcoding folder
-FOLDER="data/merged/barcode59"
+
+FOLDER="barcode01_cleanfirst"
 
 mkdir -p "$FOLDER"/filtered
 mkdir -p "$FOLDER"/filtered/logs
@@ -57,7 +25,7 @@ for file in "$FOLDER"/*.fastq.gz; do
       --qualified_quality_phred 10 \
       --mean_qual 6 \
       --length_required 150 \
-      --adapter_fasta data/ONT_24_native_barcode_sequences.fasta \
+      --adapter_fasta ONT_24_native_barcode_sequences.fasta \
       -h "$FOLDER/filtered/${base}_report.html" \
       > "$log" 2>&1
 done
@@ -83,10 +51,10 @@ cat "$FOLDER"/filtered/*.fastq.gz > "$FOLDER"/filtered/combined.fastq.gz
 # -ss, --similar_species: Similarity to ADD sequences to a species group (value between 50 and 100). Default=85.0
 # -sc, --similar_consensus: Similarity to COMBINE groups based on the consensus sequence (value between 50 and 100). Default=96.0
 
-python3 code/amplicon_sorter.py -i "$FOLDER"/filtered/combined.fastq.gz \
+python3 amplicon_sorter.py -i "$FOLDER"/filtered/combined.fastq.gz \
   -o "$FOLDER"/filtered/ \
   -min 300 -max 100000000 -ar -maxr 100000000 -np 12 -aln \
-  -ra -sg 99.0 -ss 99.0 -sc 99.0
+  -ra -maxr 100000000 -sg 99.0 -ss 99.0 -sc 99.0
 
 # to kraken2, we need to pass the reads in:
 # combined_X_unique as these are sequences that match length with other sequences in group X
