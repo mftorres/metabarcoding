@@ -1,0 +1,26 @@
+
+Before filtering:
+total reads: 32
+total bases: 23381
+Q20 bases: 14732(63.0084%)
+Q30 bases: 9969(42.6372%)
+
+After filtering:
+total reads: 32
+total bases: 23354
+Q20 bases: 14729(63.0684%)
+Q30 bases: 9969(42.6865%)
+
+Filtering result:
+reads passed filter: 32
+reads failed due to low quality: 0
+reads failed due to too many N: 0
+reads failed due to too short: 0
+reads with adapter trimmed: 1
+bases trimmed due to adapters: 27
+
+JSON report: fastplong.json
+HTML report: data/merged/barcode60/filtered/ayb125_pass_barcode60_289089c2_b840e507_23_report.html
+
+fastplong -i data/merged/barcode60/ayb125_pass_barcode60_289089c2_b840e507_23.fastq.gz -o data/merged/barcode60/filtered/ayb125_pass_barcode60_289089c2_b840e507_23_filtered.fastq.gz --unqualified_percent_limit 50 --qualified_quality_phred 10 --mean_qual 6 --length_required 150 --adapter_fasta data/ONT_24_native_barcode_sequences.fasta -h data/merged/barcode60/filtered/ayb125_pass_barcode60_289089c2_b840e507_23_report.html 
+fastplong v0.4.1, time used: 0 seconds

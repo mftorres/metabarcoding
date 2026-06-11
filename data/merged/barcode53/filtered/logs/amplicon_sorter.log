@@ -1,0 +1,73 @@
+Reading combined.fastq.gz
+combined.fastq.gz contains 16184 reads.
+--> Reading random 16043 out of 16043 sequences between 300 and 100000000bp
+processing: file_0.todo
+processing: file_1.todo
+processing: file_2.todo
+Estimating the ssg value for this dataset
+-> Estimated ssg = 99
+Filtering compared sequences for best hits and create groups
+Creating gene groups
+--> Number of groups before merge: 106
+--> Number of groups after merge: 57
+-> Merging based on consensus of 50 reads per group
+...making consensuses file_0.todo
+...comparing consensuses file_0.todo
+--> Number of groups before merge: 57
+--> Number of groups after merge: 1
+...making consensuses file_0.todo
+...comparing consensuses file_0.todo
+--> Number of groups after removing groups with less than 5 sequences: 1
+  combined_0.group contains 504 sequences (4.9%)
+504/10284 sequences assigned in groups (4.9%)
+reading combined_0.group containing 504 sequences.
+--> Number of groups before merge: 99
+--> Number of groups after merge: 57
+--> Number of groups after removing groups with less than 4 sequences: 22
+----> Making consensus for each group
+...making consensuses file_0.todo
+combined_0.group--> Comparing the rest of the sequences with the consensus sequences
+combined_0.group----> similarity = 0.95
+combined_0.group----> 1014 comparisons to calculate
+...processing: file_0.todo
+combined_0.group----> 69 sequences added to the groups
+combined_0.group----> Making consensus for each group
+...making consensuses file_0.todo
+...comparing consensuses file_0.todo
+--> Number of groups before merge: 22
+--> Number of groups after merge: 1
+...making consensuses file_0.todo
+...comparing consensuses file_0.todo
+...making consensuses file_0.todo
+Writing sequences with high similarity in separate files
+reading combined_nogroup.group containing 9780 sequences.
+--> Nothing to do
+Writing sequences with high similarity in separate files
+-----------------------------------------------------------
+amplicon_sorter version: 2025-10-09
+-----------------------------------------------------------
+- date and time = June 09, 2026, 10:11AM
+- input file = /mnt/c/Users/mftor/Documents/metabarcoding/data/merged/barcode53/filtered/combined.fastq.gz
+- output folder = /mnt/c/Users/mftor/Documents/metabarcoding/data/merged/barcode53/filtered/combined
+- minlength = 300
+- maxlength = 100000000
+- maxreads = 100000000
+- used_reads = 10284
+- allreads = True
+- n_processes = 12
+- similar_genes = 99.0
+- similar_species_groups = 99 (Estimated)
+- similar_species = 99.0
+- similar_consensus = 99.0
+- length_difference_consensus = 8.0
+- save_fastq = False
+- compressed = False
+- random = True
+- compare_all = False
+- alignment = True
+- ambiguous bases = False
+- histogram_only = False
+-----------------------------------------------------------
+--> combined_0_0.fasta contains 495 sequences (4.81% of total)
+495/504 sequences assigned in group combined_0.group (98.21% of group)
+9780 sequences were not assigned in groups and saved in combined_nogroup_unique.fasta (95.1% of total)

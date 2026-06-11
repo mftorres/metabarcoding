@@ -1,0 +1,30 @@
+Trying to detect adapter sequence at read start
+Detected: TTCGTTCAGTTACGTATTGCTAAGGTTAAAGATTCAGACCGTCTCATGCAAAGCAGCACCT
+Trying to detect adapter sequence at read end
+Not detected
+
+Before filtering:
+total reads: 966
+total bases: 827982
+Q20 bases: 647500(78.2022%)
+Q30 bases: 528503(63.8303%)
+
+After filtering:
+total reads: 965
+total bases: 745980
+Q20 bases: 599396(80.3501%)
+Q30 bases: 492536(66.0254%)
+
+Filtering result:
+reads passed filter: 965
+reads failed due to low quality: 0
+reads failed due to too many N: 0
+reads failed due to too short: 1
+reads with adapter trimmed: 950
+bases trimmed due to adapters: 81880
+
+JSON report: fastplong.json
+HTML report: data/merged/barcode53/filtered/ayb125_pass_barcode53_289089c2_b840e507_2_report.html
+
+fastplong -i data/merged/barcode53/ayb125_pass_barcode53_289089c2_b840e507_2.fastq.gz -o data/merged/barcode53/filtered/ayb125_pass_barcode53_289089c2_b840e507_2_filtered.fastq.gz --unqualified_percent_limit 50 --qualified_quality_phred 10 --mean_qual 6 --length_required 150 --adapter_fasta data/ONT_24_native_barcode_sequences.fasta -h data/merged/barcode53/filtered/ayb125_pass_barcode53_289089c2_b840e507_2_report.html 
+fastplong v0.4.1, time used: 1 seconds

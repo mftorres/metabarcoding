@@ -1,0 +1,6 @@
+[data/mergedseq5/barcode01] kraken2: combining 10 FASTA files into kraken2_combined_input.fasta
+[data/mergedseq5/barcode01] kraken2: kraken2_combined_input.fasta
+Loading database information... done.
+72971 sequences (55.93 Mbp) processed in 32563.902s (0.1 Kseq/m, 0.10 Mbp/m).
+  66271 sequences classified (90.82%)
+  6700 sequences unclassified (9.18%)

@@ -1,0 +1,12 @@
+[data/merged/barcode59] kraken2: combined_0_unique.fasta
+Loading database information... done.
+15 sequences (0.01 Mbp) processed in 2.730s (0.3 Kseq/m, 0.27 Mbp/m).
+  0 sequences classified (0.00%)
+  15 sequences unclassified (100.00%)
+[data/merged/barcode59] kraken2: combined_consensussequences.fasta
+Loading database information... done.
+1 sequences (0.00 Mbp) processed in 0.006s (9.8 Kseq/m, 7.51 Mbp/m).
+  0 sequences classified (0.00%)
+  1 sequences unclassified (100.00%)
+[data/merged/barcode59] kraken2: combined_nogroup_unique.fasta
+Loading database information... done.

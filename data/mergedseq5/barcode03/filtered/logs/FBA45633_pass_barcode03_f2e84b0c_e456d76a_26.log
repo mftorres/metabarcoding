@@ -1,0 +1,35 @@
+Command: fastplong -i data/mergedseq5/barcode03/FBA45633_pass_barcode03_f2e84b0c_e456d76a_26.fastq.gz -o data/mergedseq5/barcode03/filtered/FBA45633_pass_barcode03_f2e84b0c_e456d76a_26_filtered.fastq.gz --unqualified_percent_limit 50 --qualified_quality_phred 10 --mean_qual 6 --length_required 150 --adapter_fasta data/ONT_24_native_barcode_sequences.fasta -h data/mergedseq5/barcode03/filtered/FBA45633_pass_barcode03_f2e84b0c_e456d76a_26_report.html
+
+Script started on 2026-06-09 21:37:42+03:00 [<not executed on terminal>]
+Trying to detect adapter sequence at read start
+Detected: TTCGTTCAGTTACGTATTGCTAAGGTTAACCTGGTAACTGGGACACAAGACTCCAGCACCTGGT
+Trying to detect adapter sequence at read end
+Detected: CTACCAGGTGCTGGAGTCTTGTGTCCCAGTTACCAGGTTAACCTTAGCAATAC
+
+Before filtering:
+total reads: 10371
+total bases: 8603430
+Q20 bases: 6427533(74.709%)
+Q30 bases: 5324214(61.8848%)
+
+After filtering:
+total reads: 9118
+total bases: 6545779
+Q20 bases: 5467429(83.526%)
+Q30 bases: 4592471(70.1593%)
+
+Filtering result:
+reads passed filter: 9118
+reads failed due to low quality: 436
+reads failed due to too many N: 0
+reads failed due to too short: 828
+reads with adapter trimmed: 10343
+bases trimmed due to adapters: 1359765
+
+JSON report: fastplong.json
+HTML report: data/mergedseq5/barcode03/filtered/FBA45633_pass_barcode03_f2e84b0c_e456d76a_26_report.html
+
+fastplong -i data/mergedseq5/barcode03/FBA45633_pass_barcode03_f2e84b0c_e456d76a_26.fastq.gz -o data/mergedseq5/barcode03/filtered/FBA45633_pass_barcode03_f2e84b0c_e456d76a_26_filtered.fastq.gz --unqualified_percent_limit 50 --qualified_quality_phred 10 --mean_qual 6 --length_required 150 --adapter_fasta data/ONT_24_native_barcode_sequences.fasta -h data/mergedseq5/barcode03/filtered/FBA45633_pass_barcode03_f2e84b0c_e456d76a_26_report.html 
+fastplong v0.4.1, time used: 14 seconds
+
+Script done on 2026-06-09 21:37:56+03:00 [COMMAND_EXIT_CODE="0"]
