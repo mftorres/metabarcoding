@@ -5,12 +5,12 @@ conda activate saproxdna
 # create a folder ../data/merged/
 # create folders "barcode[0-9]+" from 1 to 24 or 96
 # mv *fastq.gz from passed/failed to corresponding ../data/merged/barcode
-set -euo pipefail
-mkdir -p data/merged
+# set -euo pipefail
+# mkdir -p data/merged
 
-for i in $(seq 1 96); do
-  mkdir -p "data/merged/$(printf 'barcode%02d' "$i")"
-done
+# for i in $(seq 1 96); do
+#   mkdir -p "data/merged/$(printf 'barcode%02d' "$i")"
+# done
 
 moved=0
 
@@ -66,8 +66,8 @@ done
 # conda install biopython
 # conda install matplotlib
 
-# get all filtered reads in a single line
-cat "$FOLDER"/filtered/*.fastq.gz > "$FOLDER"/filtered/combined.fastq.gz
+# get all filtered reads in a single file
+cat "$FOLDER"/filtered/*_filtered.fastq.gz > "$FOLDER"/filtered/asinput.fastq.gz
 
 # Metagenetic sample with several amplicons 
 # unknown number of species, 30000 reads in the inputfile
@@ -83,26 +83,26 @@ cat "$FOLDER"/filtered/*.fastq.gz > "$FOLDER"/filtered/combined.fastq.gz
 # -ss, --similar_species: Similarity to ADD sequences to a species group (value between 50 and 100). Default=85.0
 # -sc, --similar_consensus: Similarity to COMBINE groups based on the consensus sequence (value between 50 and 100). Default=96.0
 
-python3 code/amplicon_sorter.py -i "$FOLDER"/filtered/combined.fastq.gz \
+python3 code/amplicon_sorter_mod.py -i "$FOLDER"/filtered/asinput.fastq.gz \
   -o "$FOLDER"/filtered/ \
   -min 300 -max 100000000 -ar -maxr 100000000 -np 12 -aln \
   -ra -sg 99.0 -ss 99.0 -sc 99.0
 
 # to kraken2, we need to pass the reads in:
-# combined_X_unique as these are sequences that match length with other sequences in group X
+# asinput_X_unique as these are sequences that match length with other sequences in group X
 # but are genetically divergent (by threshold) to anything that can be classified in the clusters
-# also, the combined_consensussequences since these are consensus, each from each group_cluster file
-# and the sequences in combined_nogroup_unique as these are true singletons: no matching length or identity to anything else.
+# also, the asinput_consensussequences since these are consensus, each from each group_cluster file
+# and the sequences in asinput_nogroup_unique as these are true singletons: no matching length or identity to anything else.
 
 # search for these three types of files
-# combined_*_unique.fasta
-# combined_consensussequences.fasta
-# combined_nogroup_unique.fasta
+# asinput_*_unique.fasta
+# asinput_consensussequences.fasta
+# asinput_nogroup_unique.fasta
 ## collect matching files into an array for processing with kraken2
 TARGET_FILES=()
-for pattern in "$FOLDER/filtered/combined/combined_*_unique.fasta" \
-               "$FOLDER/filtered/combined/combined_consensussequences.fasta" \
-               "$FOLDER/filtered/combined/combined_nogroup_unique.fasta"; do
+for pattern in "$FOLDER/filtered/combined/asinput_*_unique.fasta" \
+               "$FOLDER/filtered/combined/asinput_consensussequences.fasta" \
+               "$FOLDER/filtered/combined/asinput_nogroup_unique.fasta"; do
   for f in $pattern; do
     [ -e "$f" ] || continue
     TARGET_FILES+=("$f")
@@ -122,6 +122,3 @@ for file in "${TARGET_FILES[@]}"; do
   --output /data/"$(basename "$file").kraken" \
   --report /data/"$(basename "$file").report"
 done
-
-
-

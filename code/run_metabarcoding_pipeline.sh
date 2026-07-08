@@ -13,7 +13,8 @@ fi
 : "${FASTPLONG_QUALIFIED_QUALITY_PHRED:=6}"
 : "${FASTPLONG_MEAN_QUAL:=6}"
 : "${FASTPLONG_LENGTH_REQUIRED:=150}"
-: "${AMPLICON_SORTER_SCRIPT:=code/amplicon_sorter.py}"
+: "${AMPLICON_SORTER_SCRIPT:=code/amplicon_sorter_mod.py}"
+: "${AMPLICON_READ_MAP_SCRIPT:=code/build_amplicon_kraken_read_map.py}"
 : "${AMPLICON_THREADS:=14}"
 : "${AMPLICON_MINLENGTH:=300}"
 : "${AMPLICON_MAXLENGTH:=100000000}"
@@ -22,6 +23,7 @@ fi
 : "${AMPLICON_SS:=99.0}"
 : "${AMPLICON_SC:=99.0}"
 : "${AMPLICON_EXTRA_ARGS:=}"
+: "${AMPLICON_TMP_ROOT:=/tmp/metabarcoding_amplicon_sorter}"
 : "${KRAKEN_THREADS:=4}"
 : "${KRAKEN_DB:=/mnt/d/kraken2DB/k2_core_nt_2025}"
 : "${KRAKEN_CONFIDENCE:=0}"
@@ -66,14 +68,14 @@ collect_kraken_targets() {
   targets_ref=()
 
   shopt -s nullglob
-  for candidate in "$target_dir"/combined_[0-9]*_unique.fasta; do
+  for candidate in "$target_dir"/asinput_[0-9]*_unique.fasta; do
     targets_ref+=("$candidate")
   done
   shopt -u nullglob
 
   for candidate in \
-    "$target_dir"/combined_consensussequences.fasta \
-    "$target_dir"/combined_nogroup_unique.fasta; do
+    "$target_dir"/asinput_consensussequences.fasta \
+    "$target_dir"/asinput_nogroup_unique.fasta; do
     if [[ -f "$candidate" ]]; then
       targets_ref+=("$candidate")
     fi
@@ -89,6 +91,27 @@ kraken_combined_input_current() {
 
   for file in "$@"; do
     if [[ "$file" -nt "$combined_input" ]]; then
+      return 1
+    fi
+  done
+
+  return 0
+}
+
+kraken_read_map_current() {
+  local read_map="$1"
+  local amplicon_read_map="$2"
+  shift 2
+  local file
+
+  [[ -s "$read_map" ]] || return 1
+
+  if [[ "$amplicon_read_map" -nt "$read_map" ]]; then
+    return 1
+  fi
+
+  for file in "$@"; do
+    if [[ "$file" -nt "$read_map" ]]; then
       return 1
     fi
   done
@@ -122,10 +145,29 @@ amplicon_sorter_outputs_exist() {
 
   collect_kraken_targets "$target_dir" targets
   if [[ "${#targets[@]}" -gt 0 ]]; then
+    [[ -s "$target_dir/amplicon_sorter_read_map.tsv" ]] || return 1
     return 0
   fi
 
   [[ -s "$target_dir/results.txt" || -s "$filtered_dir/results.csv" ]]
+}
+
+amplicon_sorter_output_usable() {
+  local target_dir="$1"
+  local log="$2"
+  local targets=()
+
+  [[ -d "$target_dir" && -s "$target_dir/results.txt" ]] || return 1
+
+  collect_kraken_targets "$target_dir" targets
+  if [[ "${#targets[@]}" -gt 0 ]]; then
+    [[ -s "$target_dir/amplicon_sorter_read_map.tsv" ]] || return 1
+    return 0
+  fi
+
+  # amplicon_sorter exits cleanly for samples with too few usable reads.
+  # Treat that as a completed no-target run, but reject other no-FASTA outputs.
+  [[ -f "$log" ]] && grep -q "Number of usable sequences is lower than 5, quitting job" "$log"
 }
 
 validate_setup() {
@@ -146,6 +188,10 @@ validate_setup() {
 
   [[ -f "$AMPLICON_SORTER_SCRIPT" ]] || {
     echo "Missing amplicon sorter script: $AMPLICON_SORTER_SCRIPT" >&2
+    exit 1
+  }
+  [[ -f "$AMPLICON_READ_MAP_SCRIPT" ]] || {
+    echo "Missing amplicon/Kraken read-map script: $AMPLICON_READ_MAP_SCRIPT" >&2
     exit 1
   }
 
@@ -216,12 +262,11 @@ filter_reads() {
 
   date > "$done_file"
 }
-# //TODO remove the .gz from combined.fastq.gz because the file is not compressed
 combine_filtered_reads() {
   local folder="$1"
   local filtered_dir="$folder/filtered"
   local logs_dir="$filtered_dir/logs"
-  local combined="$filtered_dir/combined.fastq.gz"
+  local combined="$filtered_dir/asinput.fastq.gz"
   local done_file="$filtered_dir/combined.done"
 
   if [[ "$FORCE" != "1" && -f "$done_file" && -s "$combined" ]]; then
@@ -248,17 +293,23 @@ combine_filtered_reads() {
 run_amplicon_sorter() {
   local folder="$1"
   local filtered_dir="$folder/filtered"
-  local combined="$filtered_dir/combined.fastq.gz"
+  local combined="$filtered_dir/asinput.fastq.gz"
+  local target_dir="$filtered_dir/combined"
   local logs_dir="$filtered_dir/logs"
   local log="$logs_dir/amplicon_sorter.log"
+  local stdout_log="$logs_dir/amplicon_sorter.stdout.log"
+  local stderr_log="$logs_dir/amplicon_sorter.stderr.log"
   local done_file="$filtered_dir/amplicon_sorter.done"
+  local sample_name tmp_parent tmp_target staging root_file
 
-  if [[ "$FORCE" != "1" && -f "$done_file" ]]; then
+  mkdir -p "$logs_dir"
+
+  if [[ "$FORCE" != "1" && -f "$done_file" ]] && amplicon_sorter_output_usable "$target_dir" "$log"; then
     echo "[$folder] amplicon_sorter: already done"
     return
   fi
 
-  if [[ "$FORCE" != "1" ]] && amplicon_sorter_outputs_exist "$filtered_dir"; then
+  if [[ "$FORCE" != "1" ]] && amplicon_sorter_output_usable "$target_dir" "$log"; then
     echo "[$folder] amplicon_sorter: outputs already exist"
     date > "$done_file"
     return
@@ -269,13 +320,22 @@ run_amplicon_sorter() {
     return 1
   }
 
-  mkdir -p "$logs_dir"
+  mkdir -p "$AMPLICON_TMP_ROOT"
+  sample_name="$(basename "$folder")"
+  tmp_parent="$(mktemp -d "$AMPLICON_TMP_ROOT/${sample_name}.amplicon_sorter.XXXXXX")"
+  tmp_target="$tmp_parent/asinput"
+  staging="$filtered_dir/.combined.copying.$$"
 
-  echo "[$folder] amplicon_sorter"
+  echo "[$folder] amplicon_sorter: writing temporary output to $tmp_parent"
   # Add -ra here if you want amplicon-sorter to reverse-complement reads.
-  python "$AMPLICON_SORTER_SCRIPT" \
+  # Running amplicon_sorter using a combined file with all filtered reads from the same barcode
+  # It is less efficient for storage but amplicon_sorter will grab any fastq, fastq, gz file even if not relevant for the analyses
+  # need to change the folder structure in the future, to avoid additional read files and be able to pass a folder as input
+  # or maybe keeping all filtered reads in a single file and pass it as input for amplicon_sorter is better
+  # so that all reads can be compared to all
+  if ! python "$AMPLICON_SORTER_SCRIPT" \
     -i "$combined" \
-    -o "$filtered_dir/" \
+    -o "$tmp_parent/" \
     -min "$AMPLICON_MINLENGTH" \
     -max "$AMPLICON_MAXLENGTH" \
     -ar \
@@ -286,18 +346,61 @@ run_amplicon_sorter() {
     -ss "$AMPLICON_SS" \
     -sc "$AMPLICON_SC" \
     $AMPLICON_EXTRA_ARGS \
-    > "$log" 2>&1
+    > "$stdout_log" 2> "$stderr_log"; then
+    cat "$stdout_log" "$stderr_log" > "$log"
+    echo "[$folder] amplicon_sorter failed; stdout: $stdout_log; stderr: $stderr_log" | tee -a "$log" >&2
+    echo "[$folder] keeping temporary output for inspection: $tmp_parent" | tee -a "$log" >&2
+    return 1
+  fi
 
+  cat "$stdout_log" "$stderr_log" > "$log"
+
+  if ! amplicon_sorter_output_usable "$tmp_target" "$log"; then
+    echo "[$folder] amplicon_sorter did not produce usable output in $tmp_target" | tee -a "$log" >&2
+    echo "[$folder] keeping temporary output for inspection: $tmp_parent" | tee -a "$log" >&2
+    return 1
+  fi
+
+  rm -rf "$staging"
+  cp -a "$tmp_target" "$staging"
+
+  if ! amplicon_sorter_output_usable "$staging" "$log"; then
+    echo "[$folder] copied amplicon_sorter output is not usable: $staging" | tee -a "$log" >&2
+    rm -rf "$staging"
+    return 1
+  fi
+
+  rm -rf "$target_dir"
+  mv "$staging" "$target_dir"
+
+  shopt -s nullglob
+  for root_file in "$tmp_parent"/*; do
+    if [[ -f "$root_file" ]]; then
+      cp -a "$root_file" "$filtered_dir/"
+    fi
+  done
+  shopt -u nullglob
+
+  if ! amplicon_sorter_output_usable "$target_dir" "$log"; then
+    echo "[$folder] final amplicon_sorter output is not usable after copy: $target_dir" | tee -a "$log" >&2
+    return 1
+  fi
+
+  rm -rf "$tmp_parent"
+  echo "[$folder] amplicon_sorter: copied output to $target_dir and removed temporary output"
   date > "$done_file"
 }
 
 run_kraken2() {
   local folder="$1"
+  local filtered_dir="$folder/filtered"
   local target_dir="$folder/filtered/combined"
   local logs_dir="$folder/filtered/logs"
   local log="$logs_dir/kraken2.log"
   local done_file="$folder/filtered/kraken2.done"
   local combined_input="$target_dir/kraken2_combined_input.fasta"
+  local amplicon_read_map="$target_dir/amplicon_sorter_read_map.tsv"
+  local read_map="$target_dir/kraken2_combined_input.read_map.tsv"
   local kraken_output="$combined_input.kraken"
   local kraken_report="$combined_input.report"
   local memory_mapping=()
@@ -334,6 +437,20 @@ run_kraken2() {
     || ! kraken_combined_input_current "$combined_input" "${targets[@]}"; then
     echo "[$folder] kraken2: combining ${#targets[@]} FASTA files into $(basename "$combined_input")" | tee -a "$log"
     cat "${targets[@]}" > "$combined_input"
+  fi
+
+  if [[ "$FORCE" == "1" || "$FORCE_KRAKEN" == "1" ]] \
+    || ! kraken_read_map_current "$read_map" "$amplicon_read_map" "${targets[@]}"; then
+    echo "[$folder] kraken2: writing read map $(basename "$read_map")" | tee -a "$log"
+    [[ -s "$amplicon_read_map" ]] || {
+      echo "[$folder] missing amplicon_sorter read map: $amplicon_read_map" | tee -a "$log" >&2
+      return 1
+    }
+    python "$AMPLICON_READ_MAP_SCRIPT" \
+      --amplicon-sorter-read-map "$amplicon_read_map" \
+      --output "$read_map" \
+      --targets "${targets[@]}" \
+      >> "$log" 2>&1
   fi
 
   echo "[$folder] kraken2: $(basename "$combined_input")" | tee -a "$log"
