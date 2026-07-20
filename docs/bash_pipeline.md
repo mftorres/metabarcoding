@@ -136,6 +136,194 @@ Consensus records do not have one ONT read ID. They are marked as
 `record_type = consensus` and keep their amplicon_sorter group name and sequence
 length.
 
+## Amplicon Sorter Length Check
+
+`code/length_check_amplicon_sorter.sh` summarizes sequence lengths for every
+non-alignment amplicon_sorter FASTA file across all barcodes in a merged-sequence
+folder.
+
+Run this after amplicon_sorter and Kraken2 have produced:
+
+```text
+data/mergedseq5/barcodeXX/filtered/combined/asinput_*_*.fasta
+data/mergedseq5/barcodeXX/filtered/combined/kraken2_combined_input.read_map.tsv
+data/mergedseq5/barcodeXX/filtered/combined/kraken2_combined_input.fasta.kraken
+data/mergedseq5/barcodeXX/filtered/combined/kraken2_combined_input.fasta.report
+```
+
+The full `code/run_metabarcoding_pipeline.sh` step already includes
+amplicon_sorter, Kraken2, and the Kraken read map, so the length check can be
+run after that pipeline finishes.
+
+Run with defaults:
+
+```bash
+code/length_check_amplicon_sorter.sh
+```
+
+Default input folder:
+
+```text
+data/mergedseq5
+```
+
+Default output table:
+
+```text
+data/mergedseq5/mergedseq5_amplicon_sorter_length_check.tsv
+```
+
+Run with explicit input and output paths:
+
+```bash
+code/length_check_amplicon_sorter.sh \
+  data/mergedseq5 \
+  data/mergedseq5/mergedseq5_amplicon_sorter_length_check.tsv
+```
+
+The script excludes files matching:
+
+```text
+*alignment*fasta
+```
+
+Kraken2 taxid assignment is added from the per-barcode combined Kraken files:
+
+- grouped files such as `asinput_1_0.fasta` are linked to the Kraken2 taxid of the corresponding consensus sequence using `kraken2_combined_input.read_map.tsv`;
+- unique files such as `asinput_0_unique.fasta` and `asinput_nogroup_unique.fasta` summarize all individual Kraken records whose `amplicon_sorter_file` is that unique FASTA file.
+- taxon names are taken from `kraken2_combined_input.fasta.report`.
+
+The output is tab-delimited and contains one row per FASTA file.
+
+| Column | Meaning |
+|---|---|
+| `barcode` | Barcode folder containing the FASTA file. |
+| `asinput_file` | FASTA filename, for example `asinput_1_0.fasta`, `asinput_0_unique.fasta`, or `asinput_nogroup_unique.fasta`. |
+| `cluster_group` | Parsed cluster/group label without the `asinput_` prefix or `.fasta` suffix. |
+| `cluster_number` | First parsed value after `asinput_`. For `asinput_nogroup_unique.fasta`, this is `nogroup`. |
+| `group_number` | Second parsed value after `asinput_`. For unique files, this is `unique`. |
+| `sequence_count` | Number of FASTA records in the file. |
+| `average_length` | Mean sequence length in bases. |
+| `length_standard_deviation` | Sample standard deviation of sequence lengths in bases. Files with one sequence have standard deviation `0`. |
+| `kraken_record_type` | Kraken record type summarized for this FASTA file: `consensus`, `unique_read`, a semicolon-separated combination if both occur, or `none` if no Kraken records were matched. |
+| `kraken_record_count` | Number of Kraken records associated with this FASTA file. Grouped files usually have one consensus record; unique files can have many individual-read records. |
+| `kraken_classified_count` | Number of associated Kraken records classified by Kraken2. |
+| `kraken_unclassified_count` | Number of associated Kraken records unclassified by Kraken2. |
+| `kraken_taxids` | Semicolon-separated Kraken taxids associated with the file. Taxid `0` means unclassified. |
+| `kraken_taxon_names` | Semicolon-separated taxon names corresponding to `kraken_taxids`, in the same order. Names are taken from `kraken2_combined_input.fasta.report`. |
+| `kraken_taxid_counts` | Semicolon-separated `taxid:count` pairs for the associated Kraken records. |
+| `file_path` | Full path to the FASTA file used for the calculation. |
+
+## Consensus noNUMT Amino-Acid Filter
+
+`code/filter_consensus_noNUMT_seqkit.sh` translates amplicon_sorter consensus
+sequences in all six frames and keeps translated amino-acid sequences above the
+configured minimum length. This is intended as a quick consensus-level NUMT
+screening aid.
+
+Run this after amplicon_sorter has produced:
+
+```text
+data/mergedseq5/barcodeXX/filtered/combined/asinput_consensussequences.fasta
+```
+
+Run all barcodes under one parent folder:
+
+```bash
+bash code/filter_consensus_noNUMT_seqkit.sh data/mergedseq5
+```
+
+Run one barcode:
+
+```bash
+bash code/filter_consensus_noNUMT_seqkit.sh data/mergedseq5/barcode01
+```
+
+The script uses variables from `config/pipeline.env`:
+
+| Variable | Default | Meaning |
+|---|---:|---|
+| `NONUMT_MIN_AA_LENGTH` | `100` | Minimum amino-acid length retained by `seqkit seq --min-len`. |
+| `NONUMT_TRANSLATION_TABLE` | `5` | Genetic code table passed to `seqkit translate -T`. |
+| `NONUMT_SEQKIT_THREADS` | `6` | Threads passed to `seqkit translate -j`. |
+| `MAX_JOBS` | `2` | Number of barcode folders processed concurrently. |
+| `FORCE` | `0` | Set to `1` to overwrite existing noNUMT outputs. |
+
+For each input file, the output is written in the same folder. With default
+settings:
+
+```text
+asinput_consensussequences.fasta
+asinput_consensussequences_aa_noNUMT_100filter.fasta
+```
+
+## Amplicon Sorter Primer-Diversity Check
+
+`code/primer_diversity_amplicon_sorter.sh` summarizes detected forward- and
+reverse-primer diversity inside every non-alignment amplicon_sorter FASTA file
+across all barcodes in a merged-sequence folder.
+
+Run this after amplicon_sorter has produced:
+
+```text
+data/mergedseq5/barcodeXX/filtered/combined/asinput_*_*.fasta
+data/mergedseq5/barcodeXX/filtered/combined/amplicon_sorter_read_map.tsv
+```
+
+and after `code/primer_umi_seqkit_parser.ipynb` has produced the combined
+seqkit best-hit table:
+
+```text
+data/primertrack/mergedseq5_seqkit_primer_umi_best_hits_YYYYMMDD.txt
+```
+
+The script uses `amplicon_sorter_read_map.tsv` to translate FASTA record IDs
+back to original ONT read IDs, then joins those ONT read IDs to the seqkit
+best-hit table.
+
+Run with defaults:
+
+```bash
+code/primer_diversity_amplicon_sorter.sh
+```
+
+The default command automatically uses the latest matching best-hit table under
+`data/primertrack/`. To force a specific dated best-hit table:
+
+```bash
+code/primer_diversity_amplicon_sorter.sh \
+  data/mergedseq5 \
+  data/primertrack/mergedseq5_seqkit_primer_umi_best_hits_YYYYMMDD.txt
+```
+
+Default output table:
+
+```text
+data/mergedseq5/mergedseq5_amplicon_sorter_primer_diversity.tsv
+```
+
+The output is tab-delimited and contains one row per FASTA file.
+
+| Column | Meaning |
+|---|---|
+| `barcode` | Barcode folder containing the FASTA file. |
+| `asinput_file` | FASTA filename, for example `asinput_1_0.fasta`, `asinput_0_unique.fasta`, or `asinput_nogroup_unique.fasta`. |
+| `sequence_type` | `grouped_reads` for regular amplicon_sorter group FASTAs; `unique_reads` for `*_unique.fasta` files. |
+| `cluster_group` | Parsed cluster/group label without the `asinput_` prefix or `.fasta` suffix. |
+| `cluster_number` | First parsed value after `asinput_`. For `asinput_nogroup_unique.fasta`, this is `nogroup`. |
+| `group_number` | Second parsed value after `asinput_`. For unique files, this is `unique`. |
+| `sequence_count` | Number of FASTA records in the asinput file. |
+| `raw_read_count` | Number of FASTA records successfully traced back to original ONT read IDs. |
+| `forward_detected_read_count` | Number of traced raw reads with a detected forward-primer best hit in the seqkit best-hit table. |
+| `reverse_detected_read_count` | Number of traced raw reads with a detected reverse-primer best hit in the seqkit best-hit table. |
+| `unique_forward_primer_count` | Number of distinct detected forward-primer names in the asinput file. |
+| `unique_reverse_primer_count` | Number of distinct detected reverse-primer names in the asinput file. |
+| `forward_primers_detected` | Semicolon-separated list of distinct detected forward-primer names. |
+| `reverse_primers_detected` | Semicolon-separated list of distinct detected reverse-primer names. |
+| `forward_primer_counts` | Semicolon-separated `forward_primer:read_count` pairs. |
+| `reverse_primer_counts` | Semicolon-separated `reverse_primer:read_count` pairs. |
+| `file_path` | Full path to the FASTA file used for the calculation. |
+
 ## Parser Outputs
 
 Primer/UMI parser outputs are written under:
@@ -162,6 +350,13 @@ data/kraken_parsed/
 These notebook-generated tables are tab-delimited even though their filenames
 retain the `.csv` extension. Load them with `sep='\t'` in pandas.
 
+These parser outputs are dated and are used as later inputs. Every time
+`code/kraken_parser.ipynb` creates a new `mergedseqX_all_kraken_reads_YYYYMMDD.csv`
+or `mergedseqX_<target>_kraken_reads_YYYYMMDD.csv`, update the downstream code or
+commands that point to those files. In particular, update the
+`--insecta-kraken-reads` path used by `code/build_barcode_read_tracking_table.py`
+to the newest intended `mergedseqX_insecta_kraken_reads_YYYYMMDD.csv`.
+
 `code/kraken_parser.ipynb` expects the Kraken read map generated by the current
 pipeline. It uses `ont_read_id` from `kraken2_combined_input.read_map.tsv` to
 join Kraken taxonomy to primer/UMI best hits.
@@ -184,6 +379,11 @@ python code/build_barcode_read_tracking_table.py \
   --insecta-kraken-reads data/kraken_parsed/mergedseq5_insecta_kraken_reads_20260630.csv \
   --output data/mergedseq5/barcode01/barcode01_read_primer_group_taxid.tsv
 ```
+
+If the Insecta parser output has been regenerated with a newer date, replace the
+dated filename in `--insecta-kraken-reads`. Otherwise the read-tracking script
+will use the older parsed Insecta table and can produce empty or incomplete
+`barcodeXX_insecta_read_primer_group_taxid*` outputs for newer barcodes.
 
 The script writes both reduced tables before compressing and removing the two
 uncompressed full tables. The four final outputs are:
@@ -302,6 +502,102 @@ seconds for its gzipped equivalent. The full tracking table remains compressed
 for storage, while the smaller reduced table remains uncompressed for faster
 interactive analysis. Regenerate the reduced file whenever the full tracking
 table is regenerated.
+
+## Sankey Diagrams for Target-Species Detections
+
+`code/sankey_target_species_detection.ipynb` creates one Sankey/alluvial diagram
+per barcode from:
+
+```text
+data/mergedseq5/barcodeXX/barcodeXX_target_species_detection.tsv
+```
+
+It writes an expanded trust-annotated table:
+
+```text
+data/mergedseq5/barcodeXX/barcodeXX_target_species_detection_trusted.tsv
+```
+
+The final notebook section also combines trusted rows across selected barcodes into:
+
+```text
+data/mergedseq5/mergedseq5_target_species_detection_trusted.tsv
+```
+
+It also writes two Sankey figures:
+
+```text
+data/mergedseq5/barcodeXX/figures/barcodeXX_target_detection_sankey.png
+data/mergedseq5/barcodeXX/figures/barcodeXX_target_detection_sankey_trusted.png
+```
+
+The same notebook also reads `barcodeXX_target_species_taxids_below_50pct_forward_primers.tsv`
+and applies the same Sankey and trust-coloring rules. For that filtered table,
+it does not export a new expanded/trusted TSV; it only writes:
+
+```text
+data/mergedseq5/barcodeXX/figures/barcodeXX_target_species_taxids_below_50pct_forward_primers_sankey.png
+data/mergedseq5/barcodeXX/figures/barcodeXX_target_species_taxids_below_50pct_forward_primers_sankey_trusted.png
+```
+
+The plotted flow is:
+
+```text
+expected_forward_primer -> detected_forward_primer -> detected_species -> target_species
+```
+
+Rules:
+
+- The notebook uses the full `barcodeXX_target_species_detection.tsv` table, not
+  the below-50% filtered target-species table.
+- `expected_forward_primer` is taken directly from the row's `expected_forward`
+  column. Missing or empty values are shown as `none`. Multiple
+  semicolon-separated expected primers are split.
+- `target_species` is taken directly from the same row's `target_species`
+  column. It is not globally re-derived from the expected forward primer.
+  Missing or empty values are shown as `none`.
+- `detected_species` is taken from `taxid_detected_name`. Missing or empty values
+  are shown as `none`.
+- `detected_forward_primer` is taken from the seqkit-detected `forward_primer`
+  column. Missing or empty detected forward primers are shown as `none`.
+- `target_sxdcodes` and `expected_forward` are expanded together. If both
+  contain the same number of semicolon-separated values, they are paired by
+  position so the first SxD code remains linked to the first expected forward
+  primer, and so on. If one side has one value and the other has multiple, the
+  single value is repeated. Otherwise, all combinations are used and the row is
+  flagged in `expansion_note`.
+- If one row expands to multiple expected-primer/detected-primer/species
+  combinations, the row's read count is split evenly across those combinations
+  as `sankey_read_count` so total flow is conserved.
+- Link weights use `taxid_primer_read_count` for detected-primer rows and
+  `no_forward_primer_read_count` for no-forward-primer rows, with fallback to
+  `taxid_read_count` and then `target_species_read_count`.
+- Detected species and target species blocks are sorted alphabetically, with
+  `none` at the end.
+- Expected and detected forward-primer blocks are initialized
+  alphanumerically/naturally, then refined with weighted barycentric sweeps to
+  reduce path overlap/crossings. This is a layout-only operation and does not
+  change link weights.
+- The Sankey diagram is exploratory. It shows expected-primer, expected-target,
+  detected-taxid, and detected-primer associations, not proof that the detected
+  taxid is exactly the expected species.
+
+Trust rules used for `barcodeXX_target_species_detection_trusted.tsv` and the
+green trusted Sankey:
+
+- After expansion, primer-detected rows are trusted only when
+  `expected_forward_primer` and `detected_forward_primer` are the same.
+- If a `target_species + expected_forward_primer` pair has multiple detected
+  forward primers, only rows where the detected primer matches the expected
+  primer are trusted; mismatching detected primers are not trusted.
+- If a target species has multiple expected forward primers, each expanded
+  expected/detected primer row is evaluated independently.
+- Rows with no detected forward primer are trusted only when `target_genus` and
+  `taxid_detected_genus` match and the detected species is unique to one
+  `target_species + expected_forward_primer` pair in that barcode.
+- Rows with no detected forward primer are not trusted when the detected species
+  appears in multiple target/species expected-primer pairs.
+- The trusted Sankey colors trusted links in green and untrusted links in grey.
 
 ## Temporary Files
 
