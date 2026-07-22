@@ -172,8 +172,6 @@ def get_arguments():
     parser.add_argument('-a', '--all', action = 'store_true',
                         help='Compare all selected reads with each other.  Only\
                             advised for a small number of reads (< 10000)')
-    parser.add_argument('-aln', '--alignment', action = 'store_true',
-                        help='Save alignment that is used to create consensus.')  
     parser.add_argument('-amb', '--ambiguous', action = 'store_true',
                         help='Allow search for ambiguous nucleotides.\
                             IUPAC Ambiguity Codes will be used in the consensus')                   
@@ -217,7 +215,6 @@ def save_arguments(): # save all settings in the result.txt file
         rf.write('- compressed = ' + str(args.compressed) + '\n')
         rf.write('- random = ' + str(args.random) + '\n')
         rf.write('- compare_all = ' + str(args.all) + '\n')
-        rf.write('- alignment = ' + str(args.alignment) + '\n')
         rf.write('- ambiguous bases = ' + str(args.ambiguous) + '\n')
         rf.write('- histogram_only = ' + str(args.histogram_only) + '\n')
         rf.write('-----------------------------------------------------------\n')
@@ -357,7 +354,6 @@ def create_alignment(consensus, readlist):
 #==============================================================================
 def create_consensus(readlist, infile):
     # Make a consensus from a list of reads with the edlib plugin
-    aln = args.alignment
     amb = args.ambiguous
     readlist.sort(key=lambda x: len(x), reverse = True)
     readlist2 = readlist.copy() # make copy of list
@@ -426,18 +422,6 @@ def create_consensus(readlist, infile):
         except IndexError:
             consenlist.append(x[0][0])
     consensus = ''.join(consenlist)
-    if aln is True: # option to write alignment to file 
-        alignlist = create_alignment(consensus, readlist)
-        # outfile = os.path.join(outputfolder, infile.replace('.fasta', '_alignment.fasta').
-        #                         replace('.fastq', '_alignment.fasta'))
-        # with open(outfile, 'w') as alignm:
-        #     # alignm.write(consensus + '\n')
-        #     for i, x in enumerate(alignlist):
-        #         if i == 0:
-        #             i = 'consensus'
-        #         seq = ''.join(x)
-        #         alignm.write('>' + str(i) + '\n' + seq + '\n')
-        #     alignm.write('\n')
     return consensus, alignlist
 #==============================================================================
 def N50(readlengthlist, bases):  #calculate the N50
@@ -1088,7 +1072,6 @@ def merge_groups(grouplist):
 #==============================================================================
 def make_consensus(todoqueue, outputfolder, consensus_tempfile, infile):
     global comparelist
-    aln = args.alignment
     compressed = args.compressed
     MYLOCK = Lock()
     templist = []
@@ -1103,33 +1086,6 @@ def make_consensus(todoqueue, outputfolder, consensus_tempfile, infile):
             consensuslist2 = consensus_direction(consensuslist) 
             consensus, alignlist = create_consensus(consensuslist2, infile)  # create consensus sequence
             templist.append([i, consensus])
-            if aln is True: # option to write alignment to file 
-                if compressed is True: # output files compressed or not
-                    open_func = gzip.open
-                else:  # fasta or fastq
-                    open_func = open
-                # try:  # remove temporary alignment files if exists
-                #     filename = os.path.join(outputfolder, infile).replace('.group', str(i) + '_alignment.fasta')
-                #     for x in glob.glob(os.path.join(outputfolder,filename)):
-                #         os.remove(x)      
-              
-                #     time.sleep(1)
-                # except FileNotFoundError:
-                #     pass
-
-                if infile != '_':
-                    outfile = os.path.join(outputfolder, infile).replace(
-                        '.group', '_') + str(i) + '_alignment.fasta'
-                    if compressed is True:
-                        outfile = outfile + '.gz'
-                    with open_func(outfile, 'wt') as alignm:
-                        # alignm.write(consensus + '\n')
-                        for i, x in enumerate(alignlist):
-                            if i == 0:
-                                i = 'consensus'
-                            seq = ''.join(x)
-                            alignm.write('>' + str(i) + '\n' + seq + '\n')
-                
     MYLOCK.acquire()
     with open(os.path.join(outputfolder, consensus_tempfile), 'a') as f:
         for c in templist:
@@ -1605,22 +1561,6 @@ def filter_seq(group_filename, grouplist, indexes):
     try:  # remove temporary file if exists
         for x in glob.glob(os.path.join(outputfolder, '*.todo')):
             os.remove(x)
-        time.sleep(1)
-    except FileNotFoundError:
-        pass
-    try:  # remove temporary alignment files for unique files if exists
-        for dirpath, dirnames, filenames in os.walk(outputfolder):
-            for name in filenames:
-                if compressed is True:
-                    end = '_alignment.fasta.gz'
-                    b, a = '_alignment.fasta.gz', '.fasta.gz' # before, after
-                else:
-                    end = '_alignment.fasta'
-                    b, a = '_alignment.fasta', '.fasta'
-                if name.endswith(end):
-                    partname = name.replace(b, a)
-                    if partname not in filenames:
-                        os.remove(os.path.join(outputfolder, name))
         time.sleep(1)
     except FileNotFoundError:
         pass

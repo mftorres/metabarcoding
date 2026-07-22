@@ -1,29 +1,14 @@
 #!/usr/bin/env python3
-"""Build a table linking amplicon_sorter/Kraken record IDs to ONT read IDs."""
+"""Build a table linking Kraken consensus record IDs to amplicon_sorter groups."""
 
 from __future__ import annotations
 
 import argparse
-import csv
+import re
 from pathlib import Path
 
 
-def read_amplicon_sorter_map(path: Path) -> dict[str, tuple[str, int]]:
-    read_map: dict[str, tuple[str, int]] = {}
-    with open(path, encoding="utf-8", newline="") as handle:
-        reader = csv.DictReader(handle, delimiter="\t")
-        required = {"amplicon_sorter_read_number", "ont_read_id", "read_length"}
-        missing = required.difference(reader.fieldnames or [])
-        if missing:
-            raise ValueError(f"{path} is missing required columns: {', '.join(sorted(missing))}")
-
-        for row in reader:
-            read_map[row["amplicon_sorter_read_number"]] = (
-                row["ont_read_id"],
-                int(row["read_length"]),
-            )
-
-    return read_map
+CONSENSUS_RE = re.compile(r"^consensus_(?:combinedrawreads|asinput)_(\d+_\d+)\(")
 
 
 def open_text(path: Path):
@@ -59,36 +44,21 @@ def barcode_metadata(path: Path) -> tuple[str, str]:
     return merge_folder, barcode
 
 
-def record_type(record_id: str) -> str:
-    if record_id.isdigit():
-        return "read"
-    if record_id.startswith("consensus"):
-        return "consensus"
-    return "other"
-
-
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Map amplicon_sorter FASTA/Kraken record IDs back to ONT read IDs."
+        description="Map Kraken consensus record IDs back to amplicon_sorter groups."
     )
-    parser.add_argument("--amplicon-sorter-read-map", required=True, type=Path)
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--targets", required=True, nargs="+", type=Path)
     args = parser.parse_args()
 
-    read_map = read_amplicon_sorter_map(args.amplicon_sorter_read_map)
     args.output.parent.mkdir(parents=True, exist_ok=True)
 
     columns = [
         "merge_folder",
         "barcode",
         "kraken_read_id",
-        "record_type",
-        "amplicon_sorter_file",
         "amplicon_sorter_group",
-        "amplicon_sorter_read_number",
-        "ont_read_id",
-        "ont_read_length",
         "kraken_sequence_length",
     ]
 
@@ -99,27 +69,14 @@ def main() -> int:
             group_name = target.stem
 
             for kraken_read_id, sequence in fasta_records(target):
-                rec_type = record_type(kraken_read_id)
-                amplicon_read_number = kraken_read_id if rec_type == "read" else ""
-                ont_read_id = ""
-                ont_read_length = ""
-
-                if amplicon_read_number:
-                    original = read_map.get(amplicon_read_number)
-                    if original is not None:
-                        ont_read_id, read_length = original
-                        ont_read_length = str(read_length)
+                match = CONSENSUS_RE.match(kraken_read_id)
+                group_name = match.group(1) if match is not None else target.stem
 
                 row = [
                     merge_folder,
                     barcode,
                     kraken_read_id,
-                    rec_type,
-                    target.name,
                     group_name,
-                    amplicon_read_number,
-                    ont_read_id,
-                    ont_read_length,
                     str(len(sequence)),
                 ]
                 out.write("\t".join(row) + "\n")

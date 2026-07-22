@@ -40,7 +40,8 @@ Important variables:
 | `FASTPLONG_UNQUALIFIED_PERCENT_LIMIT` | fastplong maximum unqualified-base percentage. |
 | `FASTPLONG_QUALIFIED_QUALITY_PHRED` | fastplong qualified-base quality threshold. |
 | `FASTPLONG_MEAN_QUAL` | fastplong mean-quality threshold. |
-| `FASTPLONG_LENGTH_REQUIRED` | fastplong minimum read length. |
+| `FASTPLONG_LENGTH_REQUIRED` | fastplong minimum read length. Current default is `300`. |
+| `FASTPLONG_LENGTH_LIMIT` | fastplong maximum read length. Current default is `1500`. |
 | `AMPLICON_SORTER_SCRIPT` | Local amplicon_sorter script. This should be `code/amplicon_sorter_mod.py` because it writes the read map needed downstream. |
 | `AMPLICON_READ_MAP_SCRIPT` | Script that builds the Kraken-input-to-ONT-read map. |
 | `AMPLICON_THREADS` | Threads used by amplicon_sorter. |
@@ -65,8 +66,9 @@ Important variables:
 | `NONUMT_MIN_AA_LENGTH` | Minimum amino-acid length kept by the consensus noNUMT filter. |
 | `NONUMT_TRANSLATION_TABLE` | Genetic code table used by `seqkit translate` for the consensus noNUMT filter. |
 | `NONUMT_SEQKIT_THREADS` | Threads used by `seqkit translate` for the consensus noNUMT filter. |
+| `SEQKIT_CONDA_ENV` | Conda environment used by noNUMT filtering when `seqkit` is not available on `PATH`. Current default is `umitracker`. |
 
-Activate the environment that has fastplong, amplicon_sorter dependencies, Kraken2, seqkit, Jupyter, pandas, and matplotlib available. In the current work this has been the `saproxdna` environment for the shell pipeline and `saproxdna-evaluate` for notebook evaluation.
+Activate the environment that has fastplong, amplicon_sorter dependencies, and Kraken2 for the shell pipeline. `seqkit` is currently in the `umitracker` conda environment; `code/run_metabarcoding_pipeline.sh` will use `seqkit` from the active environment if available, otherwise it falls back to `conda run -n "$SEQKIT_CONDA_ENV" seqkit` for the noNUMT step. In the current work, notebook evaluation uses the `saproxdna-evaluate` environment.
 
 ## 2. Run fastplong, amplicon_sorter, Kraken2, and Kraken read-map generation
 
@@ -78,12 +80,12 @@ code/run_metabarcoding_pipeline.sh
 
 This script runs, per barcode:
 
-1. fastplong quality/filter/adapter trimming.
+1. fastplong quality/filter/adapter trimming, including `--length_required "$FASTPLONG_LENGTH_REQUIRED"` and `--length_limit "$FASTPLONG_LENGTH_LIMIT"`.
 2. Combine filtered FASTQ files into `filtered/asinput.fastq.gz`.
 3. amplicon_sorter using `code/amplicon_sorter_mod.py`.
-4. Build `kraken2_combined_input.fasta` from amplicon_sorter consensus and unique-read FASTA files.
-5. Build `kraken2_combined_input.read_map.tsv`, linking Kraken record IDs back to amplicon_sorter read numbers and ONT read IDs.
-6. Kraken2 classification of the combined FASTA.
+4. Translate consensus sequences with `seqkit` and write cleaned nucleotide noNUMT consensus FASTA files.
+5. Build a read map for the single cleaned `*consensussequences_noNUMT_*filter.fasta` file.
+6. Kraken2 classification of the cleaned noNUMT consensus FASTA.
 
 Run one barcode:
 
@@ -136,11 +138,11 @@ data/mergedseq5/barcodeXX/filtered/
     asinput_*_*.fasta
     asinput_*_unique.fasta
     asinput_consensussequences.fasta
-    asinput_nogroup_unique.fasta
-    kraken2_combined_input.fasta
-    kraken2_combined_input.read_map.tsv
-    kraken2_combined_input.fasta.kraken
-    kraken2_combined_input.fasta.report
+    asinput_consensussequences_aa_noNUMT_200filter.fasta
+    asinput_consensussequences_noNUMT_200filter.fasta
+    asinput_consensussequences_noNUMT_200filter.read_map.tsv
+    asinput_consensussequences_noNUMT_200filter.fasta.kraken
+    asinput_consensussequences_noNUMT_200filter.fasta.report
 ```
 
 ### Important read-map outputs
@@ -153,19 +155,14 @@ data/mergedseq5/barcodeXX/filtered/
 | `ont_read_id` | Original or processed ONT read ID. Split reads can be named `split-by-adapter-left-<raw_id>` or `split-by-adapter-right-<raw_id>`. |
 | `read_length` | Length of the sequence passed into amplicon_sorter. |
 
-`filtered/combined/kraken2_combined_input.read_map.tsv` links every Kraken input record to amplicon_sorter context.
+`filtered/combined/asinput_consensussequences_noNUMT_200filter.read_map.tsv` links every Kraken input record to amplicon_sorter context.
 
 | Column | Meaning |
 |---|---|
 | `merge_folder` | Parent sequencing merge/run folder, for example `mergedseq5`. |
 | `barcode` | Barcode folder, for example `barcode01`. |
-| `kraken_read_id` | FASTA record ID sent to Kraken2. Numeric IDs are individual reads; consensus IDs start with `consensus`. |
-| `record_type` | `read`, `consensus`, or `other`. |
-| `amplicon_sorter_file` | amplicon_sorter FASTA file containing this Kraken input sequence. |
-| `amplicon_sorter_group` | Group/file stem associated with this record, for example `asinput_1_unique`, `asinput_nogroup_unique`, or `asinput_consensussequences`. |
-| `amplicon_sorter_read_number` | amplicon_sorter internal read number for individual-read records. Blank for consensus records. |
-| `ont_read_id` | ONT read ID for individual-read records. Blank for consensus records. |
-| `ont_read_length` | ONT/processed sequence length for individual-read records. |
+| `kraken_read_id` | Consensus FASTA record ID sent to Kraken2. |
+| `amplicon_sorter_group` | Group associated with the consensus record, for example `1_0`. |
 | `kraken_sequence_length` | Length of the exact sequence sent to Kraken2. |
 
 ## 3. Check amplicon_sorter FASTA sequence lengths
@@ -187,22 +184,16 @@ data/mergedseq5/barcode*/filtered/combined/asinput_*_*.fasta
 It also screens the per-barcode Kraken2 mapping/classification files:
 
 ```text
-data/mergedseq5/barcode*/filtered/combined/kraken2_combined_input.read_map.tsv
-data/mergedseq5/barcode*/filtered/combined/kraken2_combined_input.fasta.kraken
-data/mergedseq5/barcode*/filtered/combined/kraken2_combined_input.fasta.report
-```
-
-It excludes alignment FASTA files:
-
-```text
-*alignment*fasta
+data/mergedseq5/barcode*/filtered/combined/asinput_consensussequences_noNUMT_200filter.read_map.tsv
+data/mergedseq5/barcode*/filtered/combined/asinput_consensussequences_noNUMT_200filter.fasta.kraken
+data/mergedseq5/barcode*/filtered/combined/asinput_consensussequences_noNUMT_200filter.fasta.report
 ```
 
 Kraken2 taxid assignment is attached as follows:
 
-- For grouped files such as `asinput_1_0.fasta`, the script uses the corresponding consensus sequence in `kraken2_combined_input.fasta.kraken`. The link is made through `kraken2_combined_input.read_map.tsv`, where consensus read IDs follow the `consensus_combinedrawreads_<cluster>_<group>(...)` pattern.
-- For unique files such as `asinput_0_unique.fasta` and `asinput_nogroup_unique.fasta`, the script summarizes all individual Kraken records whose `amplicon_sorter_file` is that unique FASTA file.
-- Taxon names are taken from `kraken2_combined_input.fasta.report`.
+- For grouped files such as `asinput_1_0.fasta`, the script uses the corresponding consensus sequence in `asinput_consensussequences_noNUMT_200filter.fasta.kraken`. The link is made through `asinput_consensussequences_noNUMT_200filter.read_map.tsv`, where consensus read IDs follow the `consensus_combinedrawreads_<cluster>_<group>(...)` pattern.
+- Unique-read FASTA files are not sent to Kraken2 in the current consensus-only pipeline, so they do not receive direct Kraken taxids in this table.
+- Taxon names are taken from `asinput_consensussequences_noNUMT_200filter.fasta.report`.
 
 Run with defaults:
 
@@ -224,63 +215,52 @@ code/length_check_amplicon_sorter.sh \
   data/mergedseq5/mergedseq5_amplicon_sorter_length_check.tsv
 ```
 
-The output table is tab-delimited and contains one row per non-alignment `asinput_*_*.fasta` file.
+The output table is tab-delimited and contains one row per `asinput_*_*.fasta` file.
 
 | Column | Meaning |
 |---|---|
 | `barcode` | Barcode folder containing the FASTA file. |
-| `asinput_file` | FASTA filename, for example `asinput_1_0.fasta` or `asinput_nogroup_unique.fasta`. |
-| `cluster_group` | Parsed cluster/group label without the `asinput_` prefix or `.fasta` suffix, for example `1_0`, `0_unique`, or `nogroup_unique`. |
-| `cluster_number` | First parsed value after `asinput_`. For `asinput_nogroup_unique.fasta`, this is `nogroup`. |
+| `asinput_file` | FASTA filename, for example `asinput_1_0.fasta` or `asinput_0_unique.fasta`. |
+| `cluster_group` | Parsed cluster/group label without the `asinput_` prefix or `.fasta` suffix, for example `1_0` or `0_unique`. |
+| `cluster_number` | First parsed value after `asinput_`. |
 | `group_number` | Second parsed value after `asinput_`. For unique files, this is `unique`. |
 | `sequence_count` | Number of FASTA records in the file. |
 | `average_length` | Mean sequence length in bases. |
 | `length_standard_deviation` | Sample standard deviation of sequence lengths in bases. Files with one sequence have standard deviation `0`. |
-| `kraken_record_type` | Kraken record type summarized for this FASTA file: `consensus`, `unique_read`, a semicolon-separated combination if both occur, or `none` if no Kraken records were matched. |
-| `kraken_record_count` | Number of Kraken records associated with this FASTA file. Grouped files usually have one consensus record; unique files can have many individual-read records. |
+| `kraken_record_count` | Number of consensus Kraken records associated with this FASTA file. Grouped files usually have one consensus record; unique files have `0` because they are not sent to Kraken2. |
 | `kraken_classified_count` | Number of associated Kraken records classified by Kraken2. |
 | `kraken_unclassified_count` | Number of associated Kraken records unclassified by Kraken2. |
 | `kraken_taxids` | Semicolon-separated Kraken taxids associated with the file. Taxid `0` means unclassified. |
-| `kraken_taxon_names` | Semicolon-separated taxon names corresponding to `kraken_taxids`, in the same order. Names are taken from `kraken2_combined_input.fasta.report`. |
+| `kraken_taxon_names` | Semicolon-separated taxon names corresponding to `kraken_taxids`, in the same order. Names are taken from `asinput_consensussequences_noNUMT_200filter.fasta.report`. |
 | `kraken_taxid_counts` | Semicolon-separated `taxid:count` pairs for the associated Kraken records. |
 | `file_path` | Full path to the FASTA file used for the calculation. |
 
-## 4. Translate consensus sequences for noNUMT screening
+## 4. noNUMT consensus filtering before Kraken2
 
-Script:
+This step is part of the main shell pipeline:
 
 ```text
-code/filter_consensus_noNUMT_seqkit.sh
+code/run_metabarcoding_pipeline.sh
 ```
 
-Run this after amplicon_sorter has produced per-barcode consensus FASTA files:
+It runs after amplicon_sorter has produced per-barcode consensus FASTA files:
 
 ```text
 data/mergedseq5/barcode*/filtered/combined/asinput_consensussequences.fasta
 ```
 
-The script translates each consensus FASTA in all six frames, appends the frame to the header, trims terminal stop codons, and keeps translated amino-acid sequences at or above `NONUMT_MIN_AA_LENGTH`.
+The pipeline uses each amplicon_sorter consensus FASTA as input. It translates each consensus sequence in all six frames, appends the frame to the translated amino-acid header, trims terminal stop codons, and keeps translated amino-acid sequences at or above `NONUMT_MIN_AA_LENGTH`.
 
-Run all barcodes under one parent folder:
-
-```bash
-bash code/filter_consensus_noNUMT_seqkit.sh data/mergedseq5
-```
-
-Run one barcode:
-
-```bash
-bash code/filter_consensus_noNUMT_seqkit.sh data/mergedseq5/barcode01
-```
+The translated amino-acid FASTA is used only as a diagnostic/filtering intermediate. The pipeline then strips any `_frame=#` or `_frame=-#` text from passing translated headers, deduplicates the passing consensus IDs, and extracts those original nucleotide consensus sequences into a cleaned noNUMT nucleotide FASTA. Kraken2 uses this cleaned nucleotide FASTA, not the amino-acid FASTA.
 
 Useful variables from `config/pipeline.env`:
 
 | Variable | Default | Meaning |
 |---|---:|---|
-| `NONUMT_MIN_AA_LENGTH` | `100` | Minimum amino-acid length retained by `seqkit seq --min-len`. |
+| `NONUMT_MIN_AA_LENGTH` | `200` | Minimum amino-acid length retained by `seqkit seq --min-len`. |
 | `NONUMT_TRANSLATION_TABLE` | `5` | Genetic code table passed to `seqkit translate -T`. |
 | `NONUMT_SEQKIT_THREADS` | `6` | Threads passed to `seqkit translate -j`. |
-| `MAX_JOBS` | `2` | Number of barcode folders processed concurrently. |
+| `SEQKIT_CONDA_ENV` | `umitracker` | Conda environment used when `seqkit` is not available in the active shell. |
 | `FORCE` | `0` | Set to `1` to overwrite existing noNUMT outputs. |
 
 For each input:
@@ -289,17 +269,14 @@ For each input:
 asinput_consensussequences.fasta
 ```
 
-the script writes in the same folder:
-
-```text
-asinput_consensussequences_aa_noNUMT_100filter.fasta
-```
-
-If `NONUMT_MIN_AA_LENGTH=200`, the output name becomes:
+the pipeline writes two files in the same folder:
 
 ```text
 asinput_consensussequences_aa_noNUMT_200filter.fasta
+asinput_consensussequences_noNUMT_200filter.fasta
 ```
+
+The `aa` file keeps translated amino-acid sequences and may contain `_frame=...` in the headers. The non-`aa` file contains nucleotide consensus sequences with cleaned headers and is the file used as Kraken2 input.
 
 ## 5. Run primer/UMI tracking with seqkit
 
@@ -407,12 +384,6 @@ data/mergedseq5/barcode*/filtered/combined/amplicon_sorter_read_map.tsv
 data/primertrack/mergedseq5_seqkit_primer_umi_best_hits_YYYYMMDD.txt
 ```
 
-It excludes alignment FASTA files:
-
-```text
-*alignment*fasta
-```
-
 The script translates amplicon_sorter FASTA record IDs back to original ONT read IDs using `amplicon_sorter_read_map.tsv`, then joins those ONT read IDs to the seqkit best-hit table. This gives the detected forward- and reverse-primer diversity within each grouped or unique amplicon_sorter FASTA file.
 
 Run with defaults:
@@ -435,15 +406,14 @@ The default output table is:
 data/mergedseq5/mergedseq5_amplicon_sorter_primer_diversity.tsv
 ```
 
-The output table is tab-delimited and contains one row per non-alignment `asinput_*_*.fasta` file.
+The output table is tab-delimited and contains one row per `asinput_*_*.fasta` file.
 
 | Column | Meaning |
 |---|---|
 | `barcode` | Barcode folder containing the FASTA file. |
-| `asinput_file` | FASTA filename, for example `asinput_1_0.fasta`, `asinput_0_unique.fasta`, or `asinput_nogroup_unique.fasta`. |
-| `sequence_type` | `grouped_reads` for regular amplicon_sorter group FASTAs; `unique_reads` for `*_unique.fasta` files. |
+| `asinput_file` | FASTA filename, for example `asinput_1_0.fasta` or `asinput_0_unique.fasta`. |
 | `cluster_group` | Parsed cluster/group label without the `asinput_` prefix or `.fasta` suffix. |
-| `cluster_number` | First parsed value after `asinput_`. For `asinput_nogroup_unique.fasta`, this is `nogroup`. |
+| `cluster_number` | First parsed value after `asinput_`. |
 | `group_number` | Second parsed value after `asinput_`. For unique files, this is `unique`. |
 | `sequence_count` | Number of FASTA records in the asinput file. |
 | `raw_read_count` | Number of FASTA records successfully traced back to original ONT read IDs. |
@@ -465,7 +435,7 @@ Notebook:
 code/kraken_parser.ipynb
 ```
 
-This notebook reads Kraken2 outputs and `kraken2_combined_input.read_map.tsv` files, attaches barcode/run metadata, and exports parsed Kraken/taxonomy tables under:
+This notebook reads Kraken2 outputs and noNUMT consensus read-map files, attaches barcode/run metadata, and exports parsed Kraken/taxonomy tables under:
 
 ```text
 data/kraken_parsed/
@@ -495,7 +465,7 @@ Required columns in that file:
 
 | Column | Meaning |
 |---|---|
-| `readID` | Kraken input record ID. This can be a consensus ID or individual-read ID. |
+| `readID` | Kraken input consensus record ID. |
 | `merge_folder` | Merge/run folder. |
 | `barcode` | Barcode folder. |
 
@@ -515,8 +485,7 @@ This script combines:
 - seqkit best forward/reverse primer hits;
 - amplicon_sorter processed read IDs and split-read fragments;
 - amplicon_sorter subgroup membership;
-- Kraken2 group-consensus taxids;
-- Kraken2 individual-read taxids;
+- Kraken2 group-consensus taxids propagated to reads assigned to each amplicon_sorter group;
 - the Insecta subset from `kraken_parser.ipynb`.
 
 Run one barcode:
@@ -585,9 +554,6 @@ Full read-tracking table columns:
 | `amplicon_sorter_group` | Exact amplicon_sorter subgroup, for example `1_0`. Blank for ungrouped reads. |
 | `amplicon_sorter_group_consensus_id` | Consensus FASTA/Kraken record ID corresponding to the subgroup. |
 | `group_consensus_kraken_taxid` | Kraken taxid assigned to the subgroup consensus and propagated to all reads in that subgroup. |
-| `individual_read_kraken_input_file` | amplicon_sorter FASTA used as individual-read Kraken input, for example `asinput_nogroup_unique.fasta`, `asinput_0_unique.fasta`, or `asinput_1_unique.fasta`. |
-| `individual_read_kraken_taxid` | Kraken taxid assigned directly to the individual unique-read sequence. |
-
 Reduced read-tracking table columns:
 
 | Column | Meaning |
@@ -596,9 +562,8 @@ Reduced read-tracking table columns:
 | `forward_patternName` | Best seqkit-detected forward primer/UMI hit. |
 | `reverse_patternName` | Best seqkit-detected reverse primer/UMI hit. |
 | `group_consensus_kraken_taxid` | Kraken taxid propagated from the amplicon_sorter group consensus. |
-| `individual_read_kraken_taxid` | Kraken taxid assigned directly to an individual ungrouped/unique read. |
 
-Taxid `0` means the record was sent to Kraken2 and classified as unclassified. A blank taxid means no corresponding Kraken record was available.
+Taxid `0` means the consensus record was sent to Kraken2 and classified as unclassified. A blank taxid means no corresponding group consensus Kraken record was available.
 
 ## 10. Evaluate tag tracking and taxid results
 
@@ -779,16 +744,15 @@ Trust rules used for `barcodeXX_target_species_detection_trusted.tsv` and the gr
 
 For a complete fresh run after raw reads have been placed in barcode folders:
 
-1. Run `code/run_metabarcoding_pipeline.sh` for all barcode folders. This runs fastplong, amplicon_sorter, Kraken2, and the Kraken read map.
-2. Run `code/length_check_amplicon_sorter.sh` after amplicon_sorter and Kraken2/read-map generation have produced `filtered/combined/asinput_*_*.fasta`, `kraken2_combined_input.read_map.tsv`, `kraken2_combined_input.fasta.kraken`, and `kraken2_combined_input.fasta.report` files.
-3. Optionally run `code/filter_consensus_noNUMT_seqkit.sh` to create amino-acid translated consensus FASTAs for noNUMT screening.
-4. Run `code/run_primer_umi_tracking.sh` for the parent merged-sequence folder.
-5. Run `code/primer_umi_seqkit_parser.ipynb` to create combined primer/UMI best-hit tables under `data/primertrack/`.
-6. Run `code/primer_diversity_amplicon_sorter.sh` after the seqkit best-hit table exists.
-7. Run `code/kraken_parser.ipynb` to create target-clade Kraken parsed tables under `data/kraken_parsed/`.
-8. Run `code/build_barcode_read_tracking_table.py` for each barcode.
-9. Run `code/evaluate_tagtracking_taxid_reduced.ipynb` for each barcode using `SELECTED_BARCODE`.
-10. Run `code/sankey_target_species_detection.ipynb` if Sankey diagrams are needed from the exported target-species detection tables.
+1. Run `code/run_metabarcoding_pipeline.sh` for all barcode folders. This runs fastplong, amplicon_sorter, noNUMT consensus filtering, Kraken2, and the Kraken read map.
+2. Run `code/length_check_amplicon_sorter.sh` after amplicon_sorter and Kraken2/read-map generation have produced `filtered/combined/asinput_*_*.fasta`, `asinput_consensussequences_noNUMT_200filter.read_map.tsv`, `asinput_consensussequences_noNUMT_200filter.fasta.kraken`, and `asinput_consensussequences_noNUMT_200filter.fasta.report` files.
+3. Run `code/run_primer_umi_tracking.sh` for the parent merged-sequence folder.
+4. Run `code/primer_umi_seqkit_parser.ipynb` to create combined primer/UMI best-hit tables under `data/primertrack/`.
+5. Run `code/primer_diversity_amplicon_sorter.sh` after the seqkit best-hit table exists.
+6. Run `code/kraken_parser.ipynb` to create target-clade Kraken parsed tables under `data/kraken_parsed/`.
+7. Run `code/build_barcode_read_tracking_table.py` for each barcode.
+8. Run `code/evaluate_tagtracking_taxid_reduced.ipynb` for each barcode using `SELECTED_BARCODE`.
+9. Run `code/sankey_target_species_detection.ipynb` if Sankey diagrams are needed from the exported target-species detection tables.
 
 ## 13. Rerun guidance
 
@@ -830,3 +794,16 @@ List temporary amplicon_sorter folders:
 ```bash
 find /tmp/metabarcoding_amplicon_sorter -mindepth 1 -maxdepth 1 -type d -print
 ```
+
+Remove only failed-run directories that you no longer need for inspection.
+
+Do not remove filtered reads, amplicon_sorter outputs, Kraken2 outputs, or seqkit outputs unless you intentionally want to rerun those steps.
+
+Common cleanup candidates are:
+
+```text
+code/__pycache__/
+tmp/
+```
+
+Older parser outputs without the current dated naming scheme may also be stale, for example undated files in `data/kraken_parsed/`. Confirm that the dated files you need exist before deleting older parser summaries.

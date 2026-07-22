@@ -28,7 +28,7 @@ trap 'rm -rf "$TMP_DIR"' EXIT
 PRIMER_BY_BARCODE_DIR="$TMP_DIR/primer_by_barcode"
 mkdir -p "$PRIMER_BY_BARCODE_DIR"
 
-printf 'barcode\tasinput_file\tsequence_type\tcluster_group\tcluster_number\tgroup_number\tsequence_count\traw_read_count\tforward_detected_read_count\treverse_detected_read_count\tunique_forward_primer_count\tunique_reverse_primer_count\tforward_primers_detected\treverse_primers_detected\tforward_primer_counts\treverse_primer_counts\tfile_path\n' > "$OUTPUT_FILE"
+printf 'barcode\tasinput_file\tcluster_group\tcluster_number\tgroup_number\tsequence_count\traw_read_count\tforward_detected_read_count\treverse_detected_read_count\tunique_forward_primer_count\tunique_reverse_primer_count\tforward_primers_detected\treverse_primers_detected\tforward_primer_counts\treverse_primer_counts\tfile_path\n' > "$OUTPUT_FILE"
 
 awk -F '\t' -v merge_name="$MERGE_NAME" -v primer_dir="$PRIMER_BY_BARCODE_DIR" '
     FNR == 1 {
@@ -68,7 +68,6 @@ for barcode_dir in "$MERGED_DIR"/barcode*; do
         -maxdepth 1 \
         -type f \
         -name 'asinput_*_*.fasta' \
-        ! -iname '*alignment*fasta' \
         -print0 \
         | sort -z \
         | while IFS= read -r -d '' fasta_file; do
@@ -155,15 +154,12 @@ for barcode_dir in "$MERGED_DIR"/barcode*; do
                 cluster_group = stem
                 cluster_number = "none"
                 group_number = "none"
-                sequence_type = "grouped_reads"
-
                 if (stem ~ /^asinput_.*_unique$/) {
                     cluster_number = stem
                     sub(/^asinput_/, "", cluster_number)
                     sub(/_unique$/, "", cluster_number)
                     group_number = "unique"
                     cluster_group = cluster_number "_unique"
-                    sequence_type = "unique_reads"
                 } else if (stem ~ /^asinput_[^_]+_[^_]+$/) {
                     cluster_group = stem
                     sub(/^asinput_/, "", cluster_group)
@@ -209,10 +205,9 @@ for barcode_dir in "$MERGED_DIR"/barcode*; do
                     reverse_counts = "none"
                 }
 
-                printf "%s\t%s\t%s\t%s\t%s\t%s\t%d\t%d\t%d\t%d\t%d\t%d\t%s\t%s\t%s\t%s\t%s\n",
+                printf "%s\t%s\t%s\t%s\t%s\t%d\t%d\t%d\t%d\t%d\t%d\t%s\t%s\t%s\t%s\t%s\n",
                     barcode,
                     asinput_file,
-                    sequence_type,
                     cluster_group,
                     cluster_number,
                     group_number,

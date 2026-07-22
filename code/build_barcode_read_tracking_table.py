@@ -106,28 +106,22 @@ def read_kraken_assignments(kraken_path: Path, read_map_path: Path):
                 kraken_taxids[fields[1]] = fields[2]
 
     consensus_by_group = {}
-    read_id_to_ont = {}
-    read_source_files = {}
     with open(read_map_path, encoding="utf-8", newline="") as handle:
         reader = csv.DictReader(handle, delimiter="\t")
         for row in reader:
             kraken_id = row["kraken_read_id"]
-            if row["record_type"] == "consensus":
+            group = row.get("amplicon_sorter_group", "")
+            if not group:
                 match = CONSENSUS_RE.match(kraken_id)
                 if match is not None:
-                    consensus_by_group[match.group(1)] = (
-                        kraken_id,
-                        kraken_taxids.get(kraken_id, ""),
-                    )
-            elif row["record_type"] == "read" and row["ont_read_id"]:
-                read_id_to_ont[kraken_id] = row["ont_read_id"]
-                read_source_files[row["ont_read_id"]] = row["amplicon_sorter_file"]
+                    group = match.group(1)
+            if group:
+                consensus_by_group[group] = (
+                    kraken_id,
+                    kraken_taxids.get(kraken_id, ""),
+                )
 
-    read_taxids = {
-        ont_id: kraken_taxids.get(kraken_id, "")
-        for kraken_id, ont_id in read_id_to_ont.items()
-    }
-    return consensus_by_group, read_taxids, read_source_files
+    return consensus_by_group
 
 
 def read_target_kraken_membership(
@@ -136,7 +130,7 @@ def read_target_kraken_membership(
     merge_folder: str,
     barcode: str,
 ):
-    """Map target Kraken IDs back to consensus groups or processed ONT read IDs."""
+    """Map target Kraken IDs back to consensus IDs."""
     target_kraken_ids = set()
     with open(target_kraken_path, encoding="utf-8") as handle:
         header = handle.readline().rstrip("\r\n").split("\t")
@@ -162,7 +156,6 @@ def read_target_kraken_membership(
                 target_kraken_ids.add(fields[read_id_index])
 
     target_consensus_ids = set()
-    target_processed_ids = set()
     mapped_kraken_ids = set()
     with open(read_map_path, encoding="utf-8", newline="") as handle:
         reader = csv.DictReader(handle, delimiter="\t")
@@ -171,13 +164,10 @@ def read_target_kraken_membership(
             if kraken_id not in target_kraken_ids:
                 continue
             mapped_kraken_ids.add(kraken_id)
-            if row["record_type"] == "consensus":
-                target_consensus_ids.add(kraken_id)
-            elif row["record_type"] == "read" and row["ont_read_id"]:
-                target_processed_ids.add(row["ont_read_id"])
+            target_consensus_ids.add(kraken_id)
 
     unmapped_count = len(target_kraken_ids.difference(mapped_kraken_ids))
-    return target_consensus_ids, target_processed_ids, len(target_kraken_ids), unmapped_count
+    return target_consensus_ids, len(target_kraken_ids), unmapped_count
 
 
 def derived_output_paths(full_output: Path, barcode: str):
@@ -229,6 +219,18 @@ def read_primer_hits(path: Path, merge_folder: str, barcode: str):
     return hits, fields
 
 
+def find_single_kraken_output(combined_dir: Path) -> tuple[Path, Path]:
+    kraken_outputs = sorted(combined_dir.glob("*consensussequences_noNUMT_*filter.fasta.kraken"))
+    if len(kraken_outputs) != 1:
+        raise FileNotFoundError(
+            f"Expected one noNUMT Kraken output in {combined_dir}, found {len(kraken_outputs)}")
+
+    kraken_output = kraken_outputs[0]
+    kraken_input = Path(str(kraken_output)[:-len(".kraken")])
+    kraken_map = kraken_input.with_name(f"{kraken_input.stem}.read_map.tsv")
+    return kraken_output, kraken_map
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--barcode-dir", required=True, type=Path)
@@ -250,8 +252,7 @@ def main() -> int:
     merge_folder = barcode_dir.parent.name
     combined_dir = barcode_dir / "filtered" / "combined"
     amplicon_map = combined_dir / "amplicon_sorter_read_map.tsv"
-    kraken_map = combined_dir / "kraken2_combined_input.read_map.tsv"
-    kraken_output = combined_dir / "kraken2_combined_input.fasta.kraken"
+    kraken_output, kraken_map = find_single_kraken_output(combined_dir)
 
     for required in [
         amplicon_map,
@@ -267,14 +268,13 @@ def main() -> int:
     internal_to_ont, processed_by_raw, processed_lengths = read_amplicon_index(amplicon_map)
     memberships, duplicate_memberships = read_subgroup_memberships(combined_dir, internal_to_ont)
     print("Reading Kraken assignments...", file=sys.stderr)
-    consensus_by_group, read_taxids, read_source_files = read_kraken_assignments(
+    consensus_by_group = read_kraken_assignments(
         kraken_output,
         kraken_map,
     )
     print("Tracing Insecta Kraken IDs back to amplicon_sorter reads...", file=sys.stderr)
     (
         insecta_consensus_ids,
-        insecta_processed_ids,
         insecta_kraken_id_count,
         unmapped_insecta_kraken_id_count,
     ) = read_target_kraken_membership(
@@ -300,8 +300,6 @@ def main() -> int:
         "amplicon_sorter_group",
         "amplicon_sorter_group_consensus_id",
         "group_consensus_kraken_taxid",
-        "individual_read_kraken_input_file",
-        "individual_read_kraken_taxid",
     ]
 
     reduced_columns = [
@@ -309,7 +307,6 @@ def main() -> int:
         "forward_patternName",
         "reverse_patternName",
         "group_consensus_kraken_taxid",
-        "individual_read_kraken_taxid",
     ]
     reduced_output, insecta_output, insecta_reduced_output = derived_output_paths(
         args.output,
@@ -366,18 +363,13 @@ def main() -> int:
                     "amplicon_sorter_group": group,
                     "amplicon_sorter_group_consensus_id": consensus_id,
                     "group_consensus_kraken_taxid": consensus_taxid,
-                    "individual_read_kraken_input_file": read_source_files.get(processed_id, ""),
-                    "individual_read_kraken_taxid": read_taxids.get(processed_id, ""),
                 }
                 row.update(primer_hits.get(raw_id, {}))
                 full_writer.writerow(row)
                 reduced_writer.writerow(row)
                 full_row_count += 1
 
-                is_insecta = (
-                    consensus_id in insecta_consensus_ids
-                    or processed_id in insecta_processed_ids
-                )
+                is_insecta = consensus_id in insecta_consensus_ids
                 if is_insecta:
                     insecta_writer.writerow(row)
                     insecta_reduced_writer.writerow(row)

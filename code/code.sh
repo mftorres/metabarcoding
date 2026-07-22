@@ -75,8 +75,6 @@ cat "$FOLDER"/filtered/*_filtered.fastq.gz > "$FOLDER"/filtered/asinput.fastq.gz
 # -maxr, --maxreads: Maximum number of reads to process. Default=10000
 # -ar, --allreads: Use all reads from the inputfile between length limits. 
 # This argument is still limited with --maxreads to have a hard limit for large files.
-# -aln, --alignment: option to save the alignment that is used to create the consensus\
-# (max 200 reads, fasta format). Can be interesting to check how the consensus is created.
 # -sg, --similar_genes: Similarity to sort genes in groups 
 # (value between 50 and 100). Default=80.0
 # -ssg, --similar_species_groups: Similarity to CREATE species groups (value between 50 and 100). Default=Estimate
@@ -85,26 +83,20 @@ cat "$FOLDER"/filtered/*_filtered.fastq.gz > "$FOLDER"/filtered/asinput.fastq.gz
 
 python3 code/amplicon_sorter_mod.py -i "$FOLDER"/filtered/asinput.fastq.gz \
   -o "$FOLDER"/filtered/ \
-  -min 300 -max 100000000 -ar -maxr 100000000 -np 12 -aln \
+  -min 300 -max 100000000 -ar -maxr 100000000 -np 12 \
   -ra -sg 99.0 -ss 99.0 -sc 99.0
 
-# to kraken2, we need to pass the reads in:
-# asinput_X_unique as these are sequences that match length with other sequences in group X
-# but are genetically divergent (by threshold) to anything that can be classified in the clusters
-# also, the asinput_consensussequences since these are consensus, each from each group_cluster file
-# and the sequences in asinput_nogroup_unique as these are true singletons: no matching length or identity to anything else.
-
-# search for these three types of files
-# asinput_*_unique.fasta
+# to kraken2, we only pass consensus sequences:
 # asinput_consensussequences.fasta
-# asinput_nogroup_unique.fasta
+
+# search for consensus files
+# asinput_consensussequences.fasta
 ## collect matching files into an array for processing with kraken2
 TARGET_FILES=()
-for pattern in "$FOLDER/filtered/combined/asinput_*_unique.fasta" \
-               "$FOLDER/filtered/combined/asinput_consensussequences.fasta" \
-               "$FOLDER/filtered/combined/asinput_nogroup_unique.fasta"; do
+for pattern in "$FOLDER/filtered/combined/"*consensussequences.fasta; do
   for f in $pattern; do
     [ -e "$f" ] || continue
+    [[ "$f" != *noNUMT* ]] || continue
     TARGET_FILES+=("$f")
   done
 done
