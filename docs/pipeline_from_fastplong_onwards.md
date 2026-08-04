@@ -61,14 +61,19 @@ Important variables:
 | `FORCE` | Set to `1` to rerun completed steps. |
 | `FORCE_KRAKEN` | Set to `1` to rerun only Kraken-related steps while preserving earlier outputs. |
 | `PRIMER_UMI_FASTA` | Primer/UMI FASTA for seqkit primer tracking. |
-| `PRIMER_UMI_MAX_MISMATCH` | Maximum mismatches allowed by `seqkit locate`. |
+| `PRIMER_UMI_MAX_MISMATCH` | Maximum mismatches allowed by `seqkit locate`. Current default is `10`; substantially larger values can generate extremely large weak-match tables. |
 | `PRIMER_UMI_SEQKIT_THREADS` | Threads used by seqkit primer tracking. |
 | `NONUMT_MIN_AA_LENGTH` | Minimum amino-acid length kept by the consensus noNUMT filter. |
 | `NONUMT_TRANSLATION_TABLE` | Genetic code table used by `seqkit translate` for the consensus noNUMT filter. |
 | `NONUMT_SEQKIT_THREADS` | Threads used by `seqkit translate` for the consensus noNUMT filter. |
 | `SEQKIT_CONDA_ENV` | Conda environment used by noNUMT filtering when `seqkit` is not available on `PATH`. Current default is `umitracker`. |
+| `SEQKIT_ENV` | Conda environment used by `code/run_full_downstream_pipeline.sh` for primer/UMI tracking. Current default is `umitracker`. |
+| `SHELL_ENV` | Conda environment used by `code/run_full_downstream_pipeline.sh` for shell/Python helper scripts that do not require seqkit. Current default is `saproxdna`. |
+| `NOTEBOOK_ENV` | Conda environment used by `code/run_full_downstream_pipeline.sh` for notebooks and pandas-heavy Python scripts. Current default is `saproxdna-evaluate`. |
 
 Activate the environment that has fastplong, amplicon_sorter dependencies, and Kraken2 for the shell pipeline. `seqkit` is currently in the `umitracker` conda environment; `code/run_metabarcoding_pipeline.sh` will use `seqkit` from the active environment if available, otherwise it falls back to `conda run -n "$SEQKIT_CONDA_ENV" seqkit` for the noNUMT step. In the current work, notebook evaluation uses the `saproxdna-evaluate` environment.
+
+The full downstream wrapper switches conda environments by step. `code/run_full_downstream_pipeline.sh` uses `SHELL_ENV=saproxdna` for the fastplong/amplicon_sorter/noNUMT/Kraken2 pipeline and shell helpers, `SEQKIT_ENV=umitracker` for primer/UMI tracking, and `NOTEBOOK_ENV=saproxdna-evaluate` for notebooks by default. It first runs `code/run_metabarcoding_pipeline.sh` for the selected barcode range, so deleted or missing `filtered/` outputs are rebuilt while valid completed outputs are skipped. Override these variables only if packages are moved between environments.
 
 ## 2. Run fastplong, amplicon_sorter, Kraken2, and Kraken read-map generation
 
@@ -86,6 +91,20 @@ This script runs, per barcode:
 4. Translate consensus sequences with `seqkit` and write cleaned nucleotide noNUMT consensus FASTA files.
 5. Build a read map for the single cleaned `*consensussequences_noNUMT_*filter.fasta` file.
 6. Kraken2 classification of the cleaned noNUMT consensus FASTA.
+
+If amplicon_sorter finishes successfully but assigns no reads to a final
+consensus group, the barcode is recorded as a valid no-consensus result:
+
+```text
+data/mergedseq5/barcodeXX/filtered/no_consensus.done
+```
+
+The pipeline retains the amplicon_sorter results/read map, skips noNUMT output
+generation and Kraken2 classification for that barcode, and continues with the
+remaining barcodes. Read/primer tracking is still generated with blank
+consensus taxIDs. The per-barcode taxonomy evaluation notebook is skipped
+because there is no consensus taxonomy to evaluate, and the phylogenetic
+exporter writes an empty per-barcode FASTA.
 
 Run one barcode:
 
@@ -330,6 +349,14 @@ Notebook:
 ```text
 code/primer_umi_seqkit_parser.ipynb
 ```
+
+The notebook itself reads each `barcodeXX_primer_hits.tsv` in chunks, keeps only
+the best forward and reverse hit for each read in memory, and writes the outputs
+incrementally. This prevents the notebook kernel from attempting to load tens
+of gigabytes of raw SeqKit hits at once. The all-hit table is an on-disk audit
+output and is not loaded for visualisation. Set `WRITE_ALL_HITS = False` in the
+notebook when that very large audit table is not needed; adjust `CHUNK_SIZE`
+there if memory use needs to be tuned.
 
 This notebook parses per-barcode `barcodeXX_primer_hits.tsv` files and writes combined primer/UMI tracking outputs under:
 
@@ -679,6 +706,55 @@ Notebook:
 code/sankey_target_species_detection.ipynb
 ```
 
+Run the notebook from the repository root after
+`evaluate_tagtracking_taxid_reduced.ipynb` has created the per-barcode
+`barcodeXX_target_species_detection.tsv` files:
+
+```bash
+mkdir -p code/executed_notebooks logs
+
+DATE_TAG="$(date +%Y%m%d)"
+TIME_TAG="$(date +%Y%m%d_%H%M%S)"
+
+conda run -n saproxdna-evaluate jupyter nbconvert \
+  --execute \
+  --to notebook \
+  --output-dir code/executed_notebooks \
+  --output "sankey_target_species_detection_mergedseq5_${DATE_TAG}.ipynb" \
+  --ExecutePreprocessor.timeout=-1 \
+  code/sankey_target_species_detection.ipynb \
+  > "logs/sankey_target_species_detection_${TIME_TAG}.log" 2>&1
+```
+
+The command executes every cell non-interactively, saves an executed notebook
+under `code/executed_notebooks/`, and writes the run log under `logs/`. Check
+the log if the command exits unsuccessfully:
+
+```bash
+tail -100 "$(find logs -maxdepth 1 -type f \
+  -name 'sankey_target_species_detection_*.log' | sort | tail -n 1)"
+```
+
+By default, the notebook processes every matching barcode table below
+`data/mergedseq5/`. To process only selected barcodes, set
+`SELECTED_BARCODES` in the notebook settings cell before running it, for
+example:
+
+```python
+SELECTED_BARCODES = ['barcode01', 'barcode06']
+```
+
+The full downstream wrapper runs the same notebook automatically as its final
+step:
+
+```bash
+bash code/run_full_downstream_pipeline.sh
+```
+
+The wrapper command reruns the preceding downstream steps as well; use the
+standalone `nbconvert` command above when the target-species detection tables
+already exist and only the Sankey outputs are needed.
+
 This notebook creates one Sankey/alluvial figure per barcode from:
 
 ```text
@@ -740,6 +816,66 @@ Trust rules used for `barcodeXX_target_species_detection_trusted.tsv` and the gr
 - Rows with no detected forward primer are not trusted when the detected species appears in multiple target/species expected-primer pairs.
 - The trusted Sankey colors trusted links in green and untrusted links in grey.
 
+### Build annotated noNUMT consensus FASTAs for phylogenetics
+
+After the Sankey notebook has written
+`barcodeXX_target_species_detection_trusted.tsv` for every selected barcode,
+run:
+
+```bash
+conda run -n saproxdna-evaluate python code/build_phylo_consensus_fastas.py \
+  --merged-dir data/mergedseq5 \
+  --barcode-start 1 \
+  --barcode-end 24
+```
+
+The script reads, for each barcode:
+
+```text
+barcodeXX/filtered/combined/*consensussequences_noNUMT_*filter.fasta
+barcodeXX/filtered/combined/*consensussequences_noNUMT_*filter.fasta.kraken
+barcodeXX/barcodeXX_target_species_detection_trusted.tsv
+```
+
+It uses the Kraken database scientific-name table at
+`/mnt/d/kraken2DB/k2_core_nt_2025/names.dmp` by default. Supply a different
+file with `--names-dmp` if another Kraken database was used.
+
+Every noNUMT consensus is retained and receives one of these annotations:
+
+- `Kraken_scientific_name_trusted` when the consensus is classified and its
+  taxID has at least one `trusted=True` association in that barcode's trusted
+  table.
+- `Kraken_scientific_name_notrusted` when Kraken classified the consensus but
+  its taxID has no trusted association in that barcode.
+- `noid` when the consensus is absent from the Kraken output, Kraken reports it
+  as unclassified, or its taxID is `0`.
+
+The original consensus header is sanitized by replacing each run of
+non-alphanumeric characters, including spaces, with `_`. The barcode name is
+also appended before the Kraken name and trust status, for example:
+
+```text
+>consensus_asinput_0_0_1545_barcode01_Loewia_foeda_trusted
+```
+
+Per-barcode outputs:
+
+```text
+data/mergedseq5/barcodeXX/phylo/barcodeXX_consensus_noNUMT_phylo.fasta
+```
+
+The script validates that sanitized headers are unique, then concatenates the
+per-barcode FASTAs into:
+
+```text
+data/mergedseq5/consensus/mergedseq5_consensus_noNUMT_phylo.fasta
+```
+
+Outputs are written atomically, so a failed or interrupted run does not replace
+a previously completed FASTA. `code/run_full_downstream_pipeline.sh` runs this
+export automatically after the Sankey notebook.
+
 ## 12. Recommended full run order
 
 For a complete fresh run after raw reads have been placed in barcode folders:
@@ -753,6 +889,7 @@ For a complete fresh run after raw reads have been placed in barcode folders:
 7. Run `code/build_barcode_read_tracking_table.py` for each barcode.
 8. Run `code/evaluate_tagtracking_taxid_reduced.ipynb` for each barcode using `SELECTED_BARCODE`.
 9. Run `code/sankey_target_species_detection.ipynb` if Sankey diagrams are needed from the exported target-species detection tables.
+10. Run `code/build_phylo_consensus_fastas.py` to annotate the noNUMT consensus sequences and create the per-barcode and combined phylogenetic FASTAs.
 
 ## 13. Rerun guidance
 

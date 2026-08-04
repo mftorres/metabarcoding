@@ -65,12 +65,14 @@ run_barcode() {
   local barcode_name
   local raw_read_list
   local output
+  local partial_output
   local log
   local file_count
 
   barcode_name="$(basename "$barcode_dir")"
   raw_read_list="$barcode_dir/rawreads_${barcode_name}.txt"
   output="$barcode_dir/${barcode_name}_primer_hits.tsv"
+  partial_output="${output}.partial.$$"
   log="$barcode_dir/${barcode_name}_primer_hits.log"
 
   echo "[$barcode_dir] listing raw FASTQ files"
@@ -87,6 +89,7 @@ run_barcode() {
     return 0
   fi
 
+  rm -f "$partial_output"
   echo "[$barcode_dir] seqkit locate on $file_count FASTQ files"
   {
     printf 'Command:'
@@ -98,9 +101,10 @@ run_barcode() {
       --immediate-output \
       --pattern-file "$PRIMER_UMI_FASTA" \
       --infile-list "$raw_read_list"
-    printf ' > %q\n\n' "$output"
+    printf ' > %q\n\n' "$partial_output"
   } > "$log"
-
+  # seems like seqkit locate doesnt have an option to limit the numnber of hits per subject-query or per query
+  # relaxed, large max-mismatches values will produce huge files that need to be loaded by chuncks for the notebook
   seqkit locate \
     --max-mismatch "$PRIMER_UMI_MAX_MISMATCH" \
     --threads "$PRIMER_UMI_SEQKIT_THREADS" \
@@ -108,13 +112,15 @@ run_barcode() {
     --immediate-output \
     --pattern-file "$PRIMER_UMI_FASTA" \
     --infile-list "$raw_read_list" \
-    > "$output" 2>> "$log"
+    > "$partial_output" 2>> "$log"
 
-  [[ -s "$output" ]] || {
-    echo "[$barcode_dir] seqkit produced an empty output: $output" | tee -a "$log" >&2
+  [[ -s "$partial_output" ]] || {
+    echo "[$barcode_dir] seqkit produced an empty output: $partial_output" | tee -a "$log" >&2
+    rm -f "$partial_output"
     return 1
   }
 
+  mv "$partial_output" "$output"
   echo "[$barcode_dir] wrote $output"
 }
 

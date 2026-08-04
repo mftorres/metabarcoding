@@ -219,11 +219,15 @@ def read_primer_hits(path: Path, merge_folder: str, barcode: str):
     return hits, fields
 
 
-def find_single_kraken_output(combined_dir: Path) -> tuple[Path, Path]:
+def find_single_kraken_output(combined_dir: Path) -> tuple[Path | None, Path | None]:
     kraken_outputs = sorted(combined_dir.glob("*consensussequences_noNUMT_*filter.fasta.kraken"))
-    if len(kraken_outputs) != 1:
+    if len(kraken_outputs) > 1:
         raise FileNotFoundError(
-            f"Expected one noNUMT Kraken output in {combined_dir}, found {len(kraken_outputs)}")
+            f"Expected at most one noNUMT Kraken output in {combined_dir}, "
+            f"found {len(kraken_outputs)}"
+        )
+    if not kraken_outputs:
+        return None, None
 
     kraken_output = kraken_outputs[0]
     kraken_input = Path(str(kraken_output)[:-len(".kraken")])
@@ -253,36 +257,52 @@ def main() -> int:
     combined_dir = barcode_dir / "filtered" / "combined"
     amplicon_map = combined_dir / "amplicon_sorter_read_map.tsv"
     kraken_output, kraken_map = find_single_kraken_output(combined_dir)
+    no_consensus_marker = barcode_dir / "filtered" / "no_consensus.done"
+
+    if kraken_output is None and not no_consensus_marker.is_file():
+        raise FileNotFoundError(
+            f"No consensus Kraken output found in {combined_dir}, and the barcode "
+            f"is not marked as a completed no-consensus result: {no_consensus_marker}"
+        )
 
     for required in [
         amplicon_map,
-        kraken_map,
-        kraken_output,
         args.primer_best_hits,
         args.insecta_kraken_reads,
     ]:
         if not required.is_file():
             raise FileNotFoundError(required)
+    if kraken_output is not None:
+        for required in [kraken_map, kraken_output]:
+            if not required.is_file():
+                raise FileNotFoundError(required)
 
     print("Reading amplicon_sorter mappings...", file=sys.stderr)
     internal_to_ont, processed_by_raw, processed_lengths = read_amplicon_index(amplicon_map)
     memberships, duplicate_memberships = read_subgroup_memberships(combined_dir, internal_to_ont)
-    print("Reading Kraken assignments...", file=sys.stderr)
-    consensus_by_group = read_kraken_assignments(
-        kraken_output,
-        kraken_map,
-    )
-    print("Tracing Insecta Kraken IDs back to amplicon_sorter reads...", file=sys.stderr)
-    (
-        insecta_consensus_ids,
-        insecta_kraken_id_count,
-        unmapped_insecta_kraken_id_count,
-    ) = read_target_kraken_membership(
-        args.insecta_kraken_reads,
-        kraken_map,
-        merge_folder,
-        barcode,
-    )
+    if kraken_output is None:
+        print("No consensus Kraken output; keeping consensus taxIDs blank", file=sys.stderr)
+        consensus_by_group = {}
+        insecta_consensus_ids = set()
+        insecta_kraken_id_count = 0
+        unmapped_insecta_kraken_id_count = 0
+    else:
+        print("Reading Kraken assignments...", file=sys.stderr)
+        consensus_by_group = read_kraken_assignments(
+            kraken_output,
+            kraken_map,
+        )
+        print("Tracing Insecta Kraken IDs back to amplicon_sorter reads...", file=sys.stderr)
+        (
+            insecta_consensus_ids,
+            insecta_kraken_id_count,
+            unmapped_insecta_kraken_id_count,
+        ) = read_target_kraken_membership(
+            args.insecta_kraken_reads,
+            kraken_map,
+            merge_folder,
+            barcode,
+        )
     print("Reading barcode primer best hits...", file=sys.stderr)
     primer_hits, primer_fields = read_primer_hits(args.primer_best_hits, merge_folder, barcode)
 

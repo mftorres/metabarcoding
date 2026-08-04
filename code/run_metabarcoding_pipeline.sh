@@ -14,6 +14,7 @@ fi
 : "${FASTPLONG_MEAN_QUAL:=6}"
 : "${FASTPLONG_LENGTH_REQUIRED:=300}"
 : "${FASTPLONG_LENGTH_LIMIT:=1500}"
+: "${FASTPLONG_TRIMMING_EXTENSION:=2}"
 : "${AMPLICON_SORTER_SCRIPT:=code/amplicon_sorter_mod.py}"
 : "${AMPLICON_READ_MAP_SCRIPT:=code/build_amplicon_kraken_read_map.py}"
 : "${AMPLICON_THREADS:=6}"
@@ -163,9 +164,10 @@ amplicon_sorter_output_usable() {
     return 0
   fi
 
-  # amplicon_sorter exits cleanly for samples with too few usable reads.
-  # Treat that as a completed no-target run, but reject other no-FASTA outputs.
-  [[ -f "$log" ]] && grep -q "Number of usable sequences is lower than 5, quitting job" "$log"
+  # amplicon_sorter can exit successfully without a consensus when there are
+  # too few usable reads or no reads are assigned to a final group. Its result
+  # and read-map files make this a valid, completed no-consensus run.
+  [[ -s "$target_dir/amplicon_sorter_read_map.tsv" ]]
 }
 
 validate_setup() {
@@ -246,6 +248,7 @@ filter_reads() {
       --mean_qual "$FASTPLONG_MEAN_QUAL"
       --length_required "$FASTPLONG_LENGTH_REQUIRED"
       --length_limit "$FASTPLONG_LENGTH_LIMIT"
+      --trimming_extension "$FASTPLONG_TRIMMING_EXTENSION"
       --adapter_fasta "$ADAPTER_FASTA"
       -h "$html"
     )
@@ -402,6 +405,12 @@ run_kraken2() {
   local kraken_report
   local memory_mapping=()
 
+  if [[ -f "$filtered_dir/no_consensus.done" ]]; then
+    echo "[$folder] kraken2: no consensus sequences; nothing to classify" | tee "$log"
+    date > "$done_file"
+    return 0
+  fi
+
   [[ -d "$target_dir" ]] || {
     echo "[$folder] missing amplicon-sorter output directory: $target_dir" >&2
     return 1
@@ -490,6 +499,7 @@ run_consensus_noNUMT_filter() {
   local aa_output_sequence_count
   local nt_output_sequence_count
   local output_count=0
+  local no_consensus_file="$folder/filtered/no_consensus.done"
 
   mkdir -p "$logs_dir"
   echo "[$folder] noNUMT: filtering consensus sequences" | tee "$log"
@@ -505,8 +515,11 @@ run_consensus_noNUMT_filter() {
 
   if [[ "${#consensus_fastas[@]}" -eq 0 ]]; then
     echo "[$folder] noNUMT: no *consensussequences.fasta files found" | tee -a "$log"
+    date > "$no_consensus_file"
     return 0
   fi
+
+  rm -f "$no_consensus_file"
 
   for consensus_fasta in "${consensus_fastas[@]}"; do
     [[ "$consensus_fasta" != *noNUMT* ]] || continue
