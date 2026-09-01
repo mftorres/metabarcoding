@@ -168,6 +168,18 @@ data/mergedseq5/barcodeXX/filtered/
 
 `filtered/combined/amplicon_sorter_read_map.tsv` links amplicon_sorter internal read numbers to ONT read IDs.
 
+Before noNUMT filtering and Kraken2, the pipeline prefixes every consensus FASTA
+header with its barcode (for example, `barcode01_consensus_asinput_0_0(1036)`).
+This is idempotent, so rerunning the pipeline does not add the prefix twice. It
+prevents identical amplicon_sorter consensus IDs from different barcodes being
+collapsed or assigned the wrong Kraken2 result when files are combined. The
+barcode-prefixed ID is retained in Kraken outputs and read maps; parsers accept
+both the new prefixed form and older unprefixed records.
+
+The current `run_metabarcoding_pipeline.sh` invocation runs Kraken2 separately
+for each barcode. If consensus FASTAs are later concatenated for a merged Kraken2
+run, retain these prefixes; they are the uniqueness boundary between barcodes.
+
 | Column | Meaning |
 |---|---|
 | `amplicon_sorter_read_number` | Numeric read identifier assigned internally by amplicon_sorter. |

@@ -86,6 +86,18 @@ python3 code/amplicon_sorter_mod.py -i "$FOLDER"/filtered/asinput.fastq.gz \
   -min 300 -max 100000000 -ar -maxr 100000000 -np 12 \
   -ra -sg 99.0 -ss 99.0 -sc 99.0
 
+# Prefix consensus IDs with the barcode so IDs remain unique when barcode
+# consensus FASTAs are combined for downstream classification.
+CONSENSUS_FASTA="$FOLDER/filtered/combined/asinput_consensussequences.fasta"
+if [[ -s "$CONSENSUS_FASTA" ]]; then
+  tmp_consensus="${CONSENSUS_FASTA}.prefixing.$$"
+  barcode_name="$(basename "$FOLDER")"
+  awk -v prefix="${barcode_name}_" \
+    '/^>/ && substr($0, 2, length(prefix)) != prefix { sub(/^>/, ">" prefix) } { print }' \
+    "$CONSENSUS_FASTA" > "$tmp_consensus"
+  mv "$tmp_consensus" "$CONSENSUS_FASTA"
+fi
+
 # to kraken2, we only pass consensus sequences:
 # asinput_consensussequences.fasta
 

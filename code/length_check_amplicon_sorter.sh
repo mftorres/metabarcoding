@@ -68,7 +68,7 @@ for barcode_dir in "$MERGED_DIR"/barcode*; do
 
                 if (group == "" || asinput_file == "asinput_.fasta") {
                     group = kraken_read_id
-                    sub(/^consensus_combinedrawreads_/, "", group)
+                    sub(/^(barcode[0-9]+_)?consensus_(combinedrawreads|asinput)_/, "", group)
                     sub(/\(.*/, "", group)
                     asinput_file = "asinput_" group ".fasta"
                 }

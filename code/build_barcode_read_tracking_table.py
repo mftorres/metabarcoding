@@ -12,7 +12,7 @@ import sys
 from pathlib import Path
 
 
-CONSENSUS_RE = re.compile(r"^consensus_(?:combinedrawreads|asinput)_(\d+_\d+)\(")
+CONSENSUS_RE = re.compile(r"^(?:barcode\d+_)?consensus_(?:combinedrawreads|asinput)_(\d+_\d+)\(")
 SUBGROUP_FASTA_RE = re.compile(r"^asinput_(\d+_\d+)\.fasta$")
 SPLIT_READ_RE = re.compile(r"^split-by-adapter-(left|right)-(.+)$")
 

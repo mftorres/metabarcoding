@@ -501,3 +501,8 @@ Trust rules used for `barcodeXX_target_species_detection_trusted.tsv` and the gr
 - In grouped amplicon-sorter reads, `group_consensus_kraken_taxid` is propagated to reads in the group.
 - Unique-read FASTA files are not sent to Kraken2 in the current consensus-only pipeline.
 - The evaluation notebook focuses most taxonomy summaries on `insecta_tracking`, while some primer-detection comparisons include both the complete `tracking` table and `insecta_tracking`.
+Consensus FASTA headers are prefixed by the pipeline with the source barcode
+(`barcode01_`, `barcode02_`, etc.) before noNUMT filtering and Kraken2. Keep
+these prefixes when copying or combining consensus files: they make record IDs
+globally unique and preserve the barcode association in Kraken and downstream
+read-tracking tables.

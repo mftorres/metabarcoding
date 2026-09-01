@@ -106,6 +106,21 @@ collect_kraken_target() {
   fi
 }
 
+prefix_consensus_headers() {
+  local target_dir="$1"
+  local barcode="$(basename "$(dirname "$(dirname "$target_dir")")")"
+  local consensus_fasta="$target_dir/asinput_consensussequences.fasta"
+  local temporary_fasta="${consensus_fasta}.prefixing.$$"
+
+  [[ -s "$consensus_fasta" ]] || return 0
+  [[ "$barcode" == barcode* ]] || return 1
+  awk -v prefix="${barcode}_" '
+    /^>/ && substr($0, 2, length(prefix)) != prefix { sub(/^>/, ">" prefix) }
+    { print }
+  ' "$consensus_fasta" > "$temporary_fasta"
+  mv "$temporary_fasta" "$consensus_fasta"
+}
+
 kraken_read_map_current() {
   local read_map="$1"
   shift
@@ -307,11 +322,13 @@ run_amplicon_sorter() {
   mkdir -p "$logs_dir"
 
   if [[ "$FORCE" != "1" && -f "$done_file" ]] && amplicon_sorter_output_usable "$target_dir" "$log"; then
+    prefix_consensus_headers "$target_dir"
     echo "[$folder] amplicon_sorter: already done"
     return
   fi
 
   if [[ "$FORCE" != "1" ]] && amplicon_sorter_output_usable "$target_dir" "$log"; then
+    prefix_consensus_headers "$target_dir"
     echo "[$folder] amplicon_sorter: outputs already exist"
     date > "$done_file"
     return
@@ -373,6 +390,7 @@ run_amplicon_sorter() {
 
   rm -rf "$target_dir"
   mv "$staging" "$target_dir"
+  prefix_consensus_headers "$target_dir"
 
   shopt -s nullglob
   for root_file in "$tmp_parent"/*; do

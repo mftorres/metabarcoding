@@ -8,7 +8,7 @@ import re
 from pathlib import Path
 
 
-CONSENSUS_RE = re.compile(r"^consensus_(?:combinedrawreads|asinput)_(\d+_\d+)\(")
+CONSENSUS_RE = re.compile(r"^(?:barcode\d+_)?consensus_(?:combinedrawreads|asinput)_(\d+_\d+)\(")
 
 
 def open_text(path: Path):
