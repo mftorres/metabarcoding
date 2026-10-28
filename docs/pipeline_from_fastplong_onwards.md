@@ -254,6 +254,6 @@ for the bc1087/barcode15 example and optional `--include-unclassified` search.
 
 Module 2 reference selection requires either `--download` for NCBI COI records
 or `--bold` for taxon-name matching against compressed FASTA headers in
-`data/bold/`. Both feed the same VSEARCH, optional translation-filtering, MAFFT or MACSE alignment,
+`data/bold/`. Both feed the same VSEARCH, optional translation-filtering, MAFFT or kc-align alignment,
 phylogeny and Baltic plotting steps. See the
 [Module 2 source options](post_processing.md#choose-the-reference-dataset).

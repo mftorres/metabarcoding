@@ -67,18 +67,21 @@ class Tests(unittest.TestCase):
     def test_skip_translation_workflow(self):
         self.workflow('bold', skip=True)
 
-    def test_macse_workflow(self):
-        self.workflow('bold', macse=True)
+    def test_kcalign_workflow(self):
+        self.workflow('bold', kcalign=True)
 
-    def test_macse_without_translation_workflow(self):
-        self.workflow('bold', skip=True, macse=True)
+    def test_kcalign_without_translation_workflow(self):
+        self.workflow('bold', skip=True, kcalign=True)
 
-    def workflow(self, source, skip=False, macse=False):
+    def workflow(self, source, skip=False, kcalign=False):
         with tempfile.TemporaryDirectory() as d:
             p=Path(d)
             (p/'analysis.complete').touch()
-            args=argparse.Namespace(taxon='Tipulidae',folders=['barcode01','barcode02'],analysis_dir=p,output_dir=p/'run',date='20261021',threads=2,translation_table=5,min_aa=200,aa_length_mode='stop-free',bootstrap_method='standard',include_mitogenomes=False)
-            args.macse=macse
+            args=argparse.Namespace(taxon='Tipulidae',folders=['barcode01','barcode02'],analysis_dir=p,output_dir=p/'run',date='20261021',threads=6,translation_table=5,min_aa=200,aa_length_mode='stop-free',bootstrap_method='standard',include_mitogenomes=False)
+            args.kcalign=kcalign
+            if kcalign:
+                args.kcalign_reference=p/'trusted.fasta'
+                args.kcalign_reference.write_text('>trusted\n'+'ATG'*200+'\n')
             args.skip_translation=skip
             args.reference_source=source
             if source == 'bold':
@@ -88,7 +91,7 @@ class Tests(unittest.TestCase):
                     handle.write('>PROCESS-1|COI-5P|UK|Animalia,Tipulidae,Tipula maxima,None\n'+'ATG'*200+'\n')
             commands=[]
             fail_alignment=[True]
-            def fake(runner, command, output, input_path=None):
+            def fake(runner, command, output, input_path=None, cwd=None):
                 c=list(map(str,command)); commands.append(c); tool=Path(c[0]).name
                 if tool=='esearch': Path(output).write_text('<ENTREZ_DIRECT/>')
                 elif tool=='efetch':
@@ -112,20 +115,14 @@ class Tests(unittest.TestCase):
                     with Path(output).open('w') as f:
                         for h,s in m.fasta(c[-1]):
                             for frame in [1,2,3,-1,-2,-3]: m.write_record(f,h.split()[0]+f'_frame={frame}','M'*200)
-                elif tool=='macse':
-                    Path(output).write_text('MACSE fixture log\n')
-                    if fail_alignment[0] and c[c.index('-prog')+1]=='trimAlignment':
+                elif len(c)>1 and c[1].endswith('kcalign_cli.py'):
+                    Path(output).write_text('kc-align log\n')
+                    if fail_alignment[0]:
                         fail_alignment[0]=False
                         raise subprocess.CalledProcessError(1,c)
-                    if c[c.index('-prog')+1]=='alignSequences':
-                        source_path=c[c.index('-seq')+1]
-                        shutil.copyfile(source_path,c[c.index('-out_NT')+1])
-                        shutil.copyfile(source_path,c[c.index('-out_AA')+1])
-                    else:
-                        with Path(c[c.index('-out_NT')+1]).open('w') as handle:
-                            for header, seq in m.fasta(c[c.index('-align')+1]):
-                                m.write_record(handle, header, '!'+seq[4:-3])
-                        Path(c[c.index('-out_trim_info')+1]).write_text('trim_start,trim_end\n0,0\n')
+                    data=Path(c[c.index('--sequences')+1]).read_text()+Path(c[c.index('--reference')+1]).read_text()
+                    (Path(cwd)/'codon_align.fasta').write_text(data)
+                    (Path(cwd)/'pre_align.fasta').write_text(data)
                 elif tool=='mafft':
                     if fail_alignment[0]:
                         fail_alignment[0]=False
@@ -133,6 +130,8 @@ class Tests(unittest.TestCase):
                         raise subprocess.CalledProcessError(1,c)
                     with Path(output).open('w') as f:
                         for i,(h,s) in enumerate(m.fasta(c[-1])): m.write_record(f,('_R_' if i==0 else '')+h,s)
+                elif tool=='clipkit':
+                    shutil.copyfile(c[1],c[c.index('-o')+1]);Path(output).write_text('trimmed fixture\n')
                 elif tool=='iqtree':
                     Path(c[c.index('--prefix')+1]+'.treefile').write_text('(a,b,c,d);\n'); Path(output).touch()
                 else: raise AssertionError(c)
@@ -144,13 +143,12 @@ class Tests(unittest.TestCase):
                 # Existing batched metadata must never trigger another efetch on resume.
                 (p/'run/reference_records.gb.xml').write_text('<?xml version="1.0"?><GBSet/>\n<?xml version="1.0"?><GBSet/>')
                 args.resume=True
-                args.macse_memory="4g"
                 args.date=None
                 prior=len(commands)
                 m.run_pipeline(args)
                 resumed=commands[prior:]
-                self.assertEqual([Path(c[0]).name for c in resumed[:2]],['macse','macse'] if macse else ['mafft','iqtree'])
-                self.assertEqual(len(resumed),4 if macse else 3)
+                self.assertEqual([Path(c[0]).name for c in resumed[:2]],[Path(m.sys.executable).name,'clipkit'] if kcalign else ['mafft','clipkit'])
+                self.assertEqual(len(resumed),4)
                 self.assertEqual(m.file_digest(retained),retained_digest)
                 self.assertTrue((p/'run/alignment.complete.json').exists())
                 self.assertFalse(any(c[0]=='efetch' for c in resumed))
@@ -158,20 +156,29 @@ class Tests(unittest.TestCase):
                 prior=len(commands)
                 m.run_pipeline(args)
                 self.assertEqual(len(commands),prior)
+                # Explicit restart reuses retained sequences and rebuilds only alignment/tree/figure.
+                args.restart_alignment=True
+                prior=len(commands)
+                m.run_pipeline(args)
+                self.assertEqual(len(commands)-prior,4)
+                self.assertEqual(m.file_digest(retained),retained_digest)
+                self.assertFalse(any(c[0] in ('vsearch','seqkit','efetch','esearch') for c in commands[prior:]))
+                args.restart_alignment=False
+                prior=len(commands)
+                m.run_pipeline(args)
+                self.assertEqual(len(commands),prior)
                 # Completed alignment survives a missing pipeline checkpoint: start at IQ-TREE.
                 (p/'run/checkpoints.json').unlink()
                 prior=len(commands)
                 m.run_pipeline(args)
-                self.assertEqual(Path(commands[prior][0]).name,'iqtree')
-                self.assertEqual(len(commands[prior:]),2)
+                self.assertEqual(Path(commands[prior][0]).name,'clipkit')
+                self.assertEqual(len(commands[prior:]),3)
                 self.assertEqual(m.file_digest(retained),retained_digest)
-                if macse:
-                    trim=next(c for c in reversed(commands) if c[0]=='macse' and c[c.index('-prog')+1]=='trimAlignment')
-                    self.assertEqual(trim[trim.index('-min_percent_NT_at_ends')+1],'0.7')
-                    self.assertIn('-Xmx4g',trim)
+                if kcalign:
+                    command=next(c for c in commands if len(c)>1 and c[1].endswith('kcalign_cli.py'))
+                    self.assertEqual(command[command.index('--threads')+1],'6')
+                    self.assertIn('--keep',command)
                     self.assertFalse(any(c[0]=='mafft' for c in commands))
-                    final_alignment=retained.with_suffix('.aln.fasta')
-                    self.assertTrue(all(seq.startswith('N') and '!' not in seq for _,seq in m.fasta(final_alignment)))
                 else:
                     mafft=next(c for c in commands if c[0]=='mafft')
                     self.assertEqual(mafft[mafft.index('--retree')+1],'2')
@@ -184,10 +191,15 @@ class Tests(unittest.TestCase):
                 parameter_path.write_text(json.dumps(old_parameters))
                 with self.assertRaisesRegex(ValueError,'old FASTA headers'): m.run_pipeline(args)
                 parameter_path.write_text(saved_parameters)
-                for option in ('skip_translation','macse'):
+                for option in ('skip_translation',):
                     original=getattr(args,option);setattr(args,option,not original)
                     with self.assertRaisesRegex(ValueError,'changed '+option): m.run_pipeline(args)
                     setattr(args,option,original)
+                if kcalign:
+                    original=args.kcalign_reference.read_text()
+                    args.kcalign_reference.write_text(original.replace('ATG','GCT'))
+                    with self.assertRaisesRegex(ValueError,'changed trusted alignment reference'): m.run_pipeline(args)
+                    args.kcalign_reference.write_text(original)
                 args.taxon='Other'
                 with self.assertRaisesRegex(ValueError,'changed taxon'): m.run_pipeline(args)
                 args.taxon='Tipulidae'
@@ -218,6 +230,7 @@ class Tests(unittest.TestCase):
             self.assertTrue(inputs[-1].endswith('.length500-2000.fasta'))
             self.assertEqual(len(list(m.fasta(next((p/'run').glob('combined_*.fasta'))))),4)
             c=next(c for c in commands if c[0]=='iqtree')
+            self.assertTrue(c[c.index('-s')+1].endswith('.clipkit.aln.fasta'))
             self.assertEqual(c[c.index('-b')+1],'1000')
             self.assertEqual(c[c.index('-m')+1],'MFP')
             self.assertFalse(any(h.startswith('_R_') for h,s in m.fasta(next((p/'run').glob('*.aln.fasta')))))

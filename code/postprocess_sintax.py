@@ -282,7 +282,8 @@ def valid_alignment(alignment, retained=None, allow_trimmed=False):
         raise ValueError('Incomplete alignment: unequal sequence lengths')
     if retained is not None and retained.exists():
         originals = dict(fasta(retained))
-        if set(aligned) != set(originals):
+        ids_match = set(aligned).issubset(originals) if allow_trimmed else set(aligned) == set(originals)
+        if not ids_match:
             raise ValueError('Incomplete alignment: sequence IDs do not match retained FASTA')
         if allow_trimmed:
             if any(set(seq.upper()) - set('ACGTRYSWKMBDHVN-') for seq in aligned.values()):
@@ -314,17 +315,20 @@ def latest_sequences(root, args, records):
     orientation = root / 'alignment_orientation.tsv'
     marker = root / 'alignment.complete.json'
     try:
-        valid_alignment(alignment, retained, allow_trimmed=getattr(args, 'macse', False))
+        invalidated = root / 'invalidated_stages.json'
+        if invalidated.exists() and 'alignment' in json.loads(invalidated.read_text()):
+            raise ValueError('Alignment was invalidated by an explicit restart')
+        valid_alignment(alignment, retained, allow_trimmed=getattr(args, 'kcalign', False))
         if marker.exists():
             saved = json.loads(marker.read_text())
-            if saved.get('algorithm') != ('MACSE' if getattr(args, 'macse', False) else 'FFT-NS-2'):
+            if saved.get('algorithm') != ('kc-align' if getattr(args, 'kcalign', False) else 'FFT-NS-2'):
                 raise ValueError('Alignment algorithm mismatch')
             if retained.exists() and saved.get('retained_sha256') != file_digest(retained):
                 raise ValueError('Alignment input hash mismatch')
             if saved['alignment_sha256'] != file_digest(alignment):
                 raise ValueError('Alignment completion hash mismatch')
-        elif getattr(args, 'macse', False):
-            raise ValueError('MACSE requires an alignment completion marker')
+        elif getattr(args, 'kcalign', False):
+            raise ValueError('kc-align requires an alignment completion marker')
         elif 'alignment' in records:
             if records['alignment'] != {p.name: file_digest(p) for p in (alignment, orientation)}:
                 raise ValueError('Alignment checkpoint hash mismatch')
@@ -419,13 +423,13 @@ class Runner:
         with self.log.open('a') as handle:
             handle.write(message + '\n')
 
-    def run(self, command, output, input_path=None):
+    def run(self, command, output, input_path=None, cwd=None):
         command = list(map(str, command))
         self.note('$ ' + shlex.join(command))
         source = Path(input_path).open('rb') if input_path else subprocess.DEVNULL
         try:
             with Path(output).open('xb') as target, self.log.open('ab') as log:
-                subprocess.run(command, stdin=source, stdout=target, stderr=log, check=True)
+                subprocess.run(command, stdin=source, stdout=target, stderr=log, check=True, cwd=cwd)
         finally:
             if input_path:
                 source.close()
@@ -434,11 +438,23 @@ class Runner:
 def run_pipeline(args):
     # Freeze biological settings on resume so cached data cannot bypass new choices.
     """Orchestrate source selection, consensus construction, alignment, tree and figure."""
-    args.macse_memory = getattr(args, 'macse_memory', '2g')
-    if not re.fullmatch(r'[1-9][0-9]*[mMgG]', args.macse_memory):
-        raise ValueError('--macse-memory must be a positive size such as 32g or 4096m')
+    args.restart_alignment = getattr(args, 'restart_alignment', False)
+    if args.restart_alignment and not getattr(args, 'resume', False):
+        raise ValueError('--restart-alignment requires --resume')
     args.skip_translation = getattr(args, 'skip_translation', False)
-    args.macse = getattr(args, 'macse', False)
+    args.kcalign = getattr(args, 'kcalign', False)
+    args.kcalign_reference = getattr(args, 'kcalign_reference', None)
+    reference_snapshot = None
+    if args.kcalign:
+        if args.kcalign_reference is None:
+            raise ValueError('--kcalign requires --kcalign-reference with a trusted coding FASTA')
+        if args.threads != 1 and args.threads % 3:
+            raise ValueError('kc-align mixed mode requires --threads 1 or a multiple of 3 (e.g. 6)')
+        from kcalign_alignment import validate_reference
+        validate_reference(args.kcalign_reference, args.translation_table)
+        reference_snapshot = file_digest(args.kcalign_reference)
+    elif args.kcalign_reference is not None:
+        raise ValueError('--kcalign-reference requires --kcalign')
     stage_label = 'selected' if args.skip_translation else 'nonumt'
     args.reference_source = getattr(args, 'reference_source', 'download')
     args.bold_db = getattr(args, 'bold_db', None)
@@ -446,9 +462,11 @@ def run_pipeline(args):
         raise ValueError('--bold requires a taxon name for header matching; use --download for numeric taxids')
     bold_files = database_files(args.bold_db or Path(__file__).resolve().parents[1] / 'data/bold') if args.reference_source == 'bold' else []
     bold_snapshot = [{'path': str(p.resolve()), 'bytes': p.stat().st_size, 'mtime_ns': p.stat().st_mtime_ns} for p in bold_files]
-    required = ['vsearch', 'seqkit', 'macse' if args.macse else 'mafft', 'iqtree']
+    required = ['vsearch', 'seqkit', 'clipkit', 'kc-align' if args.kcalign else 'mafft', 'iqtree']
     if args.reference_source == 'download':
         required += ['esearch', 'efetch']
+    if args.kcalign:
+        required += ['kalign', 'mafft']
     missing = [name for name in required if not shutil.which(name)]
     if missing:
         raise ValueError('Missing executables on PATH: ' + ', '.join(missing) +
@@ -471,6 +489,8 @@ def run_pipeline(args):
             raise ValueError('Cannot change --download/--bold during resume; use a new output directory')
         if args.reference_source == 'bold' and previous.get('bold_database_files') != bold_snapshot:
             raise ValueError('BOLD database files changed since this run; use a new output directory')
+        if not args.restart_alignment and previous.get('kcalign_reference_sha256') != reference_snapshot:
+            raise ValueError('Cannot resume with changed trusted alignment reference; use a new output directory')
         if previous.get('clustering_policy') != CLUSTERING_POLICY:
             raise ValueError('This run uses an older clustering policy. Use a new output directory for grouped VSEARCH 98% consensus sequences.')
         if previous.get('taxon_selection_policy') != TAXON_SELECTION_POLICY:
@@ -480,7 +500,9 @@ def run_pipeline(args):
         if args.date is None:
             args.date = previous['date']
         for key in ('taxon', 'folders', 'analysis_dir', 'date', 'include_mitogenomes',
-                    'translation_table', 'min_aa', 'aa_length_mode', 'bootstrap_method', 'skip_translation', 'macse'):
+                    'translation_table', 'min_aa', 'aa_length_mode', 'bootstrap_method', 'skip_translation', 'kcalign'):
+            if key == 'kcalign' and args.restart_alignment:
+                continue
             current = getattr(args, key)
             old = previous.get(key)
             if key == 'analysis_dir':
@@ -501,7 +523,9 @@ def run_pipeline(args):
         config = {key: str(value) if isinstance(value, Path) else value for key, value in vars(args).items()}
         config['bold_database_files'] = bold_snapshot
         config['executables'] = {name: shutil.which(name) for name in required}
-        config['alignment_algorithm'] = 'MACSE' if args.macse else 'FFT-NS-2'
+        config['kcalign_reference_sha256'] = reference_snapshot
+        config['alignment_trimming'] = 'clipkit-smart-gap-nt-v1'
+        config['alignment_algorithm'] = 'kc-align' if args.kcalign else 'FFT-NS-2'
         config['clustering_policy'] = CLUSTERING_POLICY
         config['header_schema'] = HEADER_SCHEMA
         config['taxon_selection_policy'] = TAXON_SELECTION_POLICY
@@ -510,6 +534,19 @@ def run_pipeline(args):
         else:
             (root / 'resume_parameters.json').write_text(json.dumps(config, indent=2) + '\n')
         restart = latest_sequences(root, args, checkpoints.records) if resume else None
+        if args.restart_alignment:
+            if restart is None or not restart[1].is_file():
+                raise ValueError('Restarting alignment requires valid retained/selected consensus sequences')
+            # Reuse validated upstream sequences, but invalidate all alignment-dependent results.
+            archive = root / 'resume_archive' / f'{time.time_ns()}_alignment_settings'
+            archive.mkdir(parents=True)
+            shutil.copyfile(root / 'parameters.json', archive / 'parameters.json')
+            (root / 'parameters.json').write_text(json.dumps(config, indent=2) + '\n')
+            checkpoints.dirty = True
+            checkpoints.invalidated.update(('alignment', 'clipkit', 'phylogeny', 'figure'))
+            checkpoints.invalidated_path.write_text(json.dumps(sorted(checkpoints.invalidated)))
+            (root / 'postprocessing.complete').unlink(missing_ok=True)
+            restart = (restart[0], restart[1], False)
         if restart is not None:
             slug, retained, alignment_ready = restart
             stem = f'{slug}_{args.date}'
@@ -652,19 +689,17 @@ def run_pipeline(args):
         if count < 4:
             raise ValueError('Fewer than four representatives passed; FASTA saved, phylogeny not run')
         alignment = retained.with_suffix('.aln.fasta')
-        # MACSE publishes a completion marker only after alignment and trimming succeed.
-        if args.macse and not alignment_ready:
-            from macse_alignment import align_macse
-            macse_prefix = str(alignment).removesuffix('.aln.fasta')
-            artifacts = [Path(macse_prefix+suffix) for suffix in (
-                '.macse.aln.fasta', '.aa.aln.fasta', '.macse.trimmed.aln.fasta',
-                '_trimmed.csv', '.macse_ids.tsv', '.frameshifts.tsv',
-                '.macse_align.stdout.log', '.macse_trim.stdout.log')]
+        # kc-align publishes a completion marker only after mixed-mode alignment validates.
+        if args.kcalign and not alignment_ready:
+            from kcalign_alignment import align_kcalign
+            kcalign_prefix = str(alignment).removesuffix('.aln.fasta')
+            artifacts = [Path(kcalign_prefix+suffix) for suffix in (
+                '.pre_align.aa.fasta', '.kcalign_selection.tsv', '.kcalign_ids.tsv', '.kcalign.stdout.log')]
             with checkpoints.stage('alignment', [alignment], extra=artifacts+[root/'alignment.complete.json'], legacy=False) as execute:
                 if execute:
-                    align_macse(runner, retained, alignment, args.translation_table, args.macse_memory)
+                    align_kcalign(runner, retained, alignment, args.kcalign_reference, args.translation_table, args.threads)
                     (root/'alignment.complete.json').write_text(json.dumps({
-                        'algorithm': 'MACSE', 'alignment_sha256': file_digest(alignment),
+                        'algorithm': 'kc-align', 'alignment_sha256': file_digest(alignment),
                         'retained_sha256': file_digest(retained)}, indent=2)+'\n')
             alignment_ready = True
         if not alignment_ready:
@@ -707,11 +742,45 @@ def run_pipeline(args):
                         'algorithm': 'FFT-NS-2', 'alignment_sha256': file_digest(alignment),
                         'retained_sha256': file_digest(retained)}, indent=2) + '\n')
         prefix = root / f'combined_{slug}_{stage_label}_{args.date}'
-        # Both alignment branches feed the same nucleotide phylogeny and figure stages.
+        # Keep the untrimmed alignment so resume can start here without repeating alignment.
+        pruned = Path(str(prefix) + '.clipkit.aln.fasta')
+        trim_marker = root / 'clipkit.complete.json'
+        trim_log = root / 'clipkit.stdout.log'
+        trim_settings = {'mode': 'smart-gap', 'sequence_type': 'nt',
+                         'input_sha256': file_digest(alignment)}
+        if trim_marker.exists():
+            try:
+                if json.loads(trim_marker.read_text()) != trim_settings:
+                    checkpoints.dirty = True
+            except (ValueError, OSError):
+                checkpoints.dirty = True
+        with checkpoints.stage('clipkit', [pruned, trim_marker],
+                               extra=[trim_log, Path(str(pruned)+'.partial')], legacy=False) as execute:
+            if execute:
+                # Persist invalidation before trimming, including runs created before this stage existed.
+                checkpoints.invalidated.update(('phylogeny', 'figure'))
+                checkpoints.invalidated_path.write_text(json.dumps(sorted(checkpoints.invalidated)))
+                partial = Path(str(pruned)+'.partial')
+                try:
+                    runner.run(['clipkit', alignment, '-m', 'gappy', '-s', 'nt',
+                                '-if', 'fasta', '-of', 'fasta', '-o', partial], trim_log)
+                    validate_outputs([partial])
+                    original_records = dict(fasta(alignment))
+                    trimmed_records = list(fasta(partial))
+                    if len(trimmed_records) != len(original_records) or {h for h, _ in trimmed_records} != set(original_records):
+                        raise ValueError('ClipKIT changed sequence headers or the sequence set')
+                    lengths = {len(seq) for _, seq in trimmed_records}
+                    if len(lengths) != 1 or 0 in lengths or next(iter(lengths)) > len(next(iter(original_records.values()))):
+                        raise ValueError('ClipKIT produced an empty or invalid alignment')
+                    partial.replace(pruned)
+                    trim_marker.write_text(json.dumps(trim_settings, indent=2)+'\n')
+                finally:
+                    partial.unlink(missing_ok=True)
+        # Both alignment branches feed the same trimmed nucleotide phylogeny and figure stages.
         bootstrap_flag = '-b' if args.bootstrap_method == 'standard' else '-B'
         with checkpoints.stage('phylogeny', [Path(str(prefix) + '.treefile')], extra=[root / 'iqtree.stdout.log'] + [Path(str(prefix)+suffix) for suffix in ('.iqtree', '.log', '.ckp.gz', '.bionj', '.mldist', '.model.gz', '.contree', '.boottrees', '.ufboot', '.splits.nex')], legacy=False) as execute:
             if execute:
-                runner.run(['iqtree', '-s', alignment, '-m', 'MFP', bootstrap_flag, '1000',
+                runner.run(['iqtree', '-s', pruned, '-m', 'MFP', bootstrap_flag, '1000',
                             '-T', args.threads, '--seed', '666', '--prefix', prefix], root / 'iqtree.stdout.log')
                 if not Path(str(prefix) + '.treefile').is_file():
                     raise ValueError('IQ-TREE did not produce the expected treefile')
@@ -757,15 +826,16 @@ def main():
     parser.add_argument('--folders', nargs='+', required=True)
     parser.add_argument('--analysis-dir', type=Path, required=True)
     parser.add_argument('--output-dir', type=Path, required=True, help='New output directory, or existing run with --resume')
+    parser.add_argument('--restart-alignment', action='store_true', help='With --resume, reuse retained sequences but rebuild alignment/tree/figure; permits changing aligner and trusted reference')
     parser.add_argument('--resume', action='store_true', help='Validate and reuse completed stages in the same output directory')
     parser.add_argument('--date', default=None, help='YYYYMMDD; defaults to today, or saved run date with --resume')
     parser.add_argument('--threads', type=int, default=8)
-    parser.add_argument('--macse-memory', default='2g', help='Maximum Java heap for MACSE (default: 2g); can be increased on resume, e.g. 32g')
+    parser.add_argument('--kcalign-reference', type=Path, help='Trusted single-sequence, in-frame coding FASTA required with --kcalign')
     parser.add_argument('--skip-translation', action='store_true', help='Skip six-frame translation and amino-acid selection; retain all consensuses (e.g. nuclear noncoding loci)')
     aligners = parser.add_mutually_exclusive_group()
-    aligners.add_argument('--macse', action='store_true', help='Use MACSE coding alignment and trimming instead of MAFFT')
-    aligners.add_argument('--mafft', dest='macse', action='store_false', help='Use MAFFT FFT-NS-2 (default)')
-    parser.set_defaults(macse=False)
+    aligners.add_argument('--kcalign', action='store_true', help='Use kc-align mixed-mode codon alignment instead of MAFFT')
+    aligners.add_argument('--mafft', dest='kcalign', action='store_false', help='Use MAFFT FFT-NS-2 (default)')
+    parser.set_defaults(kcalign=False)
     parser.add_argument('--translation-table', type=int, default=5, help='SeqKit genetic code (5: invertebrate mitochondrial)')
     parser.add_argument('--min-aa', type=int, default=200)
     parser.add_argument('--aa-length-mode', choices=['stop-free'], default='stop-free',

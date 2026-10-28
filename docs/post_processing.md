@@ -17,9 +17,9 @@ python code/postprocess_sintax.py --bold \
 ```
 
 Use a new output directory for a new analysis. Dependencies are `vsearch`, `seqkit`,
-`iqtree`, Python with Baltic >=1.0.0 and Matplotlib, and the chosen aligner: `mafft`
-(default) or `macse`. NCBI mode additionally requires Entrez Direct `esearch` and
-`efetch`. MACSE is available in the `taxonomy` environment (tested with 2.07).
+`clipkit`, `iqtree`, Python with Baltic >=1.0.0 and Matplotlib, and the chosen aligner: `mafft`
+(default) or `kc-align`. NCBI mode additionally requires Entrez Direct `esearch` and
+`efetch`. kc-align is installed in the `taxonomy` environment.
 
 ## Choose the reference dataset
 
@@ -152,49 +152,97 @@ other nucleotide loci. Strand-adjusted headers are restored and recorded in
 `alignment_orientation.tsv`. All representative IDs, equal alignment lengths and
 preservation of nucleotide sequences (allowing reverse complementation) are checked.
 
-Add **`--macse`** for protein-coding alignment followed by end trimming:
+Add **`--kcalign --kcalign-reference PATH`** for reference-guided mixed-mode
+codon alignment. The reference file is required: **provide a nucleotide sequence
+you trust for this locus**, in the correct orientation and reading frame. It must
+contain exactly one ungapped A/C/G/T sequence. Its length must be divisible by
+three, and it must start at the first nucleotide of the first codon in the
+reference coding region. Remove incomplete terminal codons using the known
+reading frame; do not trim arbitrarily just to make the length divisible by three.
+The reference must have no internal stops under the chosen genetic code. Automatic validation cannot establish
+that the reference's taxonomic identity or biological annotation is correct.
 
 ```bash
-python code/postprocess_sintax.py --bold --macse \
+conda activate taxonomy
+python code/postprocess_sintax.py --bold --kcalign \
+  --kcalign-reference data/postprocessing/coi_refs/SATIP962-10_Nigrotipula_nigra.fasta \
   --taxon Tipulidae --folders barcode{01..21} \
   --analysis-dir data/sintax_analysis/mergedseq5_20261021 \
-  --output-dir data/postprocessing/Tipulidae_macse_run01 --threads 8
+  --output-dir data/postprocessing/Tipulidae_bold_kcalign_run01 \
+  --translation-table 5 --threads 6
 ```
 
-The equivalent MACSE operations are:
+The example requires a valid reference FASTA with a `>` header and a trusted,
+correctly framed coding sequence. The module does not guess its frame or silently
+trim bases. Divisibility by three and absence of internal stops alone do not prove
+the biological reading frame; the user must verify its codon boundaries.
+
+The alignment takes `combined_TAXON_nonumt_DATE.fasta`, the nucleotide consensus
+sequences retained by the >=200 consecutive amino-acid screen. With
+`--skip-translation`, it instead takes `combined_TAXON_selected_DATE.fasta`.
+The corresponding prefix is `combined_TAXON_nonumt_DATE` or
+`combined_TAXON_selected_DATE`. The mixed-mode command is equivalent to:
 
 ```bash
-macse -prog alignSequences -gc_def 5 -gap_ext 2.0 -gap_op 10 \
-  -out_AA PREFIX.aa.aln.fasta -out_NT PREFIX.macse.aln.fasta \
-  -seq selected_consensus.fasta
-macse -prog trimAlignment -min_percent_NT_at_ends 0.7 \
-  -out_NT PREFIX.macse.trimmed.aln.fasta \
-  -out_trim_info PREFIX_trimmed.csv -align PREFIX.macse.aln.fasta
+kc-align --mode mixed --reference trusted_reference.fasta \
+  --sequences combined_TAXON_nonumt_DATE.fasta \
+  --table 5 --keep --threads 6
 ```
 
-**MACSE 2.07 requires `0.7` for 70%; literal `70` fails.** `--translation-table`
-sets the genetic code for both SeqKit and MACSE (default 5); nuclear coding sequences
-normally need the appropriate nuclear code instead. MACSE is for coding sequences,
-not general noncoding nuclear alignment. Input orientation must be appropriate for
-coding alignment; this branch does not invoke MAFFT strand adjustment.
+**Installed-tool compatibility:** `--keep` is a switch, not a filename argument.
+The tool writes `pre_align.fasta` and `codon_align.fasta` in its working directory.
+Module 2 isolates those files in a temporary directory, restores tracking headers,
+and publishes `PREFIX.pre_align.aa.fasta` and `PREFIX.aln.fasta`. The installed
+CLI omits the threads argument when calling mixed mode; `code/kcalign_cli.py`
+forwards it correctly to the installed library without changing the conda package.
+The local parallel adapter also fixes an installed rejection-handling bug that
+otherwise crashes when a worker rejects a read. It runs the original serial
+per-read checks in isolated worker directories, preserves rejected IDs, and uses
+a persistent pool with at most `threads / 3` workers. Biological checks remain unchanged.
+Mixed mode requires **1 thread or a positive multiple of 3**. The module passes
+its `--threads` value unchanged and rejects incompatible values such as 4 or 8.
+Kalign and MAFFT (the library's fallback aligner) must also be available in `taxonomy`.
 
-MACSE runs with temporary safe IDs, then restores all original headers. Its raw
-AA, nucleotide and trimmed nucleotide alignments are retained. The trimmed
-nucleotides feed the next steps as `PREFIX.aln.fasta`, with frameshift symbols `!`
-replaced by `N` (missing/unknown nucleotide) for IQ-TREE compatibility. No columns
-are removed by that replacement. `.frameshifts.tsv` records replacement counts;
-`.macse_ids.tsv` maps temporary IDs to original headers. The native MACSE trim
-report is CSV as requested; other pipeline tables are tab-delimited with headers.
-See [MACSE alignment/export documentation](https://www.agap-ge2pop.org/exportalignment/).
+The trusted reference guides alignment but is not added as an extra phylogenetic
+tip. An independent input consensus with the same sequence remains eligible.
+Mixed mode can reject reads with suspected frameshifts, early stops or excessive
+ambiguity even after the earlier translation screen. `PREFIX.kcalign_selection.tsv`
+records every input ID as `aligned` or `rejected_by_kcalign`; details are in
+`PREFIX.kcalign.stdout.log` and `postprocessing.log`.
+`PREFIX.kcalign_ids.tsv` maps temporary tool IDs to original headers.
+At least four aligned consensus sequences are required for IQ-TREE. ClipKIT trims
+the published **nucleotide** `PREFIX.aln.fasta` before IQ-TREE; the retained pre-alignment AA file
+is an audit output. ClipKIT smart-gap column trimming follows alignment as described below.
 
-`PREFIX` is `combined_TAXON_nonumt_DATE` when translation selection is active,
-or `combined_TAXON_selected_DATE` with `--skip-translation`. MACSE uses the same
-selected input as MAFFT. Genetic code 5 is not used when translation is skipped
-and MAFFT is chosen.
+MAFFT remains the default for general nucleotide alignment. kc-align is for coding
+sequences; skipping the earlier SeqKit filter does not disable kc-align's own
+coding-sequence checks. `--translation-table` controls its genetic code (default 5).
+
+## ClipKIT smart-gap trimming
+
+After either MAFFT or kc-align, Module 2 automatically runs:
+
+```bash
+clipkit PREFIX.aln.fasta -m smart-gap -s nt -if fasta -of fasta \
+  -o PREFIX.clipkit.aln.fasta
+```
+
+Smart-gap determines a gap threshold and removes gappy **alignment columns**.
+It does not strip every gap independently from each sequence, and some gaps may
+remain. The original alignment is preserved. Headers and the sequence set must
+remain unchanged, and the trimmed alignment must be nonempty and rectangular.
+IQ-TREE receives `PREFIX.clipkit.aln.fasta`. `clipkit.stdout.log` records the tool's
+report; `clipkit.complete.json` records mode and input hash for resume validation.
+
+This step is active for both aligners and with or without the translation screen.
+No extra flag is required. On `--resume`, a completed untrimmed alignment can be
+reused: missing or stale ClipKIT output is regenerated, and the dependent tree and
+figure are rebuilt. Existing dependent outputs are archived. Failed partial trim
+outputs are removed; extraction, clustering and alignment need not be repeated.
 
 ## Phylogeny and figure
 
-IQ-TREE consumes the final nucleotide `.aln.fasta`, with `-m MFP -b 1000`, seed 666
+IQ-TREE consumes the trimmed nucleotide `.clipkit.aln.fasta`, with `-m MFP -b 1000`, seed 666
 and the requested thread count. `--bootstrap-method ultrafast` uses `-B 1000`.
 At least four retained consensus sequences are required. Outputs use `PREFIX`.
 
@@ -222,15 +270,19 @@ GenBank XML or the BOLD metadata TSV as the metadata input.
 
 Add `--resume` to the original command with the same output directory and settings.
 Completed retained/selected sequences restart at alignment. A successfully completed
-alignment restarts at IQ-TREE without repeating extraction or reference retrieval.
+alignment restarts at ClipKIT, or at IQ-TREE if trimming is already complete,
+without repeating extraction or reference retrieval.
 Completion hashes distinguish finished alignments from interrupted outputs. MAFFT
-partial files are removed on interruption; MACSE works in temporary files and
-publishes its completion marker only after both alignment and trimming validate.
+partial files are removed on interruption; kc-align works in temporary files and
+publishes its completion marker only after the nucleotide alignment validates.
 Incomplete outputs are rebuilt on resume, with stale files archived under
 `resume_archive/` and successful reference retrieval reused when needed.
 
 Source, input database, taxon, folders, translation choice, aligner, genetic code
-and other biological settings must match the saved run. Changed policies (including
+the trusted reference contents, and other biological settings must match the saved run. To change aligner or trusted reference while reusing validated retained sequences,
+use `--resume --restart-alignment`. This archives the previous settings and rebuilds
+alignment, tree and figure; subsequent resumes use the new settings. Other biological
+settings must still match. Changed policies (including
 98% four-field grouping) require a **new output directory**. Existing biological
 outputs are not rewritten by a code update.
 
@@ -248,33 +300,8 @@ Tests use temporary fixtures, never existing biological analyses:
 conda activate taxonomy
 PYTHONDONTWRITEBYTECODE=1 python -m unittest discover -s code -p test_postprocess_sintax.py -v
 PYTHONDONTWRITEBYTECODE=1 python -m unittest discover -s code -p test_vsearch_groups.py -v
-PYTHONDONTWRITEBYTECODE=1 python -m unittest discover -s code -p test_macse_alignment.py -v
+PYTHONDONTWRITEBYTECODE=1 python -m unittest discover -s code -p test_kcalign_alignment.py -v
+PYTHONDONTWRITEBYTECODE=1 python -m unittest discover -s code -p test_clipkit_alignment.py -v
 PYTHONDONTWRITEBYTECODE=1 python -m unittest discover -s code -p test_bold_references.py -v
 PYTHONDONTWRITEBYTECODE=1 python -m unittest discover -s code -p test_plot_phylogeny.py -v
 ```
-
-## MACSE memory and alignment failures
-
-The Conda MACSE launcher defaults to a 2 GB Java heap. Set `--macse-memory 32g`
-(or another positive size ending in `m` or `g`) for larger alignments, leaving
-sufficient RAM for the operating system and other processes. The module explicitly
-passes this limit to both MACSE commands. The default remains `2g`.
-
-Memory is a resource setting and may be increased during `--resume` in the same
-output directory. Completed extraction, clustering and translation selection are
-reused. For the Tipulidae BOLD run:
-
-```bash
-conda activate taxonomy
-python code/postprocess_sintax.py --bold --macse --macse-memory 32g \
-  --taxon Tipulidae --folders barcode{01..21} \
-  --analysis-dir data/sintax_analysis/mergedseq5_20261021 \
-  --output-dir data/postprocessing/Tipulidae_bold_macse_run01 \
-  --translation-table 5 --threads 8 --resume
-```
-
-Inspect `PREFIX.macse_align.stdout.log`, `PREFIX.macse_trim.stdout.log` and
-`postprocessing.log` after a failure. A nonzero exit alone does not establish memory
-exhaustion; inspect diagnostics before attributing a failure to memory. Resource
-changes are saved in `resume_parameters.json`. Failed-attempt logs are archived
-when retrying the alignment stage.
