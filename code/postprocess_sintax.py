@@ -21,6 +21,7 @@ import xml.etree.ElementTree as ET
 from genbank_xml import iter_genbank_records
 from sequence_headers import HEADER_SCHEMA
 from bold_references import database_files, extract_bold
+from reference_labels import reference_names, labelled_reference_id, reference_id
 from export_sintax_fasta import TAXON_SELECTION_POLICY
 
 
@@ -85,7 +86,7 @@ def genome_description(header):
                     and 'complete sequence' in title))
 
 
-def filter_references(download, output, report, kept_accessions, include_mitogenomes=False):
+def filter_references(download, output, report, kept_accessions, include_mitogenomes=False, reference_taxa=None):
     """Apply the reference title policy and record every keep/exclude decision."""
     kept = excluded = 0
     with Path(output).open('x') as writer, Path(report).open('x', newline='') as audit, Path(kept_accessions).open('x') as ids:
@@ -97,8 +98,16 @@ def filter_references(download, output, report, kept_accessions, include_mitogen
             table.writerow([header.split()[0], header, len(sequence), 'retained' if retain else 'excluded',
                             'genome_description' if genome else 'no_genome_description'])
             if retain:
+                identifier = header.split()[0]
+                if reference_taxa is not None:
+                    base = reference_id(identifier)
+                    candidates = [base] + base.split('|')
+                    accession = next((x for x in candidates if x in reference_taxa), None)
+                    if accession is None:
+                        raise ValueError(f'No taxon metadata for reference {identifier}')
+                    header = labelled_reference_id(identifier, reference_taxa[accession])
                 write_record(writer, header, sequence)
-                ids.write(header.split()[0] + '\n')
+                ids.write(identifier + '\n')
                 kept += 1
             else:
                 excluded += 1
@@ -147,12 +156,12 @@ CLUSTERING_POLICY = 'vsearch98-consensus-local-barcode-forward-reverse-taxon-ref
 
 
 def vsearch_cluster(runner, source, consensus_sequences, uc, stdout, threads):
-    """Build 98% consensuses and restore seed headers while retaining UC memberships."""
+    """Build 97% consensuses and restore seed headers while retaining UC memberships."""
     lengths = [len(sequence) for _, sequence in fasta(source)]
     if not lengths:
         raise ValueError(f'No sequences to cluster in {source}')
     raw_consensus = Path(str(consensus_sequences) + '.raw')
-    runner.run(['vsearch', '--cluster_fast', source, '--id', '0.98', '--iddef', '2',
+    runner.run(['vsearch', '--cluster_fast', source, '--id', '0.97', '--iddef', '2',
                 '--strand', 'both', '--qmask', 'none', '--minseqlength', '1',
                 '--maxseqlength', max(lengths), '--notrunclabels',
                 '--consout', raw_consensus, '--uc', uc, '--threads', threads], stdout)
@@ -500,7 +509,7 @@ def run_pipeline(args):
         if args.date is None:
             args.date = previous['date']
         for key in ('taxon', 'folders', 'analysis_dir', 'date', 'include_mitogenomes',
-                    'translation_table', 'min_aa', 'aa_length_mode', 'bootstrap_method', 'skip_translation', 'kcalign'):
+                    'translation_table', 'min_aa', 'aa_length_mode', 'skip_translation', 'kcalign'):
             if key == 'kcalign' and args.restart_alignment:
                 continue
             current = getattr(args, key)
@@ -524,6 +533,7 @@ def run_pipeline(args):
         config['bold_database_files'] = bold_snapshot
         config['executables'] = {name: shutil.which(name) for name in required}
         config['kcalign_reference_sha256'] = reference_snapshot
+        config['bootstrap_method'] = 'none'
         config['alignment_trimming'] = 'clipkit-smart-gap-nt-v1'
         config['alignment_algorithm'] = 'kc-align' if args.kcalign else 'FFT-NS-2'
         config['clustering_policy'] = CLUSTERING_POLICY
@@ -623,11 +633,20 @@ def run_pipeline(args):
                         if not accessions.read_text().strip():
                             raise ValueError('NCBI returned no COI accessions')
                         runner.run(['efetch', '-format', 'fasta'], download, search)
+            # Fetch NCBI organisms before clustering so labels survive all analyses.
+            reference_metadata = root / ('bold_reference_metadata.tsv' if args.reference_source == 'bold'
+                                         else 'reference_records.gb.xml')
+            if args.reference_source != 'bold':
+                with checkpoints.stage('reference_metadata', [reference_metadata], legacy=True) as execute:
+                    if execute:
+                        runner.run(['efetch', '-db', 'nuccore', '-format', 'gb', '-mode', 'xml'],
+                                   reference_metadata, accessions)
+            reference_taxa = reference_names(reference_metadata)
             with checkpoints.stage('reference_policy', [references, root / 'reference_filter.tsv', root / 'reference_accessions_retained.txt'], extra=(), legacy=True) as execute:
                 if execute:
                     retained_refs, excluded_refs = filter_references(
                         download, references, root / 'reference_filter.tsv',
-                        root / 'reference_accessions_retained.txt', args.include_mitogenomes)
+                        root / 'reference_accessions_retained.txt', args.include_mitogenomes, reference_taxa)
                     runner.note(f'Reference policy: include_mitogenomes={args.include_mitogenomes}; '
                                 f'retained {retained_refs}, excluded {excluded_refs} downloaded records')
             length_filtered = root / f'{reference_prefix}_{stem}.length500-2000.fasta'
@@ -777,26 +796,43 @@ def run_pipeline(args):
                 finally:
                     partial.unlink(missing_ok=True)
         # Both alignment branches feed the same trimmed nucleotide phylogeny and figure stages.
-        bootstrap_flag = '-b' if args.bootstrap_method == 'standard' else '-B'
-        with checkpoints.stage('phylogeny', [Path(str(prefix) + '.treefile')], extra=[root / 'iqtree.stdout.log'] + [Path(str(prefix)+suffix) for suffix in ('.iqtree', '.log', '.ckp.gz', '.bionj', '.mldist', '.model.gz', '.contree', '.boottrees', '.ufboot', '.splits.nex')], legacy=False) as execute:
+        # Bootstrap inference is disabled: retain model selection and the ML tree search.
+        # To restore 1,000 standard bootstrap replicates, use the commented command below.
+        phylogeny_marker = root / 'phylogeny.complete.json'
+        phylogeny_settings = {'bootstrap': 'none', 'model': 'MFP', 'seed': 666,
+                              'input_sha256': file_digest(pruned)}
+        if phylogeny_marker.exists():
+            try:
+                if json.loads(phylogeny_marker.read_text()) != phylogeny_settings:
+                    checkpoints.dirty = True
+            except (OSError, ValueError):
+                checkpoints.dirty = True
+        with checkpoints.stage('phylogeny', [Path(str(prefix) + '.treefile'), phylogeny_marker], extra=[root / 'iqtree.stdout.log'] + [Path(str(prefix)+suffix) for suffix in ('.iqtree', '.log', '.ckp.gz', '.bionj', '.mldist', '.model.gz', '.contree', '.boottrees', '.ufboot', '.splits.nex')], legacy=False) as execute:
             if execute:
-                runner.run(['iqtree', '-s', pruned, '-m', 'MFP', bootstrap_flag, '1000',
-                            '-T', args.threads, '--seed', '666', '--prefix', prefix], root / 'iqtree.stdout.log')
+                # runner.run(['iqtree', '-s', pruned, '-m', 'MFP', '-b', '1000',
+                #             '-T', args.threads, '--seed', '666', '--prefix', prefix], root / 'iqtree.stdout.log')
+                runner.run(['iqtree', '-s', pruned, '-m', 'MFP',
+                            # '-T', args.threads, '--seed', '666', '--prefix', prefix], root / 'iqtree.stdout.log') # passing threads to all
+                            '-T', 'AUTO', '--seed', '666', '--prefix', prefix], root / 'iqtree.stdout.log') # auto threads for short alignments
                 if not Path(str(prefix) + '.treefile').is_file():
                     raise ValueError('IQ-TREE did not produce the expected treefile')
+                phylogeny_marker.write_text(json.dumps(phylogeny_settings, indent=2)+'\n')
         if args.reference_source == 'bold':
             reference_genbank = root / 'bold_reference_metadata.tsv'
             validate_outputs([reference_genbank])
         else:
             reference_genbank = root / 'reference_records.gb.xml'
-            # Metadata is only needed for plotting, never to resume alignment or IQ-TREE.
-            metadata_checkpoints = Checkpoints(runner, resume)
-            with metadata_checkpoints.stage('reference_metadata', [reference_genbank], legacy=True) as execute:
-                if execute:
-                    runner.run(['efetch', '-db', 'nuccore', '-format', 'gb', '-mode', 'xml'],
-                               reference_genbank, root / 'reference_accessions.txt')
-            checkpoints.records['reference_metadata'] = metadata_checkpoints.records['reference_metadata']
-        with checkpoints.stage('figure', [Path(str(prefix) + '.figure' + suffix) for suffix in ('.pdf', '.svg', '.midpoint.nwk', '.tips.tsv', '.plot.json')], extra=[root / 'tree_figure.stdout.log'], legacy=False) as execute:
+            # Resume from an alignment without fetching metadata again when it exists.
+            if reference_genbank.is_file():
+                validate_outputs([reference_genbank])
+            else:
+                metadata_checkpoints = Checkpoints(runner, resume)
+                with metadata_checkpoints.stage('reference_metadata', [reference_genbank], legacy=True) as execute:
+                    if execute:
+                        runner.run(['efetch', '-db', 'nuccore', '-format', 'gb', '-mode', 'xml'],
+                                   reference_genbank, root / 'reference_accessions.txt')
+                checkpoints.records['reference_metadata'] = metadata_checkpoints.records['reference_metadata']
+        with checkpoints.stage('figure', [Path(str(prefix) + '.figure' + suffix) for suffix in ('.pdf', '.svg', '.midpoint.nwk', '.tips.tsv', '.plot.json', '.png')], extra=[root / 'tree_figure.stdout.log'], legacy=False) as execute:
             if execute:
                 runner.run([sys.executable, Path(__file__).with_name('plot_phylogeny.py'),
                             '--tree', str(prefix) + '.treefile', '--analysis-dir', args.analysis_dir,
@@ -840,7 +876,6 @@ def main():
     parser.add_argument('--min-aa', type=int, default=200)
     parser.add_argument('--aa-length-mode', choices=['stop-free'], default='stop-free',
                         help='Require consecutive amino acids without stops or unknown residues')
-    parser.add_argument('--bootstrap-method', choices=['standard', 'ultrafast'], default='standard')
     args = parser.parse_args()
     if args.bold_db is not None and args.reference_source != 'bold':
         parser.error('--bold-db requires --bold')

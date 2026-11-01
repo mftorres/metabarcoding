@@ -75,6 +75,12 @@ All reads in one tuple are submitted together to one VSEARCH invocation. Differe
 tuples never share a cluster. Contamination flag and read ID do not create extra
 groups. `none` and `unknown` remain distinct primer values.
 
+`none` means a primer-tracking record exists for the read's raw parent, but no
+primer was detected in that direction. `unknown` means no matching primer-tracking
+record was found, so the primer assignment is unavailable. A missing record is
+not evidence that the primer was absent. These meanings apply separately to the
+forward and reverse primer fields.
+
 External references are clustered globally, separately from local reads. Keeping
 these datasets separate prevents local reads and reference records from being
 mixed in the same cluster. Both use:
@@ -152,6 +158,8 @@ other nucleotide loci. Strand-adjusted headers are restored and recorded in
 `alignment_orientation.tsv`. All representative IDs, equal alignment lengths and
 preservation of nucleotide sequences (allowing reverse complementation) are checked.
 
+**Important:** For now, the pipeline lacks a step for primer sequence removal. Before tree estimation, the user **must** remove the primer sequences from the alignment. In a next version of the pipeline, I will add the primer sequences as "adapter/barcode" to `fastplong` to remove them at early stages. I doubt (but will test) taxonomic classification will be severely affected by the presence of primer sequences in the clean reads (2026-Oct-29).
+
 Add **`--kcalign --kcalign-reference PATH`** for reference-guided mixed-mode
 codon alignment. The reference file is required: **provide a nucleotide sequence
 you trust for this locus**, in the correct orientation and reading frame. It must
@@ -161,6 +169,8 @@ reference coding region. Remove incomplete terminal codons using the known
 reading frame; do not trim arbitrarily just to make the length divisible by three.
 The reference must have no internal stops under the chosen genetic code. Automatic validation cannot establish
 that the reference's taxonomic identity or biological annotation is correct.
+
+**Important:** The reference must not contain COI primer sequences. kcalign looks for the reference pattern in each sequence and if the reference does not contain the primer sequences, primer sequences remaining in the clean reads are effectively removed before alignment and tree estimation.
 
 ```bash
 conda activate taxonomy
@@ -242,8 +252,25 @@ outputs are removed; extraction, clustering and alignment need not be repeated.
 
 ## Phylogeny and figure
 
-IQ-TREE consumes the trimmed nucleotide `.clipkit.aln.fasta`, with `-m MFP -b 1000`, seed 666
-and the requested thread count. `--bootstrap-method ultrafast` uses `-B 1000`.
+For new runs, reference selection appends the source taxon label to the sequence
+ID before length filtering, clustering and alignment: for example,
+`BOLD_000000123__taxon__Tipula_maxima` or `AB123456.1__taxon__Tipula_maxima`.
+Whitespace becomes underscores; punctuation unsafe for alignment/Newick tools
+also becomes underscores. BOLD uses the deepest available taxon in its metadata
+(which may be a genus or higher rank when species is unavailable); NCBI uses the
+GenBank organism name. Original descriptions remain in the source files and audit
+metadata, while selected reference headers contain only the annotated ID.
+These names carry through both untrimmed and trimmed alignments into IQ-TREE.
+Plotting accepts both original reference IDs and IDs with the `__taxon__` suffix,
+using the original ID to look up source metadata. Local read headers are unchanged.
+Resuming an older run reuses its existing sequence headers; this change does not
+automatically rename completed runs.
+
+IQ-TREE consumes the trimmed nucleotide `.clipkit.aln.fasta`, with `-m MFP`, seed 666
+and the requested thread count. Bootstrap replicates are disabled; the pipeline
+now estimates a maximum-likelihood tree without bootstrap branch support. The
+1,000-replicate command remains commented in the source for reference. The
+`--bootstrap-method` option is no longer accepted.
 At least four retained consensus sequences are required. Outputs use `PREFIX`.
 
 Baltic renders a midpoint-rooted divergence tree with branch lengths in
@@ -253,13 +280,19 @@ no support and `.contree` does, the supported consensus topology is used. Suppor
 are preserved during rerooting; none are invented. Midpoint rooting does not
 establish the biological root.
 
-Tip labels are trusted taxon + read ID + folder for local cluster seeds; GenBank
+Tip labels are trusted taxon + read ID + folder + forward primer for local cluster seeds; GenBank
 organism + accession.version for downloaded seeds; or available BOLD taxon + process
 ID for BOLD seeds. GenBank metadata is fetched once and cached as
 `reference_records.gb.xml`; concatenated Entrez XML batches are parsed locally.
 BOLD metadata requires no network.
 
-Figure outputs are `PREFIX.figure.pdf`, `.svg`, `.midpoint.nwk`, `.tips.tsv` and
+For the forward-primer field in local tip labels, `none` means tracking was
+available but no forward primer was detected; `unknown` means the raw parent had
+no matching tracking record. The label comes from the local cluster seed's
+exported primer annotation. These values remain separate during clustering, as
+described above; BOLD and GenBank tip labels do not include this field.
+
+Figure outputs are `PREFIX.figure.pdf`, `.png`, `.svg`, `.midpoint.nwk`, `.tips.tsv` and
 `.plot.json`. The tips table columns are `tree_tip_id`, `source`, `taxon_or_organism`,
 `accession`, `readid`, `source_folder`, `display_label`; BOLD process IDs occupy
 `accession` for BOLD rows. To plot independently use `code/plot_phylogeny.py --tree
@@ -305,3 +338,11 @@ PYTHONDONTWRITEBYTECODE=1 python -m unittest discover -s code -p test_clipkit_al
 PYTHONDONTWRITEBYTECODE=1 python -m unittest discover -s code -p test_bold_references.py -v
 PYTHONDONTWRITEBYTECODE=1 python -m unittest discover -s code -p test_plot_phylogeny.py -v
 ```
+
+On the first `--resume` after disabling bootstrap, completed alignment and ClipKIT
+outputs are reused. The tree and figure are regenerated without bootstrap;
+previous IQ-TREE outputs, including its checkpoint, are archived. A new
+`phylogeny.complete.json` records the no-bootstrap setting and alignment hash.
+Stop any still-running job for the same output folder before resuming; editing
+this script does not stop an already-running IQ-TREE process. No branch-support
+values are invented for the new unsupported tree.

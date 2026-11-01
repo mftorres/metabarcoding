@@ -14,7 +14,7 @@ The pipeline has two modules:
    [Module 1 documentation](docs/pipeline_from_fastplong_onwards.md).
 2. **Phylogenetics**: `code/postprocess_sintax.py` exports a selected taxon,
    selects NCBI COI references (`--download`) or taxon-matched local BOLD records (`--bold`), filters references to 500–2,000 nt and builds cluster consensus sequences at 98% identity with VSEARCH (local barcode/primer/taxon groups; references globally), optionally filters six-frame translations,
-   aligns with MAFFT FFT-NS-2 or kc-align (`--kcalign --kcalign-reference PATH`), trims alignment columns with ClipKIT smart-gap, estimates an IQ-TREE phylogeny, and renders a midpoint-rooted
+   aligns with MAFFT FFT-NS-2 or kc-align (`--kcalign --kcalign-reference PATH`), trims alignment columns with ClipKIT smart-gap, estimates an IQ-TREE maximum-likelihood phylogeny without bootstrap replicates, and renders a midpoint-rooted
    Baltic divergence-tree figure with supports, trusted-taxon/ID tip labels and scale bar. Mitogenomes are excluded
    by default; `--include-mitogenomes` allows them. See the
    [Module 2 documentation](docs/post_processing.md).

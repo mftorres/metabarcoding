@@ -105,6 +105,7 @@ run_barcode() {
   } > "$log"
   # seems like seqkit locate doesnt have an option to limit the numnber of hits per subject-query or per query
   # relaxed, large max-mismatches values will produce huge files that need to be loaded by chuncks for the notebook
+  # also, seqkit deals with positive and negative strand search by default, e.g. reverse complements of the primers+tags
   seqkit locate \
     --max-mismatch "$PRIMER_UMI_MAX_MISMATCH" \
     --threads "$PRIMER_UMI_SEQKIT_THREADS" \

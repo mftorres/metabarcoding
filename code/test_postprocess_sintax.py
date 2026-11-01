@@ -96,13 +96,13 @@ class Tests(unittest.TestCase):
                 if tool=='esearch': Path(output).write_text('<ENTREZ_DIRECT/>')
                 elif tool=='efetch':
                     fmt=c[c.index('-format')+1]
-                    Path(output).write_text({'xml':'<TaxaSet><Taxon><TaxId>7147</TaxId><ScientificName>Tipulidae</ScientificName></Taxon></TaxaSet>','gb':'<GBSet/>','acc':'REF.1\n','fasta':'>REF.1 description\n'+'ATG'*200+'\n'}[fmt])
+                    Path(output).write_text({'xml':'<TaxaSet><Taxon><TaxId>7147</TaxId><ScientificName>Tipulidae</ScientificName></Taxon></TaxaSet>','gb':'<GBSet><GBSeq><GBSeq_accession-version>REF.1</GBSeq_accession-version><GBSeq_organism>Tipula maxima</GBSeq_organism></GBSeq></GBSet>','acc':'REF.1\n','fasta':'>REF.1 description\n'+'ATG'*200+'\n'}[fmt])
                 elif len(c)>1 and c[1].endswith('export_sintax_taxa.py'):
                     Path(c[c.index('--output')+1]).write_text(''.join(f'>{folder}-bc1087-none-Tipula-nocontamination-read{i}\n'+'ATG'*200+'\n' for i,folder in enumerate(['barcode01','barcode01','barcode02'])))
                     Path(output).write_text('Exported 3 reads\n')
                 elif len(c)>1 and c[1].endswith('plot_phylogeny.py'):
                     Path(output).write_text('Mock figure invocation\n')
-                    for suffix in ('.pdf','.svg','.midpoint.nwk','.tips.tsv','.plot.json'):
+                    for suffix in ('.pdf','.svg','.midpoint.nwk','.tips.tsv','.plot.json','.png'):
                         Path(c[c.index('--output-prefix')+1]+suffix).write_text('mock figure output\n')
                 elif tool=='vsearch':
                     Path(c[c.index('--consout')+1]).write_text(''.join(f'>centroid={h};seqs=1\n{seq}\n' for h,seq in m.fasta(c[c.index('--cluster_fast')+1]))); Path(output).touch()
@@ -231,7 +231,8 @@ class Tests(unittest.TestCase):
             self.assertEqual(len(list(m.fasta(next((p/'run').glob('combined_*.fasta'))))),4)
             c=next(c for c in commands if c[0]=='iqtree')
             self.assertTrue(c[c.index('-s')+1].endswith('.clipkit.aln.fasta'))
-            self.assertEqual(c[c.index('-b')+1],'1000')
+            self.assertFalse(any(flag in c for flag in ('-b','-B','--boot','--ufboot')))
+            self.assertEqual(json.loads((p/'run/phylogeny.complete.json').read_text())['bootstrap'],'none')
             self.assertEqual(c[c.index('-m')+1],'MFP')
             self.assertFalse(any(h.startswith('_R_') for h,s in m.fasta(next((p/'run').glob('*.aln.fasta')))))
 
