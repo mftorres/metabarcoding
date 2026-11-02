@@ -113,18 +113,6 @@ TSV and `--merged-dir PATH` changes the raw/clean dataset root. Normally the sav
 analysis paths should be used. The script checks the saved SINTAX size/mtime
 against `input_manifest.tsv` and rejects changed classifier outputs.
 
-## Tests
-
-```bash
-conda activate taxonomy
-PYTHONDONTWRITEBYTECODE=1 python -m unittest discover -s code -p test_export_primer_fasta.py -v
-```
-
-These use real SeqKit with temporary raw/clean/SINTAX fixtures. They verify parent
-ID and adapter-split tracing, forward-only canonical tag selection, identical taxon
-export headers, contamination and unassigned labels, optional unclassified output,
-missing-raw-ID failures, and refusal to overwrite outputs. Existing data are untouched.
-
 ## Consistent selection and annotation terminology
 
 This exporter selects reads by their raw parent's **best forward-primer hit**.

@@ -80,3 +80,9 @@ see the [source options and examples](docs/post_processing.md#choose-the-referen
 For nuclear/noncoding loci, use default MAFFT with `--skip-translation` and
 an appropriate marker-specific database. The NCBI download option still targets
 COI. See [alignment and translation options](docs/post_processing.md).
+
+The `code/` folder contains the two modules, their runtime helpers and source
+notebooks. Standalone sequence extraction remains available through
+`code/export_sintax_fasta.py` (taxon) and `code/export_primer_fasta.py`
+(barcode/forward primer); `code/export_sintax_taxa.py` is the taxon entry point
+used internally by Module 2. Saved executed notebooks are analysis outputs.

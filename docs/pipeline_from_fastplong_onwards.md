@@ -222,8 +222,8 @@ in the read tables but is no longer included in FASTA headers.
 
 Whitespace in labels becomes underscores; embedded dashes in folder/taxon components
 are percent-escaped. Dashes inside the final read ID are preserved. Split a header
-at most five times to recover the components. `build_phylo_read_fastas.py` forwards
-the same exporter options for compatibility. No consensus or amino-acid filtering occurs.
+at most five times to recover the components. Use `export_sintax_fasta.py` for
+standalone taxon selection; no consensus or amino-acid filtering occurs.
 
 ## Classification, only when explicitly wanted
 
@@ -241,17 +241,6 @@ contains the paths and settings. The existing classifier command uses cutoff 1;
 post-classification analysis independently uses recorded confidence >=0.8. Setting
 `SINTAX_CUTOFF=0.8` changes future classifier runs only. Nothing in the notebook
 runner invokes classification, even when barcode outputs are missing.
-
-## Validation
-
-```bash
-python code/test_read_analysis.py -v
-python code/test_sintax_migration.py -v
-```
-
-Tests use temporary fixtures, including threshold boundaries, distinct PCR-plate
-counts, confidence medians, primer joins, missing outputs, clean-read export and
-existing-file protection.
 
 ## Export by forward-primer tag
 

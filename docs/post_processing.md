@@ -333,19 +333,7 @@ stderr and counts. `postprocessing.failed` records failure; `postprocessing.comp
 is written only after phylogeny and plotting finish. DATE defaults to the run date
 and may be specified with `--date YYYYMMDD`.
 
-## Validation
-
-Tests use temporary fixtures, never existing biological analyses:
-
-```bash
-conda activate taxonomy
-PYTHONDONTWRITEBYTECODE=1 python -m unittest discover -s code -p test_postprocess_sintax.py -v
-PYTHONDONTWRITEBYTECODE=1 python -m unittest discover -s code -p test_vsearch_groups.py -v
-PYTHONDONTWRITEBYTECODE=1 python -m unittest discover -s code -p test_kcalign_alignment.py -v
-PYTHONDONTWRITEBYTECODE=1 python -m unittest discover -s code -p test_clipkit_alignment.py -v
-PYTHONDONTWRITEBYTECODE=1 python -m unittest discover -s code -p test_bold_references.py -v
-PYTHONDONTWRITEBYTECODE=1 python -m unittest discover -s code -p test_plot_phylogeny.py -v
-```
+## Resuming runs with earlier bootstrap settings
 
 On the first `--resume` after disabling bootstrap, completed alignment and ClipKIT
 outputs are reused. The tree and figure are regenerated without bootstrap;
