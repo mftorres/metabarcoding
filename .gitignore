@@ -1,19 +1,105 @@
-*.fastq.gz
-*.fa*.gz
-*.fasta
+# Python/Jupyter runtime files
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+code/.ipynb_checkpoints/
+code/executed_notebooks/
+
+# Codex/agent local state
+.agents/
+.codex/
+
+# Logs and temporary run state
+logs/
+*.log
+*/logs/
+*/logs/*
+*.done
+tmp/
+
+# Raw and processed sequencing files
 *.fastq
+*.fq
+*.fastq.gz
+*.fq.gz
+*.gz
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.bz2
+*.xz
 *.fa
+*.fna
+*.ffn
+*.faa
+*.frn
+*.fasta
+*.fas
+*.fa.gz
+*.fasta.gz
+*.sam
+*.bam
+*.cram
+
+# Historical generated files (retain exclusions)
 *.kraken
 *.report
+*_report.html
 *.html
-*.json
+asinput*.fasta
+consensusfile.fasta
+kraken2_combined_input*
+amplicon_sorter_read_map.tsv
+
+# Generated tables and notebook outputs
+*.tsv
 *.csv
 *.txt
-.agents
-.agents/*
-.codex
-.codex/*
-.gitignore
-*.log
-*/logs/*
+*.json
+*.parquet
+*.feather
+*.xlsx
+*.xls
+*.png
+*.jpg
+*.jpeg
+*.svg
+*.pdf
 
+# Generated data files. Keep README files inside data folders trackable.
+data/**/*
+!data/**/
+!data/**/README.md
+
+# Testing folders and other internal affairs
+saproxDNA/*
+saproxDNA
+testv2
+testv2/*
+other_resources/*
+other_resources/
+tipulidae_raw_data_mergedseq5
+tipulidae_raw_data_mergedseq5/*
+data/mergedseq5/*
+data/mergedseq6/*
+data/sintax/*
+data/sintax_analysis/*
+data/bold/*
+data/postprocessing/*
+
+# other resources in github for which I am not an author and have no coauthorship rights
+other_resources/paper-bioinformatic-methods/
+other_resources/paper-bioinformatic-methods/*
+
+# Explicit exceptions must follow all matching ignore rules.
+# Git must also be allowed to traverse the parents of an included file.
+!/saproxDNA/
+!/saproxDNA/species_info_seq5/
+/saproxDNA/species_info_seq5/*
+!/saproxDNA/species_info_seq5/PCR_to_species_20260602.txt
+!/saproxDNA/species_info_seq5/seq5_pcr_to_pools.tsv
+!/data/ONT_24_native_barcode_sequences.fasta
+!/data/PCRsaproxdna_primertags_seq5_2026_1.fasta
+!/data/saproxdna_primertags_seq5_2026_1.fasta
+!/config/taxonomy-environment.yml
