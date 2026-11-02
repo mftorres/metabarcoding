@@ -22,6 +22,7 @@ from genbank_xml import iter_genbank_records
 from sequence_headers import HEADER_SCHEMA
 from bold_references import database_files, extract_bold
 from reference_labels import reference_names, labelled_reference_id, reference_id
+from sample_folders import analysis_folders
 from export_sintax_fasta import TAXON_SELECTION_POLICY
 
 
@@ -486,7 +487,11 @@ def run_pipeline(args):
         raise ValueError('Baltic >=1.0.0 is required; conda install -n taxonomy -c conda-forge -c bioconda baltic')
     if not (args.analysis_dir / 'analysis.complete').is_file():
         raise ValueError('Provide a completed SINTAX analysis directory')
-    folders = [Path(folder).name for folder in args.folders]
+    dataset = getattr(args, 'dataset', None)
+    if dataset is not None and args.folders:
+        raise ValueError('Use a dataset argument or --folders, not both')
+    args.folders = analysis_folders([str(dataset)] if dataset else args.folders, args.analysis_dir)
+    folders = list(args.folders)
     if len(folders) != len(set(folders)):
         raise ValueError('Duplicate folder names')
     resume = getattr(args, 'resume', False)
@@ -859,7 +864,8 @@ def main():
     parser.add_argument('--include-mitogenomes', action='store_true',
                         help='Include matching whole mitogenome records (excluded by default)')
     parser.add_argument('--taxon', required=True, help='NCBI taxid or exact taxon name')
-    parser.add_argument('--folders', nargs='+', required=True)
+    parser.add_argument('dataset', nargs='?', help='Dataset parent, e.g. sequencing2; selects its completed analysis folders')
+    parser.add_argument('--folders', nargs='+', help='Sample names or dataset parent; default: all folders in the completed analysis')
     parser.add_argument('--analysis-dir', type=Path, required=True)
     parser.add_argument('--output-dir', type=Path, required=True, help='New output directory, or existing run with --resume')
     parser.add_argument('--restart-alignment', action='store_true', help='With --resume, reuse retained sequences but rebuild alignment/tree/figure; permits changing aligner and trusted reference')

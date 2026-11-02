@@ -11,6 +11,7 @@ import re
 import tempfile
 from sequence_headers import header_component, export_header, primer_annotations
 from sintax_parser import RANKS, parse_output, taxon_parts
+from sample_folders import analysis_folders
 
 TAXON_SELECTION_POLICY = "queried-rank-confidence-ge-0.80-v2"
 
@@ -48,7 +49,7 @@ def export_reads(*,taxa,folders,analysis_dir,output,merged_dir=None,sintax_root=
                  if r['contamination']=='contamination'}
     with (analysis_dir/'input_manifest.tsv').open() as handle:
         manifest={r['source_folder']:r for r in csv.DictReader(handle,delimiter='\t')}
-    names=[Path(f).name for f in folders]
+    names=analysis_folders(folders, analysis_dir)
     if len(set(names))!=len(names): raise ValueError('Duplicate folder names')
     targets={normalize(t) for t in taxa}
     seen_taxa=set()

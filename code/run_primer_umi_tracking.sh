@@ -20,13 +20,13 @@ Usage:
   bash code/run_primer_umi_tracking.sh FOLDER [FOLDER ...]
 
 Each FOLDER can be either:
-  - a parent folder containing barcode* folders, for example data/mergedseq5
-  - a single barcode folder, for example data/mergedseq5/barcode01
+  - a parent folder containing barcodeNN and unclassified folders, for example data/sequencing2
+  - a single barcodeNN or unclassified folder, for example data/sequencing2/barcode01
 
 Examples:
-  bash code/run_primer_umi_tracking.sh data/mergedseq5
-  MAX_JOBS=4 bash code/run_primer_umi_tracking.sh data/mergedseq5 data/mergedseq6
-  bash code/run_primer_umi_tracking.sh data/mergedseq5/barcode01
+  bash code/run_primer_umi_tracking.sh data/sequencing2
+  MAX_JOBS=4 bash code/run_primer_umi_tracking.sh data/sequencing2 data/sequencing3
+  bash code/run_primer_umi_tracking.sh data/sequencing2/barcode01
 
 Useful variables:
   PRIMER_UMI_FASTA=data/saproxdna_primertags_seq5_2026_1.fasta
@@ -42,21 +42,6 @@ require_command() {
   if ! command -v "$command_name" >/dev/null 2>&1; then
     echo "Missing command: $command_name" >&2
     exit 1
-  fi
-}
-
-discover_barcode_folders() {
-  local input="$1"
-
-  [[ -d "$input" ]] || {
-    echo "Missing folder: $input" >&2
-    return 1
-  }
-
-  if [[ "$(basename "$input")" == barcode* ]]; then
-    printf '%s\n' "$input"
-  else
-    find "$input" -mindepth 1 -maxdepth 1 -type d -name 'barcode*' | sort -V
   fi
 }
 
@@ -76,7 +61,7 @@ run_barcode() {
   log="$barcode_dir/${barcode_name}_primer_hits.log"
 
   echo "[$barcode_dir] listing raw FASTQ files"
-  find "$barcode_dir" -maxdepth 1 -type f -name '*fastq.gz' | sort -V > "$raw_read_list"
+  find "$barcode_dir" -maxdepth 1 -type f \( -name '*.fastq.gz' -o -name '*.fq.gz' \) | sort -V > "$raw_read_list"
   file_count="$(wc -l < "$raw_read_list")"
 
   if [[ "$file_count" -eq 0 ]]; then
@@ -125,18 +110,13 @@ run_barcode() {
   echo "[$barcode_dir] wrote $output"
 }
 
-wait_for_slot() {
-  while [[ "$(jobs -rp | wc -l)" -ge "$MAX_JOBS" ]]; do
-    sleep 2
-  done
-}
-
 main() {
   if [[ "$#" -lt 1 ]]; then
     usage
     exit 2
   fi
 
+  [[ "$MAX_JOBS" =~ ^[1-9][0-9]*$ ]] || { echo "MAX_JOBS must be positive" >&2; exit 2; }
   require_command seqkit
 
   [[ -f "$PRIMER_UMI_FASTA" ]] || {
@@ -144,32 +124,22 @@ main() {
     exit 1
   }
 
-  local input
-  local barcode_dir
+  local barcode_dir discovered
+  discovered="$(python3 "$(dirname "${BASH_SOURCE[0]}")/sample_folders.py" --require-raw "$@")" || exit 1
   local barcode_folders=()
+  mapfile -t barcode_folders <<< "$discovered"
 
-  for input in "$@"; do
-    while IFS= read -r barcode_dir; do
-      barcode_folders+=("$barcode_dir")
-    done < <(discover_barcode_folders "$input")
-  done
-
-  if [[ "${#barcode_folders[@]}" -eq 0 ]]; then
-    echo "No barcode* folders found" >&2
-    exit 1
-  fi
-
-  local failed=0
+  local failed=0 pid
+  local pids=()
   for barcode_dir in "${barcode_folders[@]}"; do
-    wait_for_slot
     run_barcode "$barcode_dir" &
-  done
-
-  for job in $(jobs -rp); do
-    if ! wait "$job"; then
-      failed=1
+    pids+=("$!")
+    if [[ "${#pids[@]}" -ge "$MAX_JOBS" ]]; then
+      for pid in "${pids[@]}"; do wait "$pid" || failed=1; done
+      pids=()
     fi
   done
+  for pid in "${pids[@]}"; do wait "$pid" || failed=1; done
 
   exit "$failed"
 }

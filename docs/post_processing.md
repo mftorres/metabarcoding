@@ -1,7 +1,11 @@
-# Module 2: Phylogenetics
+# Postprocessing
 
-[Module 1](pipeline_from_fastplong_onwards.md) cleans reads, assigns taxonomy with
-SINTAX and generates read-level analyses. Module 2 exports selected cleaned reads,
+For Linux Miniconda installation, accessing Windows folders from Ubuntu, and
+cloning the [GitHub repository](https://github.com/mftorres/metabarcoding), follow
+[Ubuntu/WSL setup](setup.md).
+
+[Read processing](pipeline_from_fastplong_onwards.md) cleans reads, assigns taxonomy with
+SINTAX and generates read-level analyses. Postprocessing exports selected cleaned reads,
 obtains external references, builds cluster consensus sequences, optionally screens
 translations, aligns nucleotides, estimates an IQ-TREE phylogeny and draws a Baltic
 midpoint-rooted divergence tree. Run from the repository root in `taxonomy`.
@@ -10,11 +14,25 @@ midpoint-rooted divergence tree. Run from the repository root in `taxonomy`.
 
 ```bash
 conda activate taxonomy
-python code/postprocess_sintax.py --bold \
-  --taxon Tipulidae --folders barcode{01..21} \
-  --analysis-dir data/sintax_analysis/mergedseq5_20261021 \
+python code/postprocess_sintax.py sequencing2 --bold \
+  --taxon Tipulidae \
+  --analysis-dir data/read_processing/sequencing2_run01/analysis \
   --output-dir data/postprocessing/Tipulidae_bold_run02 --threads 8
 ```
+
+Pass the parent once (`sequencing2`, `data/sequencing2`, or a full path): the script
+selects its folders from the completed Read processing analysis, including `unclassified`
+when that folder was analysed. `--folders barcode01 barcode02` remains available
+for a subset, and `--folders data/sequencing2` also accepts a parent. Omit both to
+select all analysed folders. A supplied parent must match the dataset saved in
+the analysis metadata. Do not combine a positional parent with `--folders`.
+
+For the [complete parent-folder workflow and pass/fail merge commands](pipeline_from_fastplong_onwards.md#prepare-passfail-folders-before-analysis),
+run `python code/read_processing.py sequencing2 --output-dir data/read_processing/sequencing2_run01`
+first. The launcher prepares the `analysis/` directory used above. Unclassified
+reads have an unassigned plate and never count as an extra PCR plate in Read processing;
+they remain traceable as local tips in Postprocessing. Other taxon, source and aligner
+options are still required as appropriate.
 
 Use a new output directory for a new analysis. Dependencies are `vsearch`, `seqkit`,
 `clipkit`, `iqtree`, Python with Baltic >=1.0.0 and Matplotlib, and the chosen aligner: `mafft`
@@ -26,8 +44,8 @@ Use a new output directory for a new analysis. Dependencies are `vsearch`, `seqk
 For local BOLD references, follow the [database download and preparation guide](../data/bold/README.md).
 It links to BOLD's Data Packages page, explains where to put the gzip FASTA
 (`data/bold/`), and shows `seqkit seq --min-len 1` to remove records without
-sequences. BOLD stays compressed; Module 2 reads gzip directly. Keep original
-unfiltered downloads outside the scanned database folder. Module 1's independent
+sequences. BOLD stays compressed; Postprocessing reads gzip directly. Keep original
+unfiltered downloads outside the scanned database folder. Read processing's independent
 [MIDORI SINTAX setup](../data/sintax/README.md) describes its download and optional
 gzip decompression into `data/sintax/`.
 
@@ -209,7 +227,7 @@ kc-align --mode mixed --reference trusted_reference.fasta \
 
 **Installed-tool compatibility:** `--keep` is a switch, not a filename argument.
 The tool writes `pre_align.fasta` and `codon_align.fasta` in its working directory.
-Module 2 isolates those files in a temporary directory, restores tracking headers,
+Postprocessing isolates those files in a temporary directory, restores tracking headers,
 and publishes `PREFIX.pre_align.aa.fasta` and `PREFIX.aln.fasta`. The installed
 CLI omits the threads argument when calling mixed mode; `code/kcalign_cli.py`
 forwards it correctly to the installed library without changing the conda package.
@@ -238,7 +256,7 @@ coding-sequence checks. `--translation-table` controls its genetic code (default
 
 ## ClipKIT smart-gap trimming
 
-After either MAFFT or kc-align, Module 2 automatically runs:
+After either MAFFT or kc-align, Postprocessing automatically runs:
 
 ```bash
 clipkit PREFIX.aln.fasta -m smart-gap -s nt -if fasta -of fasta \

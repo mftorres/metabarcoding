@@ -1,46 +1,120 @@
-# Module 1: Cleaning and taxonomic assignment
+# Read processing
 
-The original pipeline is the cleaning and taxonomic-assignment module:
+For Linux Miniconda installation, accessing Windows folders from Ubuntu, and
+cloning the [GitHub repository](https://github.com/mftorres/metabarcoding), follow
+[Ubuntu/WSL setup](setup.md).
+
+Read processing cleans reads and assigns taxonomy:
 `code/run_metabarcoding_pipeline.sh` cleans reads and runs SINTAX, and the notebook
 runner below generates the read-level analyses. The separate
-[Module 2: phylogenetics](post_processing.md) uses its cleaned reads and completed
+[Postprocessing: phylogenetics](post_processing.md) uses its cleaned reads and completed
 analysis to retrieve references, cluster with VSEARCH at 98% (local barcode/primer/taxon
 groups separately; references globally), filter translations, align and build trees.
-Module 2 also generates Baltic midpoint-rooted divergence-tree figures with
+Postprocessing also generates Baltic midpoint-rooted divergence-tree figures with
 branch supports, organism/accession or lowest-trusted-taxon/readID labels, and a scale bar.
-Mitogenomes are excluded from Module 2 references by default; its
+Mitogenomes are excluded from Postprocessing references by default; its
 `--include-mitogenomes` option allows them.
 
 Before classification, follow the [MIDORI database setup](../data/sintax/README.md)
 to download the SINTAX/UNIQ/NUC_SP/CO1 reference into `data/sintax/`. The default
-release is GB272. A matching `.fasta.gz` can be supplied: Module 1 decompresses it
+release is GB272. A matching `.fasta.gz` can be supplied: Read processing decompresses it
 and builds its `.udb` when needed. Outer ZIP/TAR archives must be unpacked first.
-For Module 2's local reference mode, follow the [BOLD setup](../data/bold/README.md):
+For Postprocessing's local reference mode, follow the [BOLD setup](../data/bold/README.md):
 place a gzip FASTA in `data/bold/`, retain compression, and remove empty records
 with `seqkit seq --min-len 1` before use.
 
 Activate `conda activate taxonomy` and run commands from the project root.
 The current analysis uses cleaned reads at
-`data/mergedseq5/<folder>/filtered/asinput.fastq.gz`, existing VSEARCH SINTAX results,
+`data/sequencing2/<folder>/filtered/asinput.fastq.gz`, existing VSEARCH SINTAX results,
 and existing primer-tracking best hits. No consensus generation, nucleotide-to-amino-acid
-translation, or noNUMT filtering is performed in Module 1. Those translation and
+translation, or noNUMT filtering is performed in Read processing. Those translation and
 filtering steps belong to the optional phylogenetics module.
+
+## Prepare pass/fail folders before analysis
+
+If reads are split within each sample, for example
+`data/sequencing2/barcode01/pass/*.fastq.gz` and
+`data/sequencing2/barcode01/fail/*.fastq.gz`, merge them before running Read processing.
+The same applies to `unclassified/pass/` and `unclassified/fail/`.
+From the project root:
+
+```bash
+conda activate taxonomy
+python code/merge_pass_fail.py sequencing2 --dry-run
+python code/merge_pass_fail.py sequencing2
+```
+
+The helper writes one `pass_fail_merged.fastq.gz` directly inside each sample
+folder. It concatenates gzip streams, keeps both source folders unchanged, and
+records a source manifest. It also accepts `passed`/`failed`, `fastq_pass`/`fastq_fail`,
+and the alternative layout `sequencing2/pass/barcode01/` (or `fastq_pass/barcode01/`).
+Only gzip FASTQ (`.fastq.gz` or `.fq.gz`) is supported. Unchanged merges are reused;
+existing other direct raw FASTQs or prior sample analyses cause an error to avoid
+duplicating reads or reusing stale results. Use a fresh dataset when inputs change.
+The merge deliberately includes failed reads; Read processing applies its own quality
+filtering afterwards. Flat sample folders already containing raw FASTQs need no merge.
+
+## Run both modules using the dataset parent
+
+Dataset names are arbitrary: `sequencing2`, `my_experiment`, and `mergedseq5`
+are all valid. A bare `sequencing2` resolves to `data/sequencing2`; full paths and paths containing
+spaces are accepted (quote paths with spaces). The parent contains immediate
+`barcodeNN` and optional `unclassified` folders. Non-sample folders and empty
+sample folders are skipped. A `pass`/`fail` layout must be merged first.
+
+```bash
+# Preview the entire Read processing workflow without running analyses.
+python code/read_processing.py sequencing2 --dry-run
+
+# Cleaning, SINTAX, raw-parent primer searches, best-hit parsing and all reports.
+python code/read_processing.py sequencing2 \
+  --output-dir data/read_processing/sequencing2_run01
+
+# Postprocessing: choose a taxon and use the completed Read processing analysis.
+python code/postprocess_sintax.py sequencing2 --bold --taxon Tipulidae \
+  --analysis-dir data/read_processing/sequencing2_run01/analysis \
+  --output-dir data/postprocessing/Tipulidae_run01 --threads 8
+```
+
+The Read processing launcher defaults to a new timestamped directory under
+`data/read_processing/` when `--output-dir` is omitted. Its `analysis/` subfolder is
+Postprocessing's `--analysis-dir`; `primertrack/` and executed notebooks belong to the
+same run directory. SINTAX outputs use `data/sintax/DATASET/` by default, so datasets with the same
+barcode names do not share classification results. Use `--sintax-root PATH` for
+a custom location; explicitly pass `--sintax-root data/sintax` to reuse legacy
+classification outputs. Supply the correct `--plate-map` for your experiment.
+Raw reads, adapters/primers, the plate map and databases must be ready first.
+An interrupted launcher is not a full-workflow resume command: completed cleaning,
+classification and primer-hit files are reused, but give the launcher a new run
+output directory. Report-only resume is described below.
+
+`unclassified` is processed as a sample throughout Read processing and can be included
+in Postprocessing. It gets `PCR_plate=unassigned`; it does **not** contribute a plate or
+taxon presence to the PCR-plate contamination screen. Its read-level flags can
+still reflect taxa flagged among the mapped barcode plates. Without any mapped
+barcode plates, the prevalence table is empty and no cross-plate flags are inferred.
+Missing primer-hit records remain unknown, rather than being labelled absent.
+Postprocessing selects the completed analysis's folders; a parent argument does not
+add samples that were never analysed. Older analyses can therefore be reused
+with their original sample set, but need to be regenerated to add `unclassified`.
 
 ## Run the post-classification notebooks
 
 ```bash
 conda activate taxonomy
-python code/run_sintax_notebooks.py \
+python code/run_sintax_notebooks.py mergedseq5 \
   --output-dir data/sintax_analysis/my_new_run \
-  --primer-hits data/primertrack/mergedseq5_seqkit_primer_umi_best_hits_20260731.txt
+  --primer-hits data/primertrack/mergedseq5_seqkit_primer_umi_best_hits_20260731.txt \
+  --sintax-root data/sintax
 ```
 
-By default the requested folders are barcode01–barcode24. Use `--folders barcode01
-barcode02` for a subset. Missing classifier outputs are recorded in
+By default the runner discovers nonempty `barcodeNN` and `unclassified` folders
+in the supplied parent. Use `--folders barcode01 barcode02` for a subset.
+The default SINTAX root is `data/sintax/DATASET/`. Use `--sintax-root PATH` and
+`--plate-map PATH` for custom/legacy classification outputs and another experiment. Missing classifier outputs are recorded in
 `input_manifest.tsv` and excluded from the analysis and PCR-plate denominator.
 The runner never launches SINTAX, filtering or primer detection. A new output
 folder is required. `--resume` resumes reporting only after parsing has completed.
-`bash code/run_full_downstream_pipeline.sh` forwards the same command-line options.
 
 The runner uses the Python environment from which it is launched for the notebook
 kernel. It executes:
@@ -58,11 +132,12 @@ Executed notebooks are saved under `code/executed_notebooks/sintax_<timestamp>/`
 where the successful executed notebooks were saved. A failed or partial analysis
 must not be used for FASTA exports.
 
-For manual execution set `SINTAX_ANALYSIS_ROOT` to the new output directory before
-opening the parser notebook. The per-folder notebook uses `SELECTED_BARCODE`.
-The original `data/sintax/sintax_output_parser.ipynb` is also updated. Run only one
-copy of the parser per output directory. The Tipuloidea notebook reads the combined
-species summary and filters its four family names without creating new assignments.
+For manual execution set `SINTAX_MERGED_DIR` to the dataset parent,
+`PRIMER_BEST_HITS` to its prepared best-hit table, and `SINTAX_ANALYSIS_ROOT` to a
+new output directory before opening the parser notebook. The per-folder notebook uses `SELECTED_BARCODE`.
+The runner passes dataset, SINTAX root and plate-map paths to the source notebook
+through environment variables; editing notebook paths is unnecessary. Run only one
+parser per output directory.
 
 ## Confidence and taxonomy
 
@@ -90,7 +165,9 @@ The plate mapping is `saproxDNA/species_info_seq5/seq5_pcr_to_pools.tsv`.
 Each taxon at each rank is present on a plate when at least one cleaned query
 has confidence >=0.8 for that taxon/rank. Several barcodes mapping to one plate
 count as one plate. The denominator is the number of distinct `PCR_plate` codes
-among **analysed** folders, including any control codes if those folders are analysed.
+among **analysed barcode** folders, including any control codes if those folders
+are analysed. `unclassified` has no known plate and is excluded from both presence
+and denominator, even though its reads are included in the analysis.
 Missing SINTAX files do not count as absence. Zero-call analysed samples do remain
 in the denominator.
 
@@ -230,8 +307,8 @@ standalone taxon selection; no consensus or amino-acid filtering occurs.
 The classification entry point remains available independently:
 
 ```bash
-bash code/run_metabarcoding_pipeline.sh --dry-run data/mergedseq5/barcode01
-bash code/run_metabarcoding_pipeline.sh data/mergedseq5/barcode01
+bash code/run_metabarcoding_pipeline.sh --dry-run mergedseq5
+bash code/run_metabarcoding_pipeline.sh mergedseq5
 ```
 
 It reuses existing filtered combined reads, decompressed MIDORI FASTA, and UDB.
@@ -249,8 +326,8 @@ them into cleaned reads, and export FASTA with the same SINTAX taxonomy and
 contamination headers. See [primer export documentation](export_primer_fasta.md)
 for the bc1087/barcode15 example and optional `--include-unclassified` search.
 
-Module 2 reference selection requires either `--download` for NCBI COI records
+Postprocessing reference selection requires either `--download` for NCBI COI records
 or `--bold` for taxon-name matching against compressed FASTA headers in
 `data/bold/`. Both feed the same VSEARCH, optional translation-filtering, MAFFT or kc-align alignment,
 phylogeny and Baltic plotting steps. See the
-[Module 2 source options](post_processing.md#choose-the-reference-dataset).
+[Postprocessing source options](post_processing.md#choose-the-reference-dataset).

@@ -1,4 +1,4 @@
-# MIDORI reference database for Module 1
+# MIDORI reference database for Read processing
 
 Run commands from the repository root with the `taxonomy` environment active.
 The reference FASTA and generated VSEARCH `.udb` are large local files excluded
@@ -71,5 +71,9 @@ classification outputs (`SINTAX_OUTPUT_ROOT` and `SINTAX_SUFFIX`); update the
 post-classification settings to read those outputs. Do not rename a new release
 as GB272 or reuse an old UDB with it.
 
-SINTAX sample tables under `data/sintax/barcode*/` and the UDB are generated
-outputs, not additional downloads. See the [Module 1 guide](../../docs/pipeline_from_fastplong_onwards.md).
+SINTAX sample tables under `data/sintax/DATASET/barcode*/` and the UDB are generated
+outputs, not additional downloads. See the [Read processing guide](../../docs/pipeline_from_fastplong_onwards.md).
+
+Classification outputs now default to a separate subdirectory per dataset. For
+older outputs directly under `data/sintax/barcode*/`, explicitly select
+`--sintax-root data/sintax` in the read-processing/report launcher.
