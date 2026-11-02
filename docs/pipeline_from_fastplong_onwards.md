@@ -11,6 +11,14 @@ branch supports, organism/accession or lowest-trusted-taxon/readID labels, and a
 Mitogenomes are excluded from Module 2 references by default; its
 `--include-mitogenomes` option allows them.
 
+Before classification, follow the [MIDORI database setup](../data/sintax/README.md)
+to download the SINTAX/UNIQ/NUC_SP/CO1 reference into `data/sintax/`. The default
+release is GB272. A matching `.fasta.gz` can be supplied: Module 1 decompresses it
+and builds its `.udb` when needed. Outer ZIP/TAR archives must be unpacked first.
+For Module 2's local reference mode, follow the [BOLD setup](../data/bold/README.md):
+place a gzip FASTA in `data/bold/`, retain compression, and remove empty records
+with `seqkit seq --min-len 1` before use.
+
 Activate `conda activate taxonomy` and run commands from the project root.
 The current analysis uses cleaned reads at
 `data/mergedseq5/<folder>/filtered/asinput.fastq.gz`, existing VSEARCH SINTAX results,

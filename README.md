@@ -6,6 +6,15 @@ Double-click the HTML file; no hosting, compilation or server is required.
 The [taxonomy environment recipe](config/taxonomy-environment.yml) records current
 direct dependency versions for Linux x86_64 / WSL2.
 
+Before running, download the external reference databases. The folder READMEs
+provide source links, release selection, exact destination paths, compression
+instructions and BOLD empty-record cleanup with SeqKit:
+
+- [MIDORI SINTAX setup (Module 1)](data/sintax/README.md)
+- [BOLD FASTA setup (Module 2 `--bold`)](data/bold/README.md)
+
+Database files remain local; the setup READMEs are version controlled.
+
 The pipeline has two modules:
 
 1. **Cleaning and taxonomic assignment**: `code/run_metabarcoding_pipeline.sh`

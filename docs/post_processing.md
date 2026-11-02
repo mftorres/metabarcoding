@@ -23,6 +23,14 @@ Use a new output directory for a new analysis. Dependencies are `vsearch`, `seqk
 
 ## Choose the reference dataset
 
+For local BOLD references, follow the [database download and preparation guide](../data/bold/README.md).
+It links to BOLD's Data Packages page, explains where to put the gzip FASTA
+(`data/bold/`), and shows `seqkit seq --min-len 1` to remove records without
+sequences. BOLD stays compressed; Module 2 reads gzip directly. Keep original
+unfiltered downloads outside the scanned database folder. Module 1's independent
+[MIDORI SINTAX setup](../data/sintax/README.md) describes its download and optional
+gzip decompression into `data/sintax/`.
+
 Exactly one source flag is required:
 
 - `--download`: resolve a name or numeric taxid with NCBI, then download COI/CO1/COX1

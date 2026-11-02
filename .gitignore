@@ -103,3 +103,8 @@ other_resources/paper-bioinformatic-methods/*
 !/data/PCRsaproxdna_primertags_seq5_2026_1.fasta
 !/data/saproxdna_primertags_seq5_2026_1.fasta
 !/config/taxonomy-environment.yml
+
+# Database setup instructions and the offline user guide belong in Git.
+!/data/sintax/README.md
+!/data/bold/README.md
+!/docs/metabarcoding-guide.html
