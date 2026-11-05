@@ -39,6 +39,21 @@ Use a new output directory for a new analysis. Dependencies are `vsearch`, `seqk
 (default) or `kc-align`. NCBI mode additionally requires Entrez Direct `esearch` and
 `efetch`. kc-align is installed in the `taxonomy` environment.
 
+## Extracted-read abundance table and output reference
+
+Every new run writes `extraction_by_barcode_primer_taxon.tsv` inside its output
+folder. The tab-delimited columns are `barcode`, `forward_primer`,
+`taxonomic_identification`, and `read_count`. Counts come directly from the
+unclustered `cleaned_TAXON_DATE.fasta`: one row per exact barcode × forward-primer
+annotation × lowest trusted taxon. Reverse-primer and contamination annotations
+are combined within those groups. Counts include separate cleaned adapter
+fragments and exclude external references; they are not final tree-tip counts.
+A resume regenerates the report when the original extraction FASTA is available.
+
+For the contents, producing program and interpretation of every main output,
+see [the Postprocessing folder README](../data/postprocessing/README.md), including
+the file patterns found in `Ceratopogonidae_bold_kcalign_run01/`.
+
 ## Choose the reference dataset
 
 For local BOLD references, follow the [database download and preparation guide](../data/bold/README.md).

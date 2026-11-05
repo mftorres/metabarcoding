@@ -61,6 +61,38 @@ def tsv(path, columns, rows):
         writer.writerows(rows)
 
 
+def write_extraction_summary(source, output):
+    """Count extracted cleaned queries by barcode, forward primer and trusted taxon.
+
+    Read the unclustered local FASTA, so counts are independent of subsequent
+    consensus construction, translation screening and alignment rejection.
+    """
+    counts = Counter()
+    for header, _ in fasta(source):
+        parts = header.split()[0].split('-', 5)
+        if len(parts) != 6 or parts[4] not in ('contamination', 'nocontamination'):
+            raise ValueError(f'Expected annotated local extraction header in {source}: {header}')
+        barcode, forward, taxon = (unquote(parts[index]) for index in (0, 1, 3))
+        counts[barcode, forward, taxon] += 1
+    output = Path(output)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(mode='w', newline='', dir=output.parent,
+                                         prefix='.' + output.name, delete=False) as handle:
+            temporary = Path(handle.name)
+            writer = csv.writer(handle, delimiter='\t', lineterminator='\n')
+            writer.writerow(['barcode', 'forward_primer', 'taxonomic_identification', 'read_count'])
+            writer.writerows((*key, counts[key]) for key in sorted(counts))
+        # Keep unchanged reports untouched when resuming a completed run.
+        if not output.exists() or output.read_bytes() != temporary.read_bytes():
+            temporary.replace(output)
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
+    return sum(counts.values())
+
+
 # Exclude genome descriptions, not mitochondrial origin: COI itself is mitochondrial.
 GENOME_TITLE_QUERY = ('"complete genome"[Title] OR "partial genome"[Title] OR '
                       'mitogenome[Title] OR mitogenomes[Title] OR '
@@ -567,6 +599,13 @@ def run_pipeline(args):
             stem = f'{slug}_{args.date}'
             runner.note('RESUME directly from completed alignment' if alignment_ready else
                         'RESUME directly from retained/selected consensus sequences')
+            extracted = root / f'cleaned_{stem}.fasta'
+            summary = root / 'extraction_by_barcode_primer_taxon.tsv'
+            if extracted.is_file():
+                write_extraction_summary(extracted, summary)
+                runner.note(f'Extraction barcode/primer/taxon summary: {summary}')
+            elif not summary.is_file():
+                runner.note('Extraction summary unavailable: original unclustered local FASTA was removed')
         else:
             alignment_ready = False
             taxon = args.taxon.strip()
@@ -605,6 +644,9 @@ def run_pipeline(args):
             counts = Counter(unquote(header.split('-', 1)[0]) for header, _ in fasta(local))
             tsv(root / 'extraction_counts.tsv', ['source_folder', 'reads_extracted'],
                 [(folder, counts[folder]) for folder in folders] + [('TOTAL', sum(counts.values()))])
+            summary = root / 'extraction_by_barcode_primer_taxon.tsv'
+            write_extraction_summary(local, summary)
+            runner.note(f'Extraction barcode/primer/taxon summary: {summary}')
             local_representatives = root / f'cleaned_{stem}.vsearch98.fasta'
             local_groups = root / 'vsearch_local_groups'
             local_summary = root / 'vsearch_local_groups.tsv'

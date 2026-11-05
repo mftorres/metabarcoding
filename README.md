@@ -122,3 +122,6 @@ notebooks. Standalone sequence extraction remains available through
 `code/export_sintax_fasta.py` (taxon) and `code/export_primer_fasta.py`
 (barcode/forward primer); `code/export_sintax_taxa.py` is the taxon entry point
 used internally by Postprocessing. Saved executed notebooks are analysis outputs.
+
+See the [Postprocessing output-file reference](data/postprocessing/README.md) for
+file contents, producing tools and the extracted-read barcode/primer/taxon counts.
