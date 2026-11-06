@@ -5,7 +5,7 @@ combined reads are `<folder>/filtered/asinput.fastq.gz`. Classification inputs a
 those cleaned reads. Existing SINTAX results live under `data/sintax/<folder>/`.
 
 Read-level analyses use a new `data/sintax_analysis/<run>/` directory and retain
-source-folder and PCR-plate provenance. Confidence acceptance and the PCR-plate
+source-folder and barcode provenance. Confidence acceptance and the barcode
 prevalence screen both use thresholds of 0.8. No consensus generation or amino-acid
 translation/noNUMT filtering is part of this workflow.
 

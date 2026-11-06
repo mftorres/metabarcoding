@@ -1,7 +1,11 @@
-# Module 2: Phylogenetics
+# Postprocessing
 
-[Module 1](pipeline_from_fastplong_onwards.md) cleans reads, assigns taxonomy with
-SINTAX and generates read-level analyses. Module 2 exports selected cleaned reads,
+For Linux Miniconda installation, accessing Windows folders from Ubuntu, and
+cloning the [GitHub repository](https://github.com/mftorres/metabarcoding), follow
+[Ubuntu/WSL setup](setup.md).
+
+[Read processing](pipeline_from_fastplong_onwards.md) cleans reads, assigns taxonomy with
+SINTAX and generates read-level analyses. Postprocessing exports selected cleaned reads,
 obtains external references, builds cluster consensus sequences, optionally screens
 translations, aligns nucleotides, estimates an IQ-TREE phylogeny and draws a Baltic
 midpoint-rooted divergence tree. Run from the repository root in `taxonomy`.
@@ -10,18 +14,55 @@ midpoint-rooted divergence tree. Run from the repository root in `taxonomy`.
 
 ```bash
 conda activate taxonomy
-python code/postprocess_sintax.py --bold \
-  --taxon Tipulidae --folders barcode{01..21} \
-  --analysis-dir data/sintax_analysis/mergedseq5_20261021 \
+python code/postprocess_sintax.py sequencing2 --bold \
+  --taxon Tipulidae \
+  --analysis-dir data/read_processing/sequencing2_run01/analysis \
   --output-dir data/postprocessing/Tipulidae_bold_run02 --threads 8
 ```
 
+Pass the parent once (`sequencing2`, `data/sequencing2`, or a full path): the script
+selects its folders from the completed Read processing analysis, including `unclassified`
+when that folder was analysed. `--folders barcode01 barcode02` remains available
+for a subset, and `--folders data/sequencing2` also accepts a parent. Omit both to
+select all analysed folders. A supplied parent must match the dataset saved in
+the analysis metadata. Do not combine a positional parent with `--folders`.
+
+For the [complete parent-folder workflow and pass/fail merge commands](pipeline_from_fastplong_onwards.md#prepare-passfail-folders-before-analysis),
+run `python code/read_processing.py sequencing2 --output-dir data/read_processing/sequencing2_run01`
+first. The launcher prepares the `analysis/` directory used above. Unclassified
+reads have an unassigned plate and never count as an extra PCR plate in Read processing;
+they remain traceable as local tips in Postprocessing. Other taxon, source and aligner
+options are still required as appropriate.
+
 Use a new output directory for a new analysis. Dependencies are `vsearch`, `seqkit`,
-`iqtree`, Python with Baltic >=1.0.0 and Matplotlib, and the chosen aligner: `mafft`
-(default) or `macse`. NCBI mode additionally requires Entrez Direct `esearch` and
-`efetch`. MACSE is available in the `taxonomy` environment (tested with 2.07).
+`clipkit`, `iqtree`, Python with Baltic >=1.0.0 and Matplotlib, and the chosen aligner: `mafft`
+(default) or `kc-align`. NCBI mode additionally requires Entrez Direct `esearch` and
+`efetch`. kc-align is installed in the `taxonomy` environment.
+
+## Extracted-read abundance table and output reference
+
+Every new run writes `extraction_by_barcode_primer_taxon.tsv` inside its output
+folder. The tab-delimited columns are `barcode`, `forward_primer`,
+`taxonomic_identification`, and `read_count`. Counts come directly from the
+unclustered `cleaned_TAXON_DATE.fasta`: one row per exact barcode × forward-primer
+annotation × lowest trusted taxon. Reverse-primer and contamination annotations
+are combined within those groups. Counts include separate cleaned adapter
+fragments and exclude external references; they are not final tree-tip counts.
+A resume regenerates the report when the original extraction FASTA is available.
+
+For the contents, producing program and interpretation of every main output,
+see [the Postprocessing folder README](../data/postprocessing/README.md), including
+the file patterns found in `Ceratopogonidae_bold_kcalign_run01/`.
 
 ## Choose the reference dataset
+
+For local BOLD references, follow the [database download and preparation guide](../data/bold/README.md).
+It links to BOLD's Data Packages page, explains where to put the gzip FASTA
+(`data/bold/`), and shows `seqkit seq --min-len 1` to remove records without
+sequences. BOLD stays compressed; Postprocessing reads gzip directly. Keep original
+unfiltered downloads outside the scanned database folder. Read processing's independent
+[MIDORI SINTAX setup](../data/sintax/README.md) describes its download and optional
+gzip decompression into `data/sintax/`.
 
 Exactly one source flag is required:
 
@@ -74,6 +115,12 @@ Local reads are partitioned by the exact first **four** header fields:
 All reads in one tuple are submitted together to one VSEARCH invocation. Different
 tuples never share a cluster. Contamination flag and read ID do not create extra
 groups. `none` and `unknown` remain distinct primer values.
+
+`none` means a primer-tracking record exists for the read's raw parent, but no
+primer was detected in that direction. `unknown` means no matching primer-tracking
+record was found, so the primer assignment is unavailable. A missing record is
+not evidence that the primer was absent. These meanings apply separately to the
+forward and reverse primer fields.
 
 External references are clustered globally, separately from local reads. Keeping
 these datasets separate prevents local reads and reference records from being
@@ -152,50 +199,119 @@ other nucleotide loci. Strand-adjusted headers are restored and recorded in
 `alignment_orientation.tsv`. All representative IDs, equal alignment lengths and
 preservation of nucleotide sequences (allowing reverse complementation) are checked.
 
-Add **`--macse`** for protein-coding alignment followed by end trimming:
+**Important:** For now, the pipeline lacks a step for primer sequence removal. Before tree estimation, the user **must** remove the primer sequences from the alignment. In a next version of the pipeline, I will add the primer sequences as "adapter/barcode" to `fastplong` to remove them at early stages. I doubt (but will test) taxonomic classification will be severely affected by the presence of primer sequences in the clean reads (2026-Oct-29).
+
+Add **`--kcalign --kcalign-reference PATH`** for reference-guided mixed-mode
+codon alignment. The reference file is required: **provide a nucleotide sequence
+you trust for this locus**, in the correct orientation and reading frame. It must
+contain exactly one ungapped A/C/G/T sequence. Its length must be divisible by
+three, and it must start at the first nucleotide of the first codon in the
+reference coding region. Remove incomplete terminal codons using the known
+reading frame; do not trim arbitrarily just to make the length divisible by three.
+The reference must have no internal stops under the chosen genetic code. Automatic validation cannot establish
+that the reference's taxonomic identity or biological annotation is correct.
+
+**Important:** The reference must not contain COI primer sequences. kcalign looks for the reference pattern in each sequence and if the reference does not contain the primer sequences, primer sequences remaining in the clean reads are effectively removed before alignment and tree estimation.
 
 ```bash
-python code/postprocess_sintax.py --bold --macse \
+conda activate taxonomy
+python code/postprocess_sintax.py --bold --kcalign \
+  --kcalign-reference data/postprocessing/coi_refs/SATIP962-10_Nigrotipula_nigra.fasta \
   --taxon Tipulidae --folders barcode{01..21} \
   --analysis-dir data/sintax_analysis/mergedseq5_20261021 \
-  --output-dir data/postprocessing/Tipulidae_macse_run01 --threads 8
+  --output-dir data/postprocessing/Tipulidae_bold_kcalign_run01 \
+  --translation-table 5 --threads 6
 ```
 
-The equivalent MACSE operations are:
+The example requires a valid reference FASTA with a `>` header and a trusted,
+correctly framed coding sequence. The module does not guess its frame or silently
+trim bases. Divisibility by three and absence of internal stops alone do not prove
+the biological reading frame; the user must verify its codon boundaries.
+
+The alignment takes `combined_TAXON_nonumt_DATE.fasta`, the nucleotide consensus
+sequences retained by the >=200 consecutive amino-acid screen. With
+`--skip-translation`, it instead takes `combined_TAXON_selected_DATE.fasta`.
+The corresponding prefix is `combined_TAXON_nonumt_DATE` or
+`combined_TAXON_selected_DATE`. The mixed-mode command is equivalent to:
 
 ```bash
-macse -prog alignSequences -gc_def 5 -gap_ext 2.0 -gap_op 10 \
-  -out_AA PREFIX.aa.aln.fasta -out_NT PREFIX.macse.aln.fasta \
-  -seq selected_consensus.fasta
-macse -prog trimAlignment -min_percent_NT_at_ends 0.7 \
-  -out_NT PREFIX.macse.trimmed.aln.fasta \
-  -out_trim_info PREFIX_trimmed.csv -align PREFIX.macse.aln.fasta
+kc-align --mode mixed --reference trusted_reference.fasta \
+  --sequences combined_TAXON_nonumt_DATE.fasta \
+  --table 5 --keep --threads 6
 ```
 
-**MACSE 2.07 requires `0.7` for 70%; literal `70` fails.** `--translation-table`
-sets the genetic code for both SeqKit and MACSE (default 5); nuclear coding sequences
-normally need the appropriate nuclear code instead. MACSE is for coding sequences,
-not general noncoding nuclear alignment. Input orientation must be appropriate for
-coding alignment; this branch does not invoke MAFFT strand adjustment.
+**Installed-tool compatibility:** `--keep` is a switch, not a filename argument.
+The tool writes `pre_align.fasta` and `codon_align.fasta` in its working directory.
+Postprocessing isolates those files in a temporary directory, restores tracking headers,
+and publishes `PREFIX.pre_align.aa.fasta` and `PREFIX.aln.fasta`. The installed
+CLI omits the threads argument when calling mixed mode; `code/kcalign_cli.py`
+forwards it correctly to the installed library without changing the conda package.
+The local parallel adapter also fixes an installed rejection-handling bug that
+otherwise crashes when a worker rejects a read. It runs the original serial
+per-read checks in isolated worker directories, preserves rejected IDs, and uses
+a persistent pool with at most `threads / 3` workers. Biological checks remain unchanged.
+Mixed mode requires **1 thread or a positive multiple of 3**. The module passes
+its `--threads` value unchanged and rejects incompatible values such as 4 or 8.
+Kalign and MAFFT (the library's fallback aligner) must also be available in `taxonomy`.
 
-MACSE runs with temporary safe IDs, then restores all original headers. Its raw
-AA, nucleotide and trimmed nucleotide alignments are retained. The trimmed
-nucleotides feed the next steps as `PREFIX.aln.fasta`, with frameshift symbols `!`
-replaced by `N` (missing/unknown nucleotide) for IQ-TREE compatibility. No columns
-are removed by that replacement. `.frameshifts.tsv` records replacement counts;
-`.macse_ids.tsv` maps temporary IDs to original headers. The native MACSE trim
-report is CSV as requested; other pipeline tables are tab-delimited with headers.
-See [MACSE alignment/export documentation](https://www.agap-ge2pop.org/exportalignment/).
+The trusted reference guides alignment but is not added as an extra phylogenetic
+tip. An independent input consensus with the same sequence remains eligible.
+Mixed mode can reject reads with suspected frameshifts, early stops or excessive
+ambiguity even after the earlier translation screen. `PREFIX.kcalign_selection.tsv`
+records every input ID as `aligned` or `rejected_by_kcalign`; details are in
+`PREFIX.kcalign.stdout.log` and `postprocessing.log`.
+`PREFIX.kcalign_ids.tsv` maps temporary tool IDs to original headers.
+At least four aligned consensus sequences are required for IQ-TREE. ClipKIT trims
+the published **nucleotide** `PREFIX.aln.fasta` before IQ-TREE; the retained pre-alignment AA file
+is an audit output. ClipKIT smart-gap column trimming follows alignment as described below.
 
-`PREFIX` is `combined_TAXON_nonumt_DATE` when translation selection is active,
-or `combined_TAXON_selected_DATE` with `--skip-translation`. MACSE uses the same
-selected input as MAFFT. Genetic code 5 is not used when translation is skipped
-and MAFFT is chosen.
+MAFFT remains the default for general nucleotide alignment. kc-align is for coding
+sequences; skipping the earlier SeqKit filter does not disable kc-align's own
+coding-sequence checks. `--translation-table` controls its genetic code (default 5).
+
+## ClipKIT smart-gap trimming
+
+After either MAFFT or kc-align, Postprocessing automatically runs:
+
+```bash
+clipkit PREFIX.aln.fasta -m smart-gap -s nt -if fasta -of fasta \
+  -o PREFIX.clipkit.aln.fasta
+```
+
+Smart-gap determines a gap threshold and removes gappy **alignment columns**.
+It does not strip every gap independently from each sequence, and some gaps may
+remain. The original alignment is preserved. Headers and the sequence set must
+remain unchanged, and the trimmed alignment must be nonempty and rectangular.
+IQ-TREE receives `PREFIX.clipkit.aln.fasta`. `clipkit.stdout.log` records the tool's
+report; `clipkit.complete.json` records mode and input hash for resume validation.
+
+This step is active for both aligners and with or without the translation screen.
+No extra flag is required. On `--resume`, a completed untrimmed alignment can be
+reused: missing or stale ClipKIT output is regenerated, and the dependent tree and
+figure are rebuilt. Existing dependent outputs are archived. Failed partial trim
+outputs are removed; extraction, clustering and alignment need not be repeated.
 
 ## Phylogeny and figure
 
-IQ-TREE consumes the final nucleotide `.aln.fasta`, with `-m MFP -b 1000`, seed 666
-and the requested thread count. `--bootstrap-method ultrafast` uses `-B 1000`.
+For new runs, reference selection appends the source taxon label to the sequence
+ID before length filtering, clustering and alignment: for example,
+`BOLD_000000123__taxon__Tipula_maxima` or `AB123456.1__taxon__Tipula_maxima`.
+Whitespace becomes underscores; punctuation unsafe for alignment/Newick tools
+also becomes underscores. BOLD uses the deepest available taxon in its metadata
+(which may be a genus or higher rank when species is unavailable); NCBI uses the
+GenBank organism name. Original descriptions remain in the source files and audit
+metadata, while selected reference headers contain only the annotated ID.
+These names carry through both untrimmed and trimmed alignments into IQ-TREE.
+Plotting accepts both original reference IDs and IDs with the `__taxon__` suffix,
+using the original ID to look up source metadata. Local read headers are unchanged.
+Resuming an older run reuses its existing sequence headers; this change does not
+automatically rename completed runs.
+
+IQ-TREE consumes the trimmed nucleotide `.clipkit.aln.fasta`, with `-m MFP`, seed 666
+and the requested thread count. Bootstrap replicates are disabled; the pipeline
+now estimates a maximum-likelihood tree without bootstrap branch support. The
+1,000-replicate command remains commented in the source for reference. The
+`--bootstrap-method` option is no longer accepted.
 At least four retained consensus sequences are required. Outputs use `PREFIX`.
 
 Baltic renders a midpoint-rooted divergence tree with branch lengths in
@@ -205,13 +321,19 @@ no support and `.contree` does, the supported consensus topology is used. Suppor
 are preserved during rerooting; none are invented. Midpoint rooting does not
 establish the biological root.
 
-Tip labels are trusted taxon + read ID + folder for local cluster seeds; GenBank
+Tip labels are trusted taxon + read ID + folder + forward primer for local cluster seeds; GenBank
 organism + accession.version for downloaded seeds; or available BOLD taxon + process
 ID for BOLD seeds. GenBank metadata is fetched once and cached as
 `reference_records.gb.xml`; concatenated Entrez XML batches are parsed locally.
 BOLD metadata requires no network.
 
-Figure outputs are `PREFIX.figure.pdf`, `.svg`, `.midpoint.nwk`, `.tips.tsv` and
+For the forward-primer field in local tip labels, `none` means tracking was
+available but no forward primer was detected; `unknown` means the raw parent had
+no matching tracking record. The label comes from the local cluster seed's
+exported primer annotation. These values remain separate during clustering, as
+described above; BOLD and GenBank tip labels do not include this field.
+
+Figure outputs are `PREFIX.figure.pdf`, `.png`, `.svg`, `.midpoint.nwk`, `.tips.tsv` and
 `.plot.json`. The tips table columns are `tree_tip_id`, `source`, `taxon_or_organism`,
 `accession`, `readid`, `source_folder`, `display_label`; BOLD process IDs occupy
 `accession` for BOLD rows. To plot independently use `code/plot_phylogeny.py --tree
@@ -222,15 +344,19 @@ GenBank XML or the BOLD metadata TSV as the metadata input.
 
 Add `--resume` to the original command with the same output directory and settings.
 Completed retained/selected sequences restart at alignment. A successfully completed
-alignment restarts at IQ-TREE without repeating extraction or reference retrieval.
+alignment restarts at ClipKIT, or at IQ-TREE if trimming is already complete,
+without repeating extraction or reference retrieval.
 Completion hashes distinguish finished alignments from interrupted outputs. MAFFT
-partial files are removed on interruption; MACSE works in temporary files and
-publishes its completion marker only after both alignment and trimming validate.
+partial files are removed on interruption; kc-align works in temporary files and
+publishes its completion marker only after the nucleotide alignment validates.
 Incomplete outputs are rebuilt on resume, with stale files archived under
 `resume_archive/` and successful reference retrieval reused when needed.
 
 Source, input database, taxon, folders, translation choice, aligner, genetic code
-and other biological settings must match the saved run. Changed policies (including
+the trusted reference contents, and other biological settings must match the saved run. To change aligner or trusted reference while reusing validated retained sequences,
+use `--resume --restart-alignment`. This archives the previous settings and rebuilds
+alignment, tree and figure; subsequent resumes use the new settings. Other biological
+settings must still match. Changed policies (including
 98% four-field grouping) require a **new output directory**. Existing biological
 outputs are not rewritten by a code update.
 
@@ -240,41 +366,12 @@ stderr and counts. `postprocessing.failed` records failure; `postprocessing.comp
 is written only after phylogeny and plotting finish. DATE defaults to the run date
 and may be specified with `--date YYYYMMDD`.
 
-## Validation
+## Resuming runs with earlier bootstrap settings
 
-Tests use temporary fixtures, never existing biological analyses:
-
-```bash
-conda activate taxonomy
-PYTHONDONTWRITEBYTECODE=1 python -m unittest discover -s code -p test_postprocess_sintax.py -v
-PYTHONDONTWRITEBYTECODE=1 python -m unittest discover -s code -p test_vsearch_groups.py -v
-PYTHONDONTWRITEBYTECODE=1 python -m unittest discover -s code -p test_macse_alignment.py -v
-PYTHONDONTWRITEBYTECODE=1 python -m unittest discover -s code -p test_bold_references.py -v
-PYTHONDONTWRITEBYTECODE=1 python -m unittest discover -s code -p test_plot_phylogeny.py -v
-```
-
-## MACSE memory and alignment failures
-
-The Conda MACSE launcher defaults to a 2 GB Java heap. Set `--macse-memory 32g`
-(or another positive size ending in `m` or `g`) for larger alignments, leaving
-sufficient RAM for the operating system and other processes. The module explicitly
-passes this limit to both MACSE commands. The default remains `2g`.
-
-Memory is a resource setting and may be increased during `--resume` in the same
-output directory. Completed extraction, clustering and translation selection are
-reused. For the Tipulidae BOLD run:
-
-```bash
-conda activate taxonomy
-python code/postprocess_sintax.py --bold --macse --macse-memory 32g \
-  --taxon Tipulidae --folders barcode{01..21} \
-  --analysis-dir data/sintax_analysis/mergedseq5_20261021 \
-  --output-dir data/postprocessing/Tipulidae_bold_macse_run01 \
-  --translation-table 5 --threads 8 --resume
-```
-
-Inspect `PREFIX.macse_align.stdout.log`, `PREFIX.macse_trim.stdout.log` and
-`postprocessing.log` after a failure. A nonzero exit alone does not establish memory
-exhaustion; inspect diagnostics before attributing a failure to memory. Resource
-changes are saved in `resume_parameters.json`. Failed-attempt logs are archived
-when retrying the alignment stage.
+On the first `--resume` after disabling bootstrap, completed alignment and ClipKIT
+outputs are reused. The tree and figure are regenerated without bootstrap;
+previous IQ-TREE outputs, including its checkpoint, are archived. A new
+`phylogeny.complete.json` records the no-bootstrap setting and alignment hash.
+Stop any still-running job for the same output folder before resuming; editing
+this script does not stop an already-running IQ-TREE process. No branch-support
+values are invented for the new unsupported tree.

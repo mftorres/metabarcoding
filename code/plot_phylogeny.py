@@ -16,7 +16,7 @@ import baltic as bt
 from baltic.bt_utils import plot_scale_bar
 from sintax_parser import taxon_parts
 from sequence_headers import local_header_parts
-from genbank_xml import iter_genbank_records
+from reference_labels import reference_names, reference_id
 
 
 def split_keys(tree):
@@ -66,23 +66,6 @@ def midpoint_with_support(tree):
     return supports
 
 
-def reference_names(path):
-    names = {}
-    if Path(path).suffix == '.tsv':
-        with Path(path).open() as handle:
-            return {row['sequence_id']: row['taxon'] for row in csv.DictReader(handle, delimiter='\t')}
-    for record in iter_genbank_records(path):
-        organism = record.findtext('GBSeq_organism')
-        accession = record.findtext('GBSeq_accession-version')
-        primary = record.findtext('GBSeq_primary-accession')
-        if organism:
-            for identifier in (accession, primary):
-                if identifier:
-                    names[identifier] = organism
-    return names
-
-
-
 # Resolve cluster seed labels from analysis tables or external-source metadata.
 def tip_metadata(tip_ids, analysis_dir, reference_genbank):
     references = reference_names(reference_genbank)
@@ -99,7 +82,8 @@ def tip_metadata(tip_ids, analysis_dir, reference_genbank):
             local.setdefault(folder, {})[readid] = identifier
         else:
             # Modern efetch headers use accession.version; also handle legacy pipe IDs.
-            candidates = [identifier] + identifier.split('|')
+            base_id = reference_id(identifier)
+            candidates = [base_id] + base_id.split('|')
             accession = next((x for x in candidates if x in references), None)
             if accession is None:
                 raise ValueError(f'No source metadata for reference {identifier}')
@@ -115,7 +99,10 @@ def tip_metadata(tip_ids, analysis_dir, reference_genbank):
                     continue
                 species = taxon_parts(row['accepted_species'])[0].replace('_', ' ') if row['accepted_species'] else ''
                 name = row['assigned_name'].replace('_', ' ') or 'unassigned'
-                label = f"{name} | {row['readid']} | {folder}"
+                # Current export headers carry the canonical primer of the cluster seed.
+                parts = identifier.split('-', 5)
+                forward = unquote(parts[1]) if len(parts) == 6 and parts[4] in ('contamination', 'nocontamination') else (row.get('forward_PCR_primer') or 'unknown')
+                label = f"{name} | {row['readid']} | {folder} | {forward}"
                 metadata[identifier] = [identifier, 'local', name, '', row['readid'], folder, label]
                 if not wanted:
                     break
@@ -127,7 +114,7 @@ def tip_metadata(tip_ids, analysis_dir, reference_genbank):
 def render(tree_path, analysis_dir, reference_genbank, output_prefix):
     prefix = Path(output_prefix)
     outputs = [Path(str(prefix) + suffix) for suffix in
-               ('.pdf', '.svg', '.midpoint.nwk', '.tips.tsv', '.plot.json')]
+               ('.pdf', '.svg', '.midpoint.nwk', '.tips.tsv', '.plot.json', '.png')]
     for path in outputs:
         if path.exists():
             raise FileExistsError(path)
@@ -168,8 +155,8 @@ def render(tree_path, analysis_dir, reference_genbank, output_prefix):
     ax.set_ylim(bottom - max(3, tree.ySpan * 0.12), top + 1)
     ax.set_axis_off()
     ax.set_title('Midpoint-rooted divergence tree', loc='left')
-    for output in outputs[:2]:
-        fig.savefig(output, bbox_inches='tight')
+    for output in [*outputs[:2], outputs[5]]:
+        fig.savefig(output, bbox_inches='tight', dpi=100)
     plt.close(fig)
     outputs[2].write_text(tree.to_string(traits=['label']) + '\n')
     with outputs[3].open('w', newline='') as handle:
@@ -180,7 +167,7 @@ def render(tree_path, analysis_dir, reference_genbank, output_prefix):
         'rooting': 'midpoint', 'tip_count': len(ids), 'supported_splits': len(supports),
         'support_labels': 'Unchanged IQ-TREE internal labels; slash-separated values retained',
         'scale_bar': 'Baltic default; substitutions/site', 'input_tree': str(Path(tree_path).resolve())}, indent=2) + '\n')
-    print(f'Wrote {outputs[0]} and {outputs[1]} ({len(ids)} tips, {len(supports)} supported splits)')
+    print(f'Wrote {outputs[0]}, {outputs[1]} and {outputs[5]} ({len(ids)} tips, {len(supports)} supported splits)')
     return tree
 
 

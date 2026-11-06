@@ -11,7 +11,7 @@ CONFIG_FILE="${CONFIG_FILE:-config/pipeline.env}"
 : "${FASTPLONG_TRIMMING_EXTENSION:=2}"
 : "${SINTAX_REFERENCE:=data/sintax/MIDORI2_UNIQ_NUC_SP_GB272_CO1_SINTAX.fasta}"
 : "${SINTAX_DB:=${SINTAX_REFERENCE%.fasta}.udb}"
-: "${SINTAX_OUTPUT_ROOT:=data/sintax}"
+: "${SINTAX_OUTPUT_ROOT:=}"
 : "${SINTAX_SUFFIX:=sintaxSP}"
 : "${SINTAX_THREADS:=8}"
 : "${SINTAX_CUTOFF:=1}"
@@ -58,7 +58,7 @@ filter_reads() {
   mkdir -p "$logs_dir"
 
   shopt -s nullglob
-  local files=("$folder"/*.fastq.gz)
+  local files=("$folder"/*.fastq.gz "$folder"/*.fq.gz)
   shopt -u nullglob
 
   if [[ "${#files[@]}" -eq 0 ]]; then
@@ -70,6 +70,8 @@ filter_reads() {
   for file in "${files[@]}"; do
     filename="$(basename "$file")"
     base="${filename%.fastq.gz}"
+    # Retain .fq in the basename so reads.fq.gz cannot collide with reads.fastq.gz.
+    if [[ "$base" == "$filename" ]]; then base="${filename%.gz}"; fi
     out="$filtered_dir/${base}_filtered.fastq.gz"
     html="$filtered_dir/${base}_report.html"
     per_read_log="$logs_dir/${base}.log"
@@ -134,10 +136,18 @@ combine_filtered_reads() {
   date > "$done_file"
 }
 
+classification_output() {
+    local folder="$1" sample dataset output_root
+    sample="$(basename "$folder")"
+    dataset="$(basename "$(dirname "$folder")")"
+    output_root="${SINTAX_OUTPUT_ROOT:-data/sintax/$dataset}"
+    printf '%s/%s/%s_%s.tsv\n' "$output_root" "$sample" "$sample" "$SINTAX_SUFFIX"
+}
+
 run_folder() (
     local folder="$1" sample output tmp=""
     sample="$(basename "$folder")"
-    output="$SINTAX_OUTPUT_ROOT/$sample/${sample}_${SINTAX_SUFFIX}.tsv"
+    output="$(classification_output "$folder")"
     # Preserve completed results even if their parameters differ from today's settings.
     if [[ -f "$output" && "$FORCE" != 1 && "$FORCE_SINTAX" != 1 ]]; then
         echo "[$sample] existing SINTAX output; skipping: $output"
@@ -164,7 +174,7 @@ run_folder() (
 main() {
     if [[ "$#" -eq 0 || "${1:-}" == --help ]]; then
         echo 'Usage: bash code/run_metabarcoding_pipeline.sh [--dry-run] FOLDER [FOLDER ...]'
-        echo 'Activate taxonomy first. Each FOLDER is a sample folder; its basename identifies outputs.'
+        echo 'Each FOLDER is a dataset parent or a barcodeNN/unclassified sample. Bare dataset names resolve under data/.'
         return 0
     fi
     local dry_run=0
@@ -173,14 +183,18 @@ main() {
     local folder sample output needs_db=0 failed=0 pid
     local -a folders=() pids=()
     local -A seen=()
-    for folder in "$@"; do
+    local discovered
+    discovered="$(python3 "$(dirname "${BASH_SOURCE[0]}")/sample_folders.py" "$@")" || return 1
+    local -a discovered_folders=()
+    mapfile -t discovered_folders <<< "$discovered"
+    for folder in "${discovered_folders[@]}"; do
         [[ -d "$folder" ]] || { echo "Missing folder: $folder" >&2; return 1; }
         folder="$(realpath "$folder")"
         sample="$(basename "$folder")"
         [[ -z "${seen[$sample]:-}" ]] || { echo "Duplicate sample name: $sample; use separate output roots for separate datasets" >&2; return 1; }
         seen[$sample]=1
         folders+=("$folder")
-        output="$SINTAX_OUTPUT_ROOT/$sample/${sample}_${SINTAX_SUFFIX}.tsv"
+        output="$(classification_output "$folder")"
         if [[ -f "$output" && "$FORCE" != 1 && "$FORCE_SINTAX" != 1 ]]; then
             echo "[$sample] reuse $output"
         else

@@ -101,29 +101,16 @@ The flag selects that folder's own best bc1087 hits; it does not relabel them as
 barcode15 or search every other barcode.
 
 Both folders must have raw files, best-hit tracking, cleaned reads and SINTAX
-outputs included in the supplied completed analysis. The current
-`mergedseq5_20261021` analysis covers barcode01–barcode21, so it cannot yet supply
-annotated `unclassified` exports. The script reports this prerequisite without
-launching classification or changing the analysis. After separately processing
-unclassified and including it in a completed analysis, supply that analysis with
-the same flag.
+outputs included in the supplied completed analysis. Running
+`python code/read_processing.py mergedseq5` now includes `unclassified` automatically
+when it has input reads. Older analyses that omitted it must be regenerated to
+support `--include-unclassified`; the exporter does not launch missing analysis
+steps itself.
 
 Optional overrides: `--primer-best-hits PATH` selects another compatible best-hit
 TSV and `--merged-dir PATH` changes the raw/clean dataset root. Normally the saved
 analysis paths should be used. The script checks the saved SINTAX size/mtime
 against `input_manifest.tsv` and rejects changed classifier outputs.
-
-## Tests
-
-```bash
-conda activate taxonomy
-PYTHONDONTWRITEBYTECODE=1 python -m unittest discover -s code -p test_export_primer_fasta.py -v
-```
-
-These use real SeqKit with temporary raw/clean/SINTAX fixtures. They verify parent
-ID and adapter-split tracing, forward-only canonical tag selection, identical taxon
-export headers, contamination and unassigned labels, optional unclassified output,
-missing-raw-ID failures, and refusal to overwrite outputs. Existing data are untouched.
 
 ## Consistent selection and annotation terminology
 

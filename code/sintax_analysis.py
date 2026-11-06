@@ -10,6 +10,7 @@ import tempfile
 
 import pandas as pd
 from sintax_parser import RANKS, COLUMNS, parse_output, taxon_parts
+from sample_folders import discover_samples, dataset_path
 
 RANK_NAMES = list(RANKS.values())
 PRIMER_COLUMNS = ['merged_folder', 'barcode_folder', 'seqID', 'forward_patternName', 'reverse_patternName']
@@ -46,17 +47,24 @@ def split_primer_table(primer_path, dataset, barcodes, temp_root):
     """Read a large best-hit table once, retaining only fields used in this analysis."""
     paths = {}
     counts = dict.fromkeys(barcodes, 0)
+    saw_rows = saw_dataset = False
     for chunk in pd.read_csv(primer_path, sep='\t', dtype=str, usecols=PRIMER_COLUMNS,
                              keep_default_na=False, chunksize=100000):
+        saw_rows = saw_rows or not chunk.empty
+        saw_dataset = saw_dataset or bool(chunk.merged_folder.eq(dataset).any())
         chunk = chunk[chunk.merged_folder.eq(dataset) & chunk.barcode_folder.isin(barcodes)]
         for barcode, group in chunk.groupby('barcode_folder', sort=False):
             path = temp_root / f'{barcode}_primers.tsv'
             group.to_csv(path, sep='\t', index=False, mode='a', header=barcode not in paths)
             paths[barcode] = path
             counts[barcode] += len(group)
+    if saw_rows and not saw_dataset:
+        raise ValueError(f'Primer best-hit table has no records for dataset {dataset}')
     for barcode in barcodes:
         if barcode not in paths:
-            raise ValueError(f'No primer tracking rows for {dataset}/{barcode}; cannot label missing tracking as absent primers')
+            # No detected hits means no matching tracking record, not an absent primer.
+            paths[barcode] = temp_root / f'{barcode}_primers.tsv'
+            pd.DataFrame(columns=PRIMER_COLUMNS).to_csv(paths[barcode], sep='\t', index=False)
     return paths, counts
 
 
@@ -147,6 +155,9 @@ def species_summary(frame, flagged, cutoff):
 def run_analysis(*, project_root, merged_dir, sintax_root, output_dir, primer_hits,
                  plate_map, folders, cutoff=0.8, prevalence=0.8, suffix='sintaxSP', allow_missing=False):
     project_root, merged_dir, sintax_root, output_dir = map(Path, (project_root, merged_dir, sintax_root, output_dir))
+    merged_dir = dataset_path(merged_dir)
+    if folders is None:
+        folders = [p.name for p in discover_samples([merged_dir])]
     if not 0 <= cutoff <= 1 or not 0 < prevalence <= 1: raise ValueError('Invalid confidence/prevalence threshold')
     if len(set(folders)) != len(folders): raise ValueError('Duplicate folders')
     if output_dir.exists(): raise FileExistsError(f'Choose a new output directory: {output_dir}')
@@ -154,6 +165,8 @@ def run_analysis(*, project_root, merged_dir, sintax_root, output_dir, primer_hi
     plate_frame = plate_frame[['sequencing_barcode','PCR_plate']].drop_duplicates()
     if plate_frame.sequencing_barcode.duplicated().any(): raise ValueError('Ambiguous PCR_plate mapping')
     plate_lookup = dict(zip(plate_frame.sequencing_barcode,plate_frame.PCR_plate))
+    # Unclassified ONT reads have no demultiplexed PCR plate identity.
+    plate_lookup['unclassified'] = 'unassigned'
     inputs, manifest = {}, []
     for folder in folders:
         source = sintax_root / folder / f'{folder}_{suffix}.tsv'
@@ -169,12 +182,13 @@ def run_analysis(*, project_root, merged_dir, sintax_root, output_dir, primer_hi
             sintax_bytes=source.stat().st_size if source.exists() else '',
             sintax_mtime_ns=source.stat().st_mtime_ns if source.exists() else ''))
     if not inputs: raise ValueError('No available SINTAX outputs')
-    plates = {plate_lookup[folder] for folder in inputs}
+    plates = {plate_lookup[folder] for folder in inputs if folder != 'unclassified'}
     mapping = primer_name_map(project_root/'data/saproxdna_primertags_seq5_2026_1.fasta',
                               project_root/'data/PCRsaproxdna_primertags_seq5_2026_1.fasta')
     output_dir.mkdir(parents=True)
     metadata = dict(created_utc=datetime.now(timezone.utc).isoformat(), cutoff=cutoff,
-        prevalence_threshold=prevalence, denominator='distinct PCR_plate codes of analysed folders',
+        prevalence_threshold=prevalence, denominator='distinct PCR_plate codes of analysed barcode folders; unclassified excluded',
+        unclassified_plate_policy='unassigned; excluded from plate presence and denominator',
         analysed_plate_count=len(plates), minimum_plate_count=math.ceil(prevalence*len(plates)-1e-12),
         requested_folders=folders, analysed_folders=list(inputs),
         missing_folders=[r['source_folder'] for r in manifest if r['status']!='analysed'],
@@ -198,7 +212,8 @@ def run_analysis(*, project_root, merged_dir, sintax_root, output_dir, primer_hi
             for rank in RANK_NAMES:
                 accepted = frame[frame['accepted_'+rank].ne('')]
                 for label in accepted['accepted_'+rank].unique():
-                    presence[(rank,label)].add(plate_lookup[folder])
+                    if folder != 'unclassified':
+                        presence[(rank,label)].add(plate_lookup[folder])
                 for direction in ('forward', 'reverse'):
                     for label, primer in accepted[['accepted_'+rank, direction+'_PCR_primer']].drop_duplicates().itertuples(index=False, name=None):
                         taxon_primers[direction][(rank,label)].update(name for name in primer.split(';') if name)
@@ -253,17 +268,25 @@ def run_analysis(*, project_root, merged_dir, sintax_root, output_dir, primer_hi
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--project-root',type=Path,default=Path(__file__).resolve().parents[1])
-    parser.add_argument('--merged-dir',type=Path,default=Path('data/mergedseq5'))
-    parser.add_argument('--sintax-root',type=Path,default=Path('data/sintax'))
+    parser.add_argument('dataset', nargs='?', type=Path, help='Dataset parent, e.g. sequencing2 or data/sequencing2')
+    parser.add_argument('--merged-dir',type=Path)
+    parser.add_argument('--sintax-root',type=Path,help='Default: PROJECT/data/sintax/DATASET')
     parser.add_argument('--output-dir',type=Path,required=True)
     parser.add_argument('--primer-hits',type=Path,required=True)
     parser.add_argument('--plate-map',type=Path,default=Path('saproxDNA/species_info_seq5/seq5_pcr_to_pools.tsv'))
-    parser.add_argument('--folders',nargs='+',default=[f'barcode{i:02d}' for i in range(1,25)])
+    parser.add_argument('--folders',nargs='+',help='Optional sample-name subset; default: discover from dataset')
     parser.add_argument('--cutoff',type=float,default=0.8)
     parser.add_argument('--prevalence',type=float,default=0.8)
     parser.add_argument('--suffix',default='sintaxSP')
     parser.add_argument('--allow-missing',action='store_true')
     args=vars(parser.parse_args())
+    dataset = args.pop('dataset')
+    if dataset is not None and args['merged_dir'] is not None:
+        parser.error('Use a positional dataset or --merged-dir, not both')
+    if dataset is None and args['merged_dir'] is None:
+        parser.error('Provide a dataset parent or --merged-dir')
+    args['merged_dir'] = dataset_path(dataset or args['merged_dir'])
+    args['sintax_root'] = args['sintax_root'] or args['project_root']/'data/sintax'/args['merged_dir'].name
     run_analysis(**args)
 
 if __name__=='__main__': main()
