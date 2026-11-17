@@ -20,7 +20,6 @@ def main():
     parser.add_argument('dataset', nargs='?', type=Path, help='Dataset parent, e.g. sequencing2')
     parser.add_argument('--merged-dir', type=Path)
     parser.add_argument('--sintax-root', type=Path, help='Default: data/sintax/DATASET; pass data/sintax explicitly for legacy runs')
-    parser.add_argument('--plate-map', type=Path, default=Path('saproxDNA/species_info_seq5/seq5_pcr_to_pools.tsv'))
     parser.add_argument('--primer-hits',type=Path,help='Prepared best-hit table; default: latest dated table for this dataset')
     parser.add_argument('--folders',nargs='+',help='Optional sample-name subset; default: discover barcodeNN and unclassified')
     parser.add_argument('--resume',action='store_true',help='Reuse a completed parsing stage and execute remaining reports')
@@ -54,7 +53,6 @@ def main():
     os.environ['SINTAX_FOLDERS']=','.join(folders)
     os.environ['SINTAX_MERGED_DIR']=str(merged.resolve())
     os.environ['SINTAX_ROOT']=str(args.sintax_root.resolve())
-    os.environ['SINTAX_PLATE_MAP']=str(args.plate_map.resolve())
     if args.primer_hits is not None:
         os.environ['PRIMER_BEST_HITS']=str(args.primer_hits.resolve())
     os.environ['MPLBACKEND']='Agg'

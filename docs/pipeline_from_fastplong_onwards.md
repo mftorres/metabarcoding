@@ -8,8 +8,11 @@ Read processing cleans reads and assigns taxonomy:
 `code/run_metabarcoding_pipeline.sh` cleans reads and runs SINTAX, and the notebook
 runner below generates the read-level analyses. The separate
 [Postprocessing: phylogenetics](post_processing.md) uses its cleaned reads and completed
-analysis to retrieve references, cluster with VSEARCH at 98% (local barcode/primer/taxon
-groups separately; references globally), filter translations, align and build trees.
+analysis to retrieve references, retain the dominant extracted taxon per barcode/forward primer
+(summed across reverse primers), then cluster with VSEARCH at 97% within each local
+individual and 98% within each external reference taxon label, filter translations, align and build trees.
+Its extraction TSV records reverse primers and `kept_for_module2`; see the linked
+Postprocessing guide for selection, ties and the one-insect assumption.
 Postprocessing also generates Baltic midpoint-rooted divergence-tree figures with
 branch supports, organism/accession or lowest-trusted-taxon/readID labels, and a scale bar.
 Mitogenomes are excluded from Postprocessing references by default; its
@@ -82,17 +85,17 @@ Postprocessing's `--analysis-dir`; `primertrack/` and executed notebooks belong 
 same run directory. SINTAX outputs use `data/sintax/DATASET/` by default, so datasets with the same
 barcode names do not share classification results. Use `--sintax-root PATH` for
 a custom location; explicitly pass `--sintax-root data/sintax` to reuse legacy
-classification outputs. Supply the correct `--plate-map` for your experiment.
-Raw reads, adapters/primers, the plate map and databases must be ready first.
+classification outputs. No PCR-to-barcode mapping file is required.
+Raw reads, adapters/primers and databases must be ready first.
 An interrupted launcher is not a full-workflow resume command: completed cleaning,
 classification and primer-hit files are reused, but give the launcher a new run
 output directory. Report-only resume is described below.
 
 `unclassified` is processed as a sample throughout Read processing and can be included
-in Postprocessing. It gets `PCR_plate=unassigned`; it does **not** contribute a plate or
-taxon presence to the PCR-plate contamination screen. Its read-level flags can
-still reflect taxa flagged among the mapped barcode plates. Without any mapped
-barcode plates, the prevalence table is empty and no cross-plate flags are inferred.
+in Postprocessing. It does **not** contribute a barcode or taxon presence to the barcode
+contamination screen. Its read-level flags can
+still reflect taxa flagged among the analysed barcodes. Without any analysed
+barcodes, the prevalence table is empty and no cross-barcode flags are inferred.
 Missing primer-hit records remain unknown, rather than being labelled absent.
 Postprocessing selects the completed analysis's folders; a parent argument does not
 add samples that were never analysed. Older analyses can therefore be reused
@@ -110,9 +113,9 @@ python code/run_sintax_notebooks.py mergedseq5 \
 
 By default the runner discovers nonempty `barcodeNN` and `unclassified` folders
 in the supplied parent. Use `--folders barcode01 barcode02` for a subset.
-The default SINTAX root is `data/sintax/DATASET/`. Use `--sintax-root PATH` and
-`--plate-map PATH` for custom/legacy classification outputs and another experiment. Missing classifier outputs are recorded in
-`input_manifest.tsv` and excluded from the analysis and PCR-plate denominator.
+The default SINTAX root is `data/sintax/DATASET/`. Use `--sintax-root PATH`
+for custom/legacy classification outputs; barcode identity comes from the sample folder name. Missing classifier outputs are recorded in
+`input_manifest.tsv` and excluded from the analysis and barcode denominator.
 The runner never launches SINTAX, filtering or primer detection. A new output
 folder is required. `--resume` resumes reporting only after parsing has completed.
 
@@ -120,7 +123,7 @@ The runner uses the Python environment from which it is launched for the noteboo
 kernel. It executes:
 
 1. `code/sintax_output_parser.ipynb`: parses the available SINTAX files, joins primer
-   results, calculates cross-plate prevalence, and writes all read/species tables.
+   results, calculates cross-barcode prevalence, and writes all read/species tables.
 2. `code/evaluate_tagtracking_taxid_reduced.ipynb` for each analysed folder: reviews
    read IDs, species and primer evidence and plots confident species read counts.
 3. `code/sankey_target_species_detection.ipynb`: the retained filename now contains
@@ -135,7 +138,7 @@ must not be used for FASTA exports.
 For manual execution set `SINTAX_MERGED_DIR` to the dataset parent,
 `PRIMER_BEST_HITS` to its prepared best-hit table, and `SINTAX_ANALYSIS_ROOT` to a
 new output directory before opening the parser notebook. The per-folder notebook uses `SELECTED_BARCODE`.
-The runner passes dataset, SINTAX root and plate-map paths to the source notebook
+The runner passes dataset and SINTAX root paths to the source notebook
 through environment variables; editing notebook paths is unnecessary. Run only one
 parser per output directory.
 
@@ -159,29 +162,32 @@ species, otherwise `taxafail`. Unassigned reads remain in read tables with blank
 assignment fields. Raw-parent metadata (or adapter-split prefixes) links fragments
 to raw-read primer results; sequences are never taken from raw FASTQ for FASTA export.
 
-## PCR-plate prevalence / contamination screen
+## Barcode prevalence / contamination screen
 
-The plate mapping is `saproxDNA/species_info_seq5/seq5_pcr_to_pools.tsv`.
-Each taxon at each rank is present on a plate when at least one cleaned query
-has confidence >=0.8 for that taxon/rank. Several barcodes mapping to one plate
-count as one plate. The denominator is the number of distinct `PCR_plate` codes
-among **analysed barcode** folders, including any control codes if those folders
-are analysed. `unclassified` has no known plate and is excluded from both presence
-and denominator, even though its reads are included in the analysis.
-Missing SINTAX files do not count as absence. Zero-call analysed samples do remain
-in the denominator.
+Sample identity comes directly from the `barcodeNN` folder name. No PCR/pool
+mapping table is read. A taxon at each rank is present in a barcode when at least
+one cleaned query has confidence >=0.8 for that taxon/rank. The denominator is
+the number of distinct **analysed barcode folders**, including analysed control
+barcodes. `unclassified` is kept in read tables but excluded from presence and
+the denominator. Missing SINTAX files are excluded; an analysed barcode with zero
+confident calls remains in the denominator.
 
-A taxon/rank receives `contamination` when it appears in at least 80% of those
-plate codes; otherwise it receives `nocontamination`. For 21 plates, at least 17
-must contain it. `taxon_plate_prevalence.tsv` records the count, denominator,
-fraction, threshold, and supporting plate codes for every confidently observed taxon.
-This is a prevalence screen, not proof of contamination. Broad ranks can legitimately
-occur on almost every plate.
+A taxon/rank receives `contamination` when it occurs in at least 80% of those
+barcodes. For 21 barcodes this is at least 17. `taxon_barcode_prevalence.tsv`
+records `barcode_count`, `analysed_barcode_count`, `barcode_fraction`,
+`minimum_barcode_count`, the threshold, supporting `barcodes` and flags. This is a
+prevalence screen, not proof of contamination; broad ranks may occur everywhere.
 
-The read's main `contamination` flag applies to its **lowest accepted label**.
-Separate `<rank>_contamination` columns preserve flags for all accepted ranks.
-The species-summary flag applies to the species itself: an insect class being
-widespread does not automatically mark every insect species as contamination.
+The former mapping had 24 barcodes and 24 unique PCR codes, so replacing PCR-code
+counts with barcode counts leaves its flags unchanged. New tables use
+`source_folder`/`barcode` and omit the redundant PCR-code column. If a future
+experiment puts the same PCR into multiple sequencing barcodes, those barcodes
+will count independently under this model.
+
+Existing completed analyses are not rewritten. Postprocessing and both exporters
+prefer the new prevalence report and also accept an older
+`taxon_plate_prevalence.tsv`; its saved flags remain usable without the old
+mapping file. Older tables may still contain `PCR_plate` as historical metadata.
 
 ## Tab-delimited outputs
 
@@ -189,13 +195,13 @@ Every table is a tab-delimited `.tsv` with column names in its first row. Export
 Per folder:
 
 - `<folder>/<folder>_reads.tsv`: one row per cleaned SINTAX query, all rank/confidence
-  fields, lowest accepted assignment, plate, mapped forward/reverse PCR primer names,
+  fields, lowest accepted assignment, mapped forward/reverse PCR primer names,
   source folder/file, original parent read ID, and contamination flags.
 - `<folder>/<folder>_species_summary.tsv`: one row per unique candidate species
   label, with species name/taxid, genus, family, order, class, contamination flag,
   `median_confidence`, `read_count`, `raw_read_count`, `forward_primers_detected`, and `reverse_primers_detected`.
 - `<folder>/<folder>_primer_taxonomy.tsv`: read-level accepted taxonomy grouped by
-  detected forward/reverse PCR primer pair, with folder and plate provenance;
+  detected forward/reverse PCR primer pair, with barcode provenance;
   reverse-only detections are retained.
 
 `read_count` counts unique **cleaned query IDs** having species confidence >=0.8;
@@ -225,11 +231,11 @@ mean no hit or no tracking row; `primer_tracking_record_found` distinguishes the
 Combined tables:
 
 - `all_reads.tsv`: concatenated read tables, retaining `source_folder`, `source_name`,
-  full `source_file`, `dataset`, and `PCR_plate` for every row.
+  full `source_file`, `dataset`, for every row.
 - `all_species_summary.tsv`: concatenated species summaries with folder/file provenance.
 - `barcode_analysis_summary.tsv`: per-folder read/assignment/primer counts and forward/reverse detected-name lists.
 - `species_by_folder.tsv`, `contamination_summary_by_folder.tsv`: reporting tables.
-- `input_manifest.tsv`, `taxon_plate_prevalence.tsv`: inputs and flag provenance.
+- `input_manifest.tsv`, `taxon_barcode_prevalence.tsv`: inputs and flag provenance.
 
 The parser handles the large files one barcode at a time, with temporary intermediates
 under `/tmp`; it does not keep all read tables in memory simultaneously.
@@ -331,3 +337,6 @@ or `--bold` for taxon-name matching against compressed FASTA headers in
 `data/bold/`. Both feed the same VSEARCH, optional translation-filtering, MAFFT or kc-align alignment,
 phylogeny and Baltic plotting steps. See the
 [Postprocessing source options](post_processing.md#choose-the-reference-dataset).
+
+BOLD reference extraction retains named species identifications only; genus-only,
+missing and provisional (`sp.`, `cf.`, `aff.`) identifications are excluded.

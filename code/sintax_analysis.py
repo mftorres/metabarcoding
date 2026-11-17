@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Read-level SINTAX analysis and PCR-plate prevalence, without classification."""
+"""Read-level SINTAX analysis and barcode prevalence, without classification."""
 import argparse
 from collections import defaultdict
 from datetime import datetime, timezone
@@ -68,13 +68,12 @@ def split_primer_table(primer_path, dataset, barcodes, temp_root):
     return paths, counts
 
 
-def sample_frame(path, cutoff, primer_path, mapping, plate, dataset):
+def sample_frame(path, cutoff, primer_path, mapping, dataset):
     frame = pd.DataFrame.from_records(parse_output(path, cutoff=cutoff), columns=COLUMNS)
     if frame.readid.duplicated().any():
         raise ValueError(f'Duplicate query IDs in {path}')
     for col in ['assigned_confidence', 'taxonomy_lowestboot'] + [r+'_bootstrap' for r in RANK_NAMES]:
         frame[col] = pd.to_numeric(frame[col], errors='coerce')
-    frame['PCR_plate'] = plate
     frame['dataset'] = dataset
     primers = pd.read_csv(primer_path, sep='\t', dtype=str, keep_default_na=False)
     if primers.seqID.duplicated().any(): raise ValueError(f'Duplicate primer IDs in {primer_path}')
@@ -94,19 +93,19 @@ def sample_frame(path, cutoff, primer_path, mapping, plate, dataset):
     return frame
 
 
-def prevalence_table(presence, plates, fraction):
-    minimum = math.ceil(fraction * len(plates) - 1e-12)
+def prevalence_table(presence, barcodes, fraction):
+    minimum = math.ceil(fraction * len(barcodes) - 1e-12)
     rows = []
     for (rank, label), observed in sorted(presence.items()):
         name, taxid = taxon_parts(label)
         rows.append(dict(rank=rank, taxon_label=label, taxon_name=name, taxid=taxid,
-                         plate_count=len(observed), analysed_plate_count=len(plates),
-                         plate_fraction=len(observed)/len(plates), minimum_plate_count=minimum,
-                         prevalence_threshold=fraction, PCR_plates=';'.join(sorted(observed)),
+                         barcode_count=len(observed), analysed_barcode_count=len(barcodes),
+                         barcode_fraction=len(observed)/len(barcodes), minimum_barcode_count=minimum,
+                         prevalence_threshold=fraction, barcodes=';'.join(sorted(observed)),
                          contamination='contamination' if len(observed) >= minimum else 'nocontamination'))
-    return pd.DataFrame(rows, columns=['rank','taxon_label','taxon_name','taxid','plate_count',
-        'analysed_plate_count','plate_fraction','minimum_plate_count','prevalence_threshold',
-        'PCR_plates','contamination'])
+    return pd.DataFrame(rows, columns=['rank','taxon_label','taxon_name','taxid','barcode_count',
+        'analysed_barcode_count','barcode_fraction','minimum_barcode_count','prevalence_threshold',
+        'barcodes','contamination'])
 
 
 def add_flags(frame, flagged):
@@ -122,7 +121,7 @@ def add_flags(frame, flagged):
 def species_summary(frame, flagged, cutoff):
     """One row per candidate species; statistics distinguish confident and candidate calls."""
     candidates = frame[frame.species.ne('')].copy()
-    keys = ['source_folder', 'source_name', 'source_file', 'PCR_plate', 'species']
+    keys = ['source_folder', 'source_name', 'source_file', 'species']
     columns = keys + ['species_name','species_taxid','genus','family','order','class',
                      'contamination','median_confidence','read_count','raw_read_count',
                      'forward_primers_detected','reverse_primers_detected',
@@ -153,7 +152,7 @@ def species_summary(frame, flagged, cutoff):
 
 
 def run_analysis(*, project_root, merged_dir, sintax_root, output_dir, primer_hits,
-                 plate_map, folders, cutoff=0.8, prevalence=0.8, suffix='sintaxSP', allow_missing=False):
+                 folders, cutoff=0.8, prevalence=0.8, suffix='sintaxSP', allow_missing=False):
     project_root, merged_dir, sintax_root, output_dir = map(Path, (project_root, merged_dir, sintax_root, output_dir))
     merged_dir = dataset_path(merged_dir)
     if folders is None:
@@ -161,12 +160,6 @@ def run_analysis(*, project_root, merged_dir, sintax_root, output_dir, primer_hi
     if not 0 <= cutoff <= 1 or not 0 < prevalence <= 1: raise ValueError('Invalid confidence/prevalence threshold')
     if len(set(folders)) != len(folders): raise ValueError('Duplicate folders')
     if output_dir.exists(): raise FileExistsError(f'Choose a new output directory: {output_dir}')
-    plate_frame = pd.read_csv(plate_map, sep='\t', dtype=str, keep_default_na=False)
-    plate_frame = plate_frame[['sequencing_barcode','PCR_plate']].drop_duplicates()
-    if plate_frame.sequencing_barcode.duplicated().any(): raise ValueError('Ambiguous PCR_plate mapping')
-    plate_lookup = dict(zip(plate_frame.sequencing_barcode,plate_frame.PCR_plate))
-    # Unclassified ONT reads have no demultiplexed PCR plate identity.
-    plate_lookup['unclassified'] = 'unassigned'
     inputs, manifest = {}, []
     for folder in folders:
         source = sintax_root / folder / f'{folder}_{suffix}.tsv'
@@ -174,25 +167,24 @@ def run_analysis(*, project_root, merged_dir, sintax_root, output_dir, primer_hi
         status = 'analysed' if source.is_file() else 'missing_sintax'
         if source.is_file():
             if not clean.is_file(): raise FileNotFoundError(clean)
-            if not plate_lookup.get(folder): raise ValueError(f'No PCR plate for {folder}')
             inputs[folder] = source
         elif not allow_missing: raise FileNotFoundError(source)
-        manifest.append(dict(source_folder=folder, PCR_plate=plate_lookup.get(folder,''),
+        manifest.append(dict(source_folder=folder,
             status=status, sintax_file=str(source.resolve()), clean_reads_file=str(clean.resolve()),
             sintax_bytes=source.stat().st_size if source.exists() else '',
             sintax_mtime_ns=source.stat().st_mtime_ns if source.exists() else ''))
     if not inputs: raise ValueError('No available SINTAX outputs')
-    plates = {plate_lookup[folder] for folder in inputs if folder != 'unclassified'}
+    barcodes = {folder for folder in inputs if folder != 'unclassified'}
     mapping = primer_name_map(project_root/'data/saproxdna_primertags_seq5_2026_1.fasta',
                               project_root/'data/PCRsaproxdna_primertags_seq5_2026_1.fasta')
     output_dir.mkdir(parents=True)
     metadata = dict(created_utc=datetime.now(timezone.utc).isoformat(), cutoff=cutoff,
-        prevalence_threshold=prevalence, denominator='distinct PCR_plate codes of analysed barcode folders; unclassified excluded',
-        unclassified_plate_policy='unassigned; excluded from plate presence and denominator',
-        analysed_plate_count=len(plates), minimum_plate_count=math.ceil(prevalence*len(plates)-1e-12),
+        prevalence_threshold=prevalence, denominator='distinct analysed source_folder barcodes; unclassified excluded',
+        unclassified_policy='included in read tables; excluded from barcode prevalence',
+        analysed_barcode_count=len(barcodes), minimum_barcode_count=math.ceil(prevalence*len(barcodes)-1e-12),
         requested_folders=folders, analysed_folders=list(inputs),
         missing_folders=[r['source_folder'] for r in manifest if r['status']!='analysed'],
-        primer_hits=str(Path(primer_hits).resolve()), plate_map=str(Path(plate_map).resolve()),
+        primer_hits=str(Path(primer_hits).resolve()),
         merged_dir=str(merged_dir.resolve()), sintax_root=str(sintax_root.resolve()),
         read_count_unit='unique cleaned query ID; adapter fragments are separate queries',
         median_confidence_scope='species confidence among queries with species confidence >= cutoff',
@@ -208,17 +200,17 @@ def run_analysis(*, project_root, merged_dir, sintax_root, output_dir, primer_hi
         primer_paths, primer_counts = split_primer_table(primer_hits,merged_dir.name,list(inputs),temp)
         for folder, path in inputs.items():
             print(f'Parsing {folder}: {path}',flush=True)
-            frame = sample_frame(path,cutoff,primer_paths[folder],mapping,plate_lookup[folder],merged_dir.name)
+            frame = sample_frame(path,cutoff,primer_paths[folder],mapping,merged_dir.name)
             for rank in RANK_NAMES:
                 accepted = frame[frame['accepted_'+rank].ne('')]
                 for label in accepted['accepted_'+rank].unique():
                     if folder != 'unclassified':
-                        presence[(rank,label)].add(plate_lookup[folder])
+                        presence[(rank,label)].add(folder)
                 for direction in ('forward', 'reverse'):
                     for label, primer in accepted[['accepted_'+rank, direction+'_PCR_primer']].drop_duplicates().itertuples(index=False, name=None):
                         taxon_primers[direction][(rank,label)].update(name for name in primer.split(';') if name)
             frame.to_pickle(temp/f'{folder}.pkl')
-            stats.append(dict(source_folder=folder,PCR_plate=plate_lookup[folder],
+            stats.append(dict(source_folder=folder,
                 cleaned_query_count=len(frame),original_read_count=frame.raw_ont_read_id.nunique(),
                 assigned_query_count=int(frame.assigned_label.ne('').sum()),
                 species_query_count=int(frame.accepted_species.ne('').sum()),
@@ -230,14 +222,14 @@ def run_analysis(*, project_root, merged_dir, sintax_root, output_dir, primer_hi
                 primer_tracking_rows=primer_counts[folder],
                 parent_reads_with_primer_tracking=int(frame.primer_tracking_record_found.sum())))
             del frame
-        prevalence_frame = prevalence_table(presence,plates,prevalence)
+        prevalence_frame = prevalence_table(presence,barcodes,prevalence)
         for direction in ('forward', 'reverse'):
             prevalence_frame[direction+'_primers_detected'] = [
                 ';'.join(sorted(taxon_primers[direction][(rank,label)]))
                 for rank,label in prevalence_frame[['rank','taxon_label']].itertuples(index=False,name=None)]
-        write_tsv(prevalence_frame,output_dir/'taxon_plate_prevalence.tsv')
+        write_tsv(prevalence_frame,output_dir/'taxon_barcode_prevalence.tsv')
         flagged = set(prevalence_frame.loc[prevalence_frame.contamination.eq('contamination'), ['rank','taxon_label']].itertuples(index=False,name=None))
-        print(f'80% screen: {len(plates)} plates, {metadata["minimum_plate_count"]} required; {len(flagged)} rank/taxon flags',flush=True)
+        print(f'Prevalence screen ({prevalence:.0%}): {len(barcodes)} barcodes, {metadata["minimum_barcode_count"]} required; {len(flagged)} rank/taxon flags',flush=True)
         combined = output_dir/'all_reads.tsv'
         with combined.open('x',encoding='utf-8',newline='') as combined_handle:
             for i,folder in enumerate(inputs):
@@ -249,9 +241,9 @@ def run_analysis(*, project_root, merged_dir, sintax_root, output_dir, primer_hi
                 summary = species_summary(frame,flagged,cutoff)
                 summaries.append(summary)
                 write_tsv(summary,folder_out/f'{folder}_species_summary.tsv')
-                # Per-primer taxonomy evidence retains folder and plate provenance.
+                # Per-primer taxonomy evidence retains barcode provenance.
                 primer_summary = (frame[frame.assigned_label.ne('') & (frame.forward_PCR_primer.ne('') | frame.reverse_PCR_primer.ne(''))]
-                    .groupby(['source_folder','PCR_plate','forward_PCR_primer','reverse_PCR_primer',
+                    .groupby(['source_folder','forward_PCR_primer','reverse_PCR_primer',
                               'assigned_rank','assigned_label','contamination'],dropna=False)
                     .agg(read_count=('readid','nunique'),raw_read_count=('raw_ont_read_id','nunique'),
                          median_confidence=('assigned_confidence','median')).reset_index())
@@ -273,7 +265,6 @@ def main():
     parser.add_argument('--sintax-root',type=Path,help='Default: PROJECT/data/sintax/DATASET')
     parser.add_argument('--output-dir',type=Path,required=True)
     parser.add_argument('--primer-hits',type=Path,required=True)
-    parser.add_argument('--plate-map',type=Path,default=Path('saproxDNA/species_info_seq5/seq5_pcr_to_pools.tsv'))
     parser.add_argument('--folders',nargs='+',help='Optional sample-name subset; default: discover from dataset')
     parser.add_argument('--cutoff',type=float,default=0.8)
     parser.add_argument('--prevalence',type=float,default=0.8)
