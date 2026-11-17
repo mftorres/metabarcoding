@@ -17,6 +17,22 @@ def database_files(path):
     return files
 
 
+def species_label(lineage):
+    """Use BOLD's species field, excluding absent and provisional identifications."""
+    ranks = [value.strip().replace('_', ' ') for value in lineage.split(',')]
+    # Full BOLD lineages: kingdom, phylum, class, order, family, subfamily,
+    # genus, species, subspecies. Preserve empty positions before reading species.
+    if len(ranks) >= 8:
+        label = ranks[7]
+    else:
+        label = next((value for value in reversed(ranks) if value.lower() not in ('', 'none', 'nan', 'null', 'na')), '')
+    if not re.fullmatch(r'[A-Z][A-Za-z-]+ (?:\([A-Z][A-Za-z-]+\) )?[a-z][a-z-]+(?: [a-z][a-z-]+)?', label):
+        return None
+    if set(label.casefold().split()) & {'sp', 'spp', 'cf', 'aff', 'nr', 'indet', 'unknown', 'unidentified', 'unassigned', 'undescribed', 'uncultured', 'unclassified'}:
+        return None
+    return label
+
+
 def extract_bold(files, taxon, output, metadata, identifiers):
     needle = normalise(taxon)
     if not needle or taxon.strip().isdigit():
@@ -42,13 +58,14 @@ def extract_bold(files, taxon, output, metadata, identifiers):
             for header, sequence in records(path):
                 if needle not in normalise(header):
                     continue
-                if not sequence:
-                    raise ValueError(f'Empty matching BOLD sequence: {header}')
                 fields = header.split('|')
                 if len(fields) < 4:
                     raise ValueError(f'Expected BOLD process|marker|country|taxonomy header: {header}')
-                lineage = [v.strip() for v in fields[3].split(',') if v.strip().casefold() not in ('', 'none', 'nan', 'null', 'na')]
-                label = lineage[-1] if lineage else 'unassigned'
+                label = species_label(fields[3])
+                if label is None:
+                    continue
+                if not sequence:
+                    raise ValueError(f'Empty matching BOLD sequence: {header}')
                 count += 1
                 identifier = f'BOLD_{count:09d}'
                 fasta.write(f'>{identifier} {header}\n')
@@ -56,5 +73,5 @@ def extract_bold(files, taxon, output, metadata, identifiers):
                 writer.writerow([identifier,fields[0],fields[1],label,header,str(Path(path).resolve())])
                 ids.write(identifier+'\n')
     if not count:
-        raise ValueError(f'No BOLD FASTA headers contain {taxon!r}')
+        raise ValueError(f'No species-identified BOLD sequences match {taxon!r}')
     return count

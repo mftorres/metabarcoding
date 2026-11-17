@@ -38,6 +38,23 @@ def discover_outputs(inputs, suffix='sintaxSP'):
     return sorted(paths)
 
 
+def prevalence_path(analysis_dir):
+    """Use barcode reports for new analyses and accept unchanged legacy reports."""
+    analysis_dir = Path(analysis_dir)
+    for name in ('taxon_barcode_prevalence.tsv', 'taxon_plate_prevalence.tsv'):
+        path = analysis_dir / name
+        if path.is_file():
+            return path
+    raise FileNotFoundError(f'No taxon prevalence report in {analysis_dir}')
+
+
+def contamination_flags(analysis_dir):
+    with prevalence_path(analysis_dir).open() as handle:
+        return {(row['rank'], row['taxon_label'])
+                for row in csv.DictReader(handle, delimiter='\t')
+                if row['contamination'] == 'contamination'}
+
+
 def parse_taxonomy(value):
     result = {}
     for token in value.strip().split(','):
@@ -119,16 +136,6 @@ def parse_output(path, cutoff=None):
                            assigned_confidence=candidates.get(code, ('', ''))[1],
                            taxonomy_status='taxapass' if code in ('g', 's') else 'taxafail')
             yield row
-
-
-def load_outputs(inputs, suffix='sintaxSP', cutoff=None):
-    import pandas as pd
-    rows = (row for path in discover_outputs(inputs, suffix) for row in parse_output(path, cutoff=cutoff))
-    frame = pd.DataFrame(rows, columns=COLUMNS)
-    for col in ['taxonomy_lowestboot'] + [r + '_bootstrap' for r in RANKS.values()]:
-        frame[col] = pd.to_numeric(frame[col], errors='coerce')
-    frame['sintax_taxid'] = pd.to_numeric(frame['sintax_taxid'], errors='coerce').astype('Int64')
-    return frame
 
 
 def main():

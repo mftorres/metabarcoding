@@ -23,8 +23,10 @@ def describe_headers(directory):
             if row is not None and len(row)!=len(columns):
                 raise ValueError(f'Header/data column mismatch: {path}')
         if path.name=='species_by_folder.tsv':
-            key=('species_by_folder.tsv',tuple(columns[:2]+columns[-2:]))
-            groups[key].append((path,len(columns)-4))
+            # Older completed reports can retain a historical second identity column.
+            prefix = 2 if columns[1:2] == ['PCR_plate'] else 1
+            key=('species_by_folder.tsv',tuple(columns[:prefix]+columns[-2:]))
+            groups[key].append((path,len(columns)-prefix-2))
         else:
             groups[('tables',tuple(columns))].append((path,None))
     text=['# Output table headers\n',
@@ -37,9 +39,10 @@ def describe_headers(directory):
         text+=['\n## '+examples+'\n','| Position | Column |\n|---:|---|\n']
         if kind=='species_by_folder.tsv':
             count=members[0][1]
-            text += [f'| 1 | `{columns[0]}` |\n',f'| 2 | `{columns[1]}` |\n',
-                     f'| 3–{count+2} | {count:,} dynamic species-label columns, each containing confident read counts |\n',
-                     f'| {count+3} | `{columns[2]}` |\n',f'| {count+4} | `{columns[3]}` |\n']
+            prefix = len(columns)-2
+            text += [f'| {i+1} | `{col}` |\n' for i,col in enumerate(columns[:prefix])]
+            text += [f'| {prefix+1}–{count+prefix} | {count:,} dynamic species-label columns, each containing confident read counts |\n',
+                     f'| {count+prefix+1} | `{columns[-2]}` |\n', f'| {count+prefix+2} | `{columns[-1]}` |\n']
         else:
             text += [f'| {i} | `{col}` |\n' for i,col in enumerate(columns,1)]
     target=directory/'TABLE_HEADERS.md'

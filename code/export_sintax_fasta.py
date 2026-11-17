@@ -10,7 +10,7 @@ from pathlib import Path
 import re
 import tempfile
 from sequence_headers import header_component, export_header, primer_annotations
-from sintax_parser import RANKS, parse_output, taxon_parts
+from sintax_parser import RANKS, parse_output, taxon_parts, contamination_flags
 from sample_folders import analysis_folders
 
 TAXON_SELECTION_POLICY = "queried-rank-confidence-ge-0.80-v2"
@@ -44,9 +44,7 @@ def export_reads(*,taxa,folders,analysis_dir,output,merged_dir=None,sintax_root=
     cutoff=params['cutoff']
     if cutoff != 0.8:
         raise ValueError('Headers require a completed analysis with cutoff 0.80')
-    with (analysis_dir/'taxon_plate_prevalence.tsv').open() as handle:
-        flagged={(r['rank'],r['taxon_label']) for r in csv.DictReader(handle,delimiter='\t')
-                 if r['contamination']=='contamination'}
+    flagged=contamination_flags(analysis_dir)
     with (analysis_dir/'input_manifest.tsv').open() as handle:
         manifest={r['source_folder']:r for r in csv.DictReader(handle,delimiter='\t')}
     names=analysis_folders(folders, analysis_dir)

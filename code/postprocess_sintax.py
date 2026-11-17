@@ -21,7 +21,7 @@ import xml.etree.ElementTree as ET
 from genbank_xml import iter_genbank_records
 from sequence_headers import HEADER_SCHEMA
 from bold_references import database_files, extract_bold
-from reference_labels import reference_names, labelled_reference_id, reference_id
+from reference_labels import TAXON_SEPARATOR, reference_names, labelled_reference_id, reference_id
 from sample_folders import analysis_folders
 from export_sintax_fasta import TAXON_SELECTION_POLICY
 
@@ -61,36 +61,57 @@ def tsv(path, columns, rows):
         writer.writerows(rows)
 
 
-def write_extraction_summary(source, output):
-    """Count extracted cleaned queries by barcode, forward primer and trusted taxon.
+def local_annotations(header):
+    """Read the four grouping annotations from an exported local header."""
+    parts = header.split()[0].split('-', 5)
+    if len(parts) != 6 or parts[4] not in ('contamination', 'nocontamination'):
+        raise ValueError(f'Expected annotated local extraction header: {header}')
+    return tuple(unquote(value) for value in parts[:4])
 
-    Read the unclustered local FASTA, so counts are independent of subsequent
-    consensus construction, translation screening and alignment rejection.
-    """
-    counts = Counter()
-    for header, _ in fasta(source):
-        parts = header.split()[0].split('-', 5)
-        if len(parts) != 6 or parts[4] not in ('contamination', 'nocontamination'):
-            raise ValueError(f'Expected annotated local extraction header in {source}: {header}')
-        barcode, forward, taxon = (unquote(parts[index]) for index in (0, 1, 3))
-        counts[barcode, forward, taxon] += 1
+
+def write_extraction_summary(source, output):
+    """Count all extracted reads and retain all highest-count taxa per barcode/forward primer."""
+    counts = Counter(local_annotations(header) for header, _ in fasta(source))
+    totals = Counter()
+    for (barcode, forward, reverse, taxon), count in counts.items():
+        totals[barcode, forward, taxon] += count
+    maxima = {}
+    for (barcode, forward, taxon), count in totals.items():
+        key = barcode, forward
+        maxima[key] = max(maxima.get(key, 0), count)
     output = Path(output)
     output.parent.mkdir(parents=True, exist_ok=True)
     temporary = None
     try:
-        with tempfile.NamedTemporaryFile(mode='w', newline='', dir=output.parent,
-                                         prefix='.' + output.name, delete=False) as handle:
+        with tempfile.NamedTemporaryFile(mode='w', newline='', dir=output.parent, prefix='.' + output.name, delete=False) as handle:
             temporary = Path(handle.name)
             writer = csv.writer(handle, delimiter='\t', lineterminator='\n')
-            writer.writerow(['barcode', 'forward_primer', 'taxonomic_identification', 'read_count'])
-            writer.writerows((*key, counts[key]) for key in sorted(counts))
-        # Keep unchanged reports untouched when resuming a completed run.
+            writer.writerow(['barcode', 'forward_primer', 'reverse_primer', 'taxonomic_identification', 'read_count', 'kept_for_module2'])
+            for barcode, forward, reverse, taxon in sorted(counts):
+                kept = totals[barcode, forward, taxon] == maxima[barcode, forward]
+                writer.writerow([barcode, forward, reverse, taxon, counts[barcode, forward, reverse, taxon], str(kept).lower()])
         if not output.exists() or output.read_bytes() != temporary.read_bytes():
             temporary.replace(output)
     finally:
         if temporary is not None:
             temporary.unlink(missing_ok=True)
     return sum(counts.values())
+
+
+def filter_dominant_reads(source, summary, output):
+    """Apply the recorded selection without changing the original extraction."""
+    with Path(summary).open() as handle:
+        kept = {(row['barcode'], row['forward_primer'], row['reverse_primer'], row['taxonomic_identification'])
+                for row in csv.DictReader(handle, delimiter='\t') if row['kept_for_module2'] == 'true'}
+    count = 0
+    with Path(output).open('x') as handle:
+        for header, sequence in fasta(source):
+            if local_annotations(header) in kept:
+                write_record(handle, header, sequence)
+                count += 1
+    if not count:
+        raise ValueError('No local reads remain after dominant-taxon selection')
+    return count
 
 
 # Exclude genome descriptions, not mitochondrial origin: COI itself is mitochondrial.
@@ -185,16 +206,13 @@ def filter_translations(representatives, translated, output, report, minimum, mo
     return kept
 
 
-CLUSTERING_POLICY = 'vsearch98-consensus-local-barcode-forward-reverse-taxon-reference-global-v3'
-
-
-def vsearch_cluster(runner, source, consensus_sequences, uc, stdout, threads):
-    """Build 97% consensuses and restore seed headers while retaining UC memberships."""
+def vsearch_cluster(runner, source, consensus_sequences, uc, stdout, threads, identity):
+    """Build consensuses at the requested identity and restore seed headers while retaining UC memberships."""
     lengths = [len(sequence) for _, sequence in fasta(source)]
     if not lengths:
         raise ValueError(f'No sequences to cluster in {source}')
     raw_consensus = Path(str(consensus_sequences) + '.raw')
-    runner.run(['vsearch', '--cluster_fast', source, '--id', '0.97', '--iddef', '2',
+    runner.run(['vsearch', '--cluster_fast', source, '--id', identity, '--iddef', '2',
                 '--strand', 'both', '--qmask', 'none', '--minseqlength', '1',
                 '--maxseqlength', max(lengths), '--notrunclabels',
                 '--consout', raw_consensus, '--uc', uc, '--threads', threads], stdout)
@@ -216,20 +234,25 @@ def vsearch_cluster(runner, source, consensus_sequences, uc, stdout, threads):
     return len(lengths), sum(1 for _ in fasta(consensus_sequences))
 
 
-def cluster_local_groups(runner, source, output, groups_dir, summary, memberships, threads):
-    """Keep barcode/forward/reverse/taxon groups separate throughout local clustering."""
+def cluster_groups(runner, source, output, groups_dir, summary, memberships, threads, references=False):
+    """Cluster local individuals or reference taxa independently using one implementation."""
+    identity = '0.98' if references else '0.97'
     groups_dir.mkdir()
     groups, handles, seen = {}, OrderedDict(), set()
     try:
         for header, sequence in fasta(source):
             identifier = header.split()[0]
-            parts = identifier.split('-', 5)
-            if len(parts) != 6 or parts[4] not in ('contamination', 'nocontamination'):
-                raise ValueError(f'Expected a primer-aware local FASTA header: {header}')
+            if references:
+                _, separator, taxon = identifier.partition(TAXON_SEPARATOR)
+                if not separator or not taxon:
+                    raise ValueError(f'Reference lacks a taxonomic label: {header}')
+                key = (taxon,)
+            else:
+                barcode, forward, reverse, taxon = local_annotations(header)
+                key = (barcode, forward, taxon)
             if identifier in seen:
-                raise ValueError(f'Duplicate local sequence ID: {identifier}')
+                raise ValueError(f'Duplicate sequence ID: {identifier}')
             seen.add(identifier)
-            key = tuple(parts[:4])
             if key not in groups:
                 group_id = f'group{len(groups)+1:06d}'
                 groups[key] = (group_id, groups_dir / f'{group_id}.input.fasta')
@@ -237,7 +260,8 @@ def cluster_local_groups(runner, source, output, groups_dir, summary, membership
             handle = handles.pop(key, None)
             if handle is None:
                 if len(handles) >= 64:
-                    _, old = handles.popitem(last=False); old.close()
+                    _, old = handles.popitem(last=False)
+                    old.close()
                 handle = path.open('a')
             handles[key] = handle
             write_record(handle, header, sequence)
@@ -245,7 +269,7 @@ def cluster_local_groups(runner, source, output, groups_dir, summary, membership
         for handle in handles.values():
             handle.close()
     if not groups:
-        raise ValueError('No local reads to cluster')
+        raise ValueError('No sequences to cluster')
     rows = []
     with output.open('x') as combined, memberships.open('x', newline='') as audit:
         writer = csv.writer(audit, delimiter='\t')
@@ -255,20 +279,18 @@ def cluster_local_groups(runner, source, output, groups_dir, summary, membership
             consensus_sequences = groups_dir / f'{group_id}.consensus.fasta'
             uc = groups_dir / f'{group_id}.uc'
             before, after = vsearch_cluster(runner, path, consensus_sequences, uc,
-                                           groups_dir / f'{group_id}.stdout.log', threads)
+                                           groups_dir / f'{group_id}.stdout.log', threads, identity)
             for header, sequence in fasta(consensus_sequences):
-                if tuple(header.split('-', 4)[:4]) != key:
-                    raise ValueError(f'VSEARCH changed grouping fields: {header}')
                 write_record(combined, header, sequence)
             with uc.open() as handle:
                 for line in handle:
                     if line.strip() and not line.startswith('#'):
                         writer.writerow([group_id] + line.rstrip('\n').split('\t'))
-            rows.append((group_id, *(unquote(value) for value in key), before, after, '0.98'))
-    tsv(summary, ['group_id', 'source_folder', 'forward_primer', 'reverse_primer', 'taxon_label',
-                  'input_sequences', 'consensus_sequences', 'identity'], rows)
-    runner.note(f'Local VSEARCH: {len(seen)} reads in {len(groups)} barcode/primer/taxon groups -> '
-                f'{sum(row[6] for row in rows)} consensus sequences')
+            rows.append((group_id, *key, before, after, identity))
+    fields = ['taxon_label'] if references else ['source_folder', 'forward_primer', 'taxon_label']
+    tsv(summary, ['group_id', *fields, 'input_sequences', 'consensus_sequences', 'identity'], rows)
+    runner.note(f'VSEARCH: {len(seen)} sequences in {len(groups)} groups -> '
+                f'{sum(row[-2] for row in rows)} consensus sequences')
 
 
 def file_digest(path):
@@ -537,8 +559,6 @@ def run_pipeline(args):
             raise ValueError('BOLD database files changed since this run; use a new output directory')
         if not args.restart_alignment and previous.get('kcalign_reference_sha256') != reference_snapshot:
             raise ValueError('Cannot resume with changed trusted alignment reference; use a new output directory')
-        if previous.get('clustering_policy') != CLUSTERING_POLICY:
-            raise ValueError('This run uses an older clustering policy. Use a new output directory for grouped VSEARCH 98% consensus sequences.')
         if previous.get('taxon_selection_policy') != TAXON_SELECTION_POLICY:
             raise ValueError('This run used an older taxon-selection policy. Use a new output directory to require queried-label confidence >=0.80.')
         if previous.get('header_schema') != HEADER_SCHEMA:
@@ -573,7 +593,6 @@ def run_pipeline(args):
         config['bootstrap_method'] = 'none'
         config['alignment_trimming'] = 'clipkit-smart-gap-nt-v1'
         config['alignment_algorithm'] = 'kc-align' if args.kcalign else 'FFT-NS-2'
-        config['clustering_policy'] = CLUSTERING_POLICY
         config['header_schema'] = HEADER_SCHEMA
         config['taxon_selection_policy'] = TAXON_SELECTION_POLICY
         if not resume:
@@ -647,14 +666,19 @@ def run_pipeline(args):
             summary = root / 'extraction_by_barcode_primer_taxon.tsv'
             write_extraction_summary(local, summary)
             runner.note(f'Extraction barcode/primer/taxon summary: {summary}')
-            local_representatives = root / f'cleaned_{stem}.vsearch98.fasta'
+            selected_local = root / f'cleaned_{stem}.dominant.fasta'
+            with checkpoints.stage('dominant_taxon_selection', [selected_local]) as execute:
+                if execute:
+                    retained_count = filter_dominant_reads(local, summary, selected_local)
+                    runner.note(f'Dominant-taxon selection retained {retained_count} extracted local reads')
+            local_representatives = root / f'cleaned_{stem}.vsearch97.fasta'
             local_groups = root / 'vsearch_local_groups'
             local_summary = root / 'vsearch_local_groups.tsv'
             local_memberships = root / 'vsearch_local_memberships.tsv'
             with checkpoints.stage('vsearch_local', [local_representatives, local_summary, local_memberships],
                                    extra=[local_groups]) as execute:
                 if execute:
-                    cluster_local_groups(runner, local, local_representatives, local_groups,
+                    cluster_groups(runner, selected_local, local_representatives, local_groups,
                                          local_summary, local_memberships, args.threads)
             # References remain independent of local groups through clustering.
             reference_prefix = 'BOLD' if args.reference_source == 'bold' else 'COI'
@@ -705,14 +729,17 @@ def run_pipeline(args):
                 raise ValueError('No reference sequences remain in the inclusive 500–2000 nt range')
             runner.note(f'References retained after 500–2000 nt filtering: {reference_count}')
             reference_representatives = root / f'{reference_prefix}_{stem}.vsearch98.fasta'
-            reference_uc = root / f'{reference_prefix}_{stem}.vsearch98.uc'
-            with checkpoints.stage('vsearch_references', [reference_representatives, reference_uc],
-                                   extra=[root / 'vsearch_references.stdout.log']) as execute:
+            reference_uc = root / 'vsearch_reference_memberships.tsv'
+            reference_groups = root / 'vsearch_reference_groups'
+            reference_summary = root / 'vsearch_reference_groups.tsv'
+            with checkpoints.stage('vsearch_references', [reference_representatives, reference_uc, reference_summary],
+                                   extra=[reference_groups]) as execute:
                 if execute:
-                    vsearch_cluster(runner, length_filtered, reference_representatives, reference_uc,
-                                    root / 'vsearch_references.stdout.log', args.threads)
-            cluster_counts = [(dataset, sum(1 for _ in fasta(source)), sum(1 for _ in fasta(target)), '0.98')
-                              for dataset, source, target in [('local', local, local_representatives),
+                    cluster_groups(runner, length_filtered, reference_representatives, reference_groups,
+                                   reference_summary, reference_uc, args.threads, references=True)
+            cluster_counts = [(dataset, sum(1 for _ in fasta(source)), sum(1 for _ in fasta(target)),
+                               '0.97' if dataset == 'local' else '0.98')
+                              for dataset, source, target in [('local', selected_local, local_representatives),
                                                                ('reference', length_filtered, reference_representatives)]]
             tsv(root / 'clustering_counts.tsv', ['dataset', 'input_sequences', 'consensus_sequences', 'identity'], cluster_counts)
             # Combine consensus sets only after each source has been clustered.
@@ -844,7 +871,6 @@ def run_pipeline(args):
                     partial.unlink(missing_ok=True)
         # Both alignment branches feed the same trimmed nucleotide phylogeny and figure stages.
         # Bootstrap inference is disabled: retain model selection and the ML tree search.
-        # To restore 1,000 standard bootstrap replicates, use the commented command below.
         phylogeny_marker = root / 'phylogeny.complete.json'
         phylogeny_settings = {'bootstrap': 'none', 'model': 'MFP', 'seed': 666,
                               'input_sha256': file_digest(pruned)}
@@ -856,11 +882,8 @@ def run_pipeline(args):
                 checkpoints.dirty = True
         with checkpoints.stage('phylogeny', [Path(str(prefix) + '.treefile'), phylogeny_marker], extra=[root / 'iqtree.stdout.log'] + [Path(str(prefix)+suffix) for suffix in ('.iqtree', '.log', '.ckp.gz', '.bionj', '.mldist', '.model.gz', '.contree', '.boottrees', '.ufboot', '.splits.nex')], legacy=False) as execute:
             if execute:
-                # runner.run(['iqtree', '-s', pruned, '-m', 'MFP', '-b', '1000',
-                #             '-T', args.threads, '--seed', '666', '--prefix', prefix], root / 'iqtree.stdout.log')
-                runner.run(['iqtree', '-s', pruned, '-m', 'MFP',
-                            # '-T', args.threads, '--seed', '666', '--prefix', prefix], root / 'iqtree.stdout.log') # passing threads to all
-                            '-T', 'AUTO', '--seed', '666', '--prefix', prefix], root / 'iqtree.stdout.log') # auto threads for short alignments
+                runner.run(['iqtree', '-s', pruned, '-m', 'MFP', '-T', args.threads,
+                            '--seed', '666', '--prefix', prefix], root / 'iqtree.stdout.log')
                 if not Path(str(prefix) + '.treefile').is_file():
                     raise ValueError('IQ-TREE did not produce the expected treefile')
                 phylogeny_marker.write_text(json.dumps(phylogeny_settings, indent=2)+'\n')

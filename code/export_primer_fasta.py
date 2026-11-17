@@ -13,7 +13,7 @@ import tempfile
 
 from export_sintax_fasta import fastq_records
 from sequence_headers import export_header
-from sintax_parser import parse_output
+from sintax_parser import parse_output, contamination_flags
 
 
 def clean_records(path):
@@ -103,9 +103,7 @@ def export_primer(*, primer, barcode, analysis_dir, output, include_unclassified
             raise FileExistsError(f'Refusing to overwrite {path}')
     with (analysis_dir / 'input_manifest.tsv').open() as handle:
         manifest = {row['source_folder']: row for row in csv.DictReader(handle, delimiter='\t')}
-    with (analysis_dir / 'taxon_plate_prevalence.tsv').open() as handle:
-        flagged = {(row['rank'], row['taxon_label']) for row in csv.DictReader(handle, delimiter='\t')
-                   if row['contamination'] == 'contamination'}
+    flagged = contamination_flags(analysis_dir)
     sources = {}
     for folder in folders:
         source = Path(manifest[folder]['sintax_file'])
