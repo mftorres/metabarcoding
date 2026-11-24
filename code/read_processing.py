@@ -18,7 +18,6 @@ def main():
     parser.add_argument('dataset', help='Parent folder, e.g. sequencing2 or data/sequencing2')
     parser.add_argument('--output-dir', type=Path, help='New run directory; default: data/read_processing/DATASET_TIMESTAMP')
     parser.add_argument('--sintax-root', type=Path, help='Classification outputs; default: data/sintax/DATASET (separate datasets)')
-    parser.add_argument('--plate-map', type=Path, default=Path('saproxDNA/species_info_seq5/seq5_pcr_to_pools.tsv'))
     parser.add_argument('--dry-run', action='store_true', help='Print the steps without running or writing analyses')
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[1]
@@ -30,10 +29,8 @@ def main():
     output = (args.output_dir or root/'data/read_processing'/f'{dataset.name}_{datetime.now():%Y%m%d_%H%M%S_%f}').resolve()
     if output.exists():
         parser.error(f'Use a new output directory: {output}')
-    commands = [
-        ['bash', str(root/'code/run_metabarcoding_pipeline.sh'), str(dataset)],
-        ['bash', str(root/'code/run_primer_umi_tracking.sh'), str(dataset)],
-    ]
+    commands = [['bash', str(root/'code/run_metabarcoding_pipeline.sh'), str(dataset)],
+                ['bash', str(root/'code/run_primer_umi_tracking.sh'), str(dataset)]]
     for command in commands:
         print(shlex.join(command), flush=True)
     print(f'Parse primer hits for {", ".join(p.name for p in folders)} into {output}/primertrack', flush=True)
@@ -65,7 +62,7 @@ def main():
         raise ValueError('Expected one prepared best-hit table')
     subprocess.run([sys.executable, str(root/'code/run_sintax_notebooks.py'), str(dataset),
                     '--output-dir', str(output/'analysis'), '--executed-dir', str(output/'executed_notebooks'), '--primer-hits', str(best[0]),
-                    '--sintax-root', str(args.sintax_root.resolve()), '--plate-map', str(args.plate_map.resolve())],
+                    '--sintax-root', str(args.sintax_root.resolve())],
                    cwd=root, env=env, check=True)
     print(f'Read processing complete. Postprocessing --analysis-dir: {output}/analysis')
 

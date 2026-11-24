@@ -46,7 +46,7 @@ python code/postprocess_sintax.py sequencing2 --bold --taxon Tipulidae \
 ```
 
 Classification outputs are separated by dataset under `data/sintax/DATASET/`.
-`unclassified` is included in read analyses but excluded from PCR-plate prevalence.
+`unclassified` is included in read analyses but excluded from barcode prevalence.
 See the [full workflow](docs/pipeline_from_fastplong_onwards.md#run-both-modules-using-the-dataset-parent)
 for prerequisites, path overrides and output handling.
 
@@ -58,7 +58,7 @@ The pipeline has two modules:
    available for individual stages. See the
    [Read processing documentation](docs/pipeline_from_fastplong_onwards.md).
 2. **Postprocessing**: `code/postprocess_sintax.py` exports a selected taxon,
-   selects NCBI COI references (`--download`) or taxon-matched local BOLD records (`--bold`), filters references to 500–2,000 nt and builds cluster consensus sequences at 98% identity with VSEARCH (local barcode/primer/taxon groups; references globally), optionally filters six-frame translations,
+   selects NCBI COI references (`--download`) or taxon-matched local BOLD records (`--bold`), filters references to 500–2,000 nt and builds VSEARCH cluster consensus sequences at 97% identity for local reads and 98% for references (dominant local taxon per barcode/forward primer; references grouped by taxon), optionally filters six-frame translations,
    aligns with MAFFT FFT-NS-2 or kc-align (`--kcalign --kcalign-reference PATH`), trims alignment columns with ClipKIT smart-gap, estimates an IQ-TREE maximum-likelihood phylogeny without bootstrap replicates, and renders a midpoint-rooted
    Baltic divergence-tree figure with supports, trusted-taxon/ID tip labels and scale bar. Mitogenomes are excluded
    by default; `--include-mitogenomes` allows them. See the
@@ -67,10 +67,10 @@ The pipeline has two modules:
 Oxford Nanopore cleaned-read taxonomic analysis using VSEARCH SINTAX and MIDORI COI
 references. The post-classification workflow parses all taxonomic ranks/confidences,
 assigns the lowest rank with confidence >=0.8, joins primer-tracking evidence,
-and flags taxa occurring in >=80% of analysed PCR-plate codes.
+and flags taxa occurring in >=80% of analysed barcode folders.
 
 Per-barcode and combined tab-delimited tables preserve query IDs, parent-read IDs,
-source folder/file, and PCR-plate provenance. The taxon FASTA exporter selects reads matching any reported SINTAX taxon label,
+source folder/file, and barcode provenance. The taxon FASTA exporter selects reads matching any reported SINTAX taxon label,
 with confidence >=0.80 on the queried label. Exported cleaned sequences are annotated with the lowest
 trusted taxon (lowest rank with confidence >=0.80), or `unassigned` if none qualifies.
 
@@ -85,7 +85,7 @@ are reported and excluded. Choose a new output directory for each run.
 See [workflow documentation](docs/pipeline_from_fastplong_onwards.md) for definitions,
 outputs, confidence/contamination rules, FASTA export and validation.
 
-For taxon-specific COI reference retrieval, grouped/global VSEARCH 98% nucleotide clustering, six-frame
+For taxon-specific COI reference retrieval, taxon-aware VSEARCH nucleotide clustering (97% local, 98% references), six-frame
 mitochondrial translation filtering, alignment and phylogeny, see the
 [post-processing module](docs/post_processing.md).
 
@@ -125,3 +125,40 @@ used internally by Postprocessing. Saved executed notebooks are analysis outputs
 
 See the [Postprocessing output-file reference](data/postprocessing/README.md) for
 file contents, producing tools and the extracted-read barcode/primer/taxon counts.
+
+Postprocessing retains the most abundant extracted taxonomic label per barcode +
+forward primer, summed across reverse primers (all tied highest-count labels are retained).
+Its extraction TSV records reverse primers and `kept_for_module2` for all labels.
+One insect per barcode/forward primer is assumed. Retained reads still undergo
+97% clustering to separate divergent sequences under broad assignments; BOLD/NCBI
+references cluster at 98% only within the same header taxon label. See the
+[selection and clustering details](docs/post_processing.md). IQ-TREE runs without bootstrap.
+
+BOLD reference extraction retains named species identifications only; genus-only,
+missing and provisional (`sp.`, `cf.`, `aff.`) identifications are excluded.
+
+New to Module 2? Start with the [step-by-step Postprocessing walkthrough](docs/post_processing.md)
+or the [HTML guide with a command builder](docs/metabarcoding-guide.html#postprocessing).
+Both explain the inputs, one-barcode example, filtering decisions and result files
+in plain language.
+
+Received `postprocessing-inputs.tar.gz`? Follow the [archive walkthrough](docs/metabarcoding-guide.html#shared-inputs)
+for Route A: clone the project, extract the data, update saved input paths and
+run COI Postprocessing with BOLD and kc-align.
+
+For COI, **kc-align is preferred when a trustworthy, primer-free coding guide is
+available**. MAFFT remains the software default. See the [COI guide-selection and
+running instructions](docs/coi_reference.md) for NCBI/BOLD sources, exact coding-region
+length and frame checks, NUMT precautions, and a shared-archive command example.
+
+For COI, BOLD is the preferred starting reference source. Before interpreting
+the tree, users must review the ClipKIT-trimmed alignment in a tool such as
+[UGENE](https://ugene.net/download-all.html). Trees can be explored quickly in
+[Peartree](https://peartree.live/). Which reads, consensuses and reference species
+to retain is the user’s scientific decision; see the
+[review and record-selection instructions](docs/post_processing.md#review-the-trimmed-alignment-before-interpreting-the-tree).
+
+Postprocessing now has two complete starting routes: [A: downloaded input archive](docs/metabarcoding-guide.html#shared-inputs)
+or [B: your own Module 1 analysis](docs/metabarcoding-guide.html#local-inputs). Follow
+one route, then [C: files and quality review](docs/metabarcoding-guide.html#review-alignment).
+Both COI examples use BOLD and kc-align; no second route is needed.
