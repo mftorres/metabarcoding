@@ -8,6 +8,7 @@ code/executed_notebooks/
 # Codex/agent local state
 .agents/
 .codex/
+AGENTS.md
 
 # Logs and temporary run state
 logs/
@@ -98,13 +99,17 @@ other_resources/paper-bioinformatic-methods/*
 !/saproxDNA/species_info_seq5/
 /saproxDNA/species_info_seq5/*
 !/saproxDNA/species_info_seq5/PCR_to_species_20260602.txt
-!/saproxDNA/species_info_seq5/seq5_pcr_to_pools.tsv
 !/data/ONT_24_native_barcode_sequences.fasta
 !/data/PCRsaproxdna_primertags_seq5_2026_1.fasta
-!/data/saproxdna_primertags_seq5_2026_1.fasta
 !/config/taxonomy-environment.yml
 
 # Database setup instructions and the offline user guide belong in Git.
 !/data/sintax/README.md
 !/data/bold/README.md
 !/docs/metabarcoding-guide.html
+
+# Postprocessing output-file reference.
+!/data/postprocessing/README.md
+
+# Private working records of review sessions (chat logs).
+chat_history/
