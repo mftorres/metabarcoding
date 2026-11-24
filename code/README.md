@@ -1,42 +1,39 @@
-# Pipeline source notebooks
+# Code overview
 
-Use these source notebooks for current analyses:
+Run every script from the project folder with the `taxonomy` environment active.
+Settings for Module 1 are in [`config/pipeline.env`](../config/pipeline.env).
 
-| Notebook | Purpose |
+## Module 1 · Read processing
+
+| Script | Role |
 | --- | --- |
-| `primer_umi_seqkit_parser.ipynb` | Select best forward/reverse primer hits per raw read. |
-| `sintax_output_parser.ipynb` | Parse taxonomic assignments, join primer evidence and calculate prevalence across barcode folders. |
-| `evaluate_tagtracking_taxid_reduced.ipynb` | Review one barcode's read/species/primer tables and plot its species counts. |
-| `sankey_target_species_detection.ipynb` | Build across-barcode summaries and plots. |
+| `read_processing.py` | **Entry point.** Runs the shell pipeline for every sample, then the analysis. |
+| `run_metabarcoding_pipeline.sh` | Per sample: cutadapt + `primer_tags.py` → fastplong → VSEARCH SINTAX. Reuses finished samples. |
+| `primer_tags.py` | Reads cutadapt's info file and assigns forward/reverse tags (edit distance, error limit, margin). |
+| `sintax_analysis.py` | Joins SINTAX results with tags, contamination screen, per-sample and combined tables. Can be run alone to redo the tables. |
+| `sintax_parser.py` | Parses SINTAX output lines into ranks and confidences. |
+| `analysis_report.py` | Summary tables and figures at the end of the analysis. |
+| `describe_table_headers.py` | Checks every output table and writes `TABLE_HEADERS.md`. |
+| `merge_pass_fail.py` | Optional first step: combines MinKNOW `pass`/`fail` subfolders. |
+| `reuse_sintax.py` | One-off, for mergedseq5: copies the October 2026 classifications onto the re-cleaned reads, matched by read ID (see [mergedseq5](../data/mergedseq5/README.md)). |
+| `sample_folders.py` | Finds `barcodeNN`/`unclassified` folders; stores paths relative to the project. |
+| `export_sintax_fasta.py` | Exports reads of a taxon (also used by Module 2). |
+| `export_primer_fasta.py` | Exports reads of one forward tag in one barcode folder. |
 
-These notebooks do not load a PCR-plate mapping, create PCR-plate columns, or
-group observations by PCR plate. Sample identity is `source_folder`/barcode.
-PCR-primer names still identify the experimental primers and are required.
-`unclassified` remains available in read tables but is excluded from barcode
-prevalence. New analyses write `taxon_barcode_prevalence.tsv`.
+## Module 2 · Postprocessing
 
-Run `python code/read_processing.py DATASET` for the complete workflow, or
-`python code/run_sintax_notebooks.py DATASET --primer-hits PATH --output-dir PATH`
-to report on existing inputs. The runner executes these source notebooks and
-saves report copies separately; choose a new output directory for a new analysis.
+| Script | Role |
+| --- | --- |
+| `postprocess_sintax.py` | **Entry point.** Export, dominant-taxon selection, clustering, references, protein check, alignment, ClipKIT, IQ-TREE, figure; resumable. |
+| `bold_references.py` | Selects named-species records of a taxon from the BOLD FASTA. |
+| `genbank_xml.py`, `reference_labels.py` | Read NCBI metadata; label reference IDs with their species. |
+| `kcalign_alignment.py` | Runs kc-align with the COI guide and restores the sequence names. |
+| `kcalign_cli.py`, `kcalign_parallel.py` | Work around two bugs of the installed kc-align version (thread handling, crash on rejected reads). |
+| `plot_phylogeny.py` | Midpoint-rooted tree figure with Baltic. |
 
-## Historical executed notebooks
+## Shared
 
-`executed_notebooks/` contains local analysis artifacts and is excluded from Git.
-The 46 October 2026 executed reports containing obsolete PCR-plate code were
-preserved byte-for-byte in
-`executed_notebooks/historical_pcr_reports_20261021.tar.gz`; the adjacent
-`.manifest.json` records their original paths and SHA256 hashes. Their original
-outputs remain inside that archive. They are historical records, not current
-pipeline entry points. Use the source notebooks above for new work.
-
-Postprocessing uses one shared grouping/clustering helper for local individuals
-and reference taxa. Before local clustering it retains the largest extracted
-taxonomic-label count per barcode/forward primer (summed across reverse primers;
-all tied highest-count labels are retained). The extraction TSV records reverse primers and retention
-decisions. Local reads use 97% VSEARCH identity; references use 98% and are grouped
-by header taxon. See [the Postprocessing guide](../docs/post_processing.md) for
-the biological assumptions and output files.
-
-BOLD reference extraction retains named species identifications only; genus-only,
-missing and provisional (`sp.`, `cf.`, `aff.`) identifications are excluded.
+| Script | Role |
+| --- | --- |
+| `seqio.py` | FASTA/FASTQ reading and writing. |
+| `sequence_headers.py` | Format of local read headers (`folder-forward-reverse-taxon-flag-readid`). |

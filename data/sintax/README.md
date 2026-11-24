@@ -1,79 +1,82 @@
-# MIDORI reference database for Read processing
+# MIDORI reference database for Module 1
 
-Run commands from the repository root with the `taxonomy` environment active.
-The reference FASTA and generated VSEARCH `.udb` are large local files excluded
-from Git; this README records how to obtain and place the reference.
+Module 1 classifies reads with VSEARCH SINTAX against the MIDORI COI database.
+The database is large and stays on your computer; it is not stored in Git.
 
-## Download the matching release and format
+## Download the right file
 
-Open the official [MIDORI download page](https://www.reference-midori.info/download.html).
-It links to the current release on Zenodo and a separate archive of previous
-releases. Use **Previous releases**, then select **GB272 (June 2026)** to reproduce
-this repository's default configuration. For another release, keep its real
-release number in the filename and change the configuration accordingly.
+1. Open the [MIDORI download page](https://www.reference-midori.info/download.html).
+2. To reproduce this project's settings, choose **Previous releases**, then
+   **GB272 (June 2026)**. (For a newer release, keep its real release number in the
+   file name and update `config/pipeline.env`, see below.)
+3. Select the combination **SINTAX · UNIQ · NUC_SP · CO1** and download it.
+   - *SINTAX* is the file format VSEARCH needs; other formats (BLAST, RAW…) do not work.
+   - *NUC_SP* contains nucleotide sequences, including records with ambiguous species names.
+   - *CO1* is the COI marker.
+4. If the download is a ZIP or TAR archive, unpack it and keep only
+   `MIDORI2_UNIQ_NUC_SP_GB272_CO1_SINTAX.fasta` (or its `.fasta.gz`).
 
-Select **SINTAX**, **UNIQ**, **NUC_SP**, **CO1**. NUC_SP contains nucleotide
-records including ambiguous species names; CO1 is the COI marker used here.
-Download the archive containing that combination and extract the matching FASTA:
+Write down the release, download date and link. Cite MIDORI as its website asks.
 
-```text
-MIDORI2_UNIQ_NUC_SP_GB272_CO1_SINTAX.fasta
-```
-
-Keep the taxonomy-bearing FASTA headers intact. BLAST, RAW, amino-acid and other
-classifier formats are not substitutes for the SINTAX file. Record the release,
-download URL and any supplied checksum when preparing a new dataset. Follow the
-provider's citation instructions.
-
-## Folder and decompression
-
-Create the destination:
+## Put it in place
 
 ```bash
+cd ~/metabarcoding
 mkdir -p data/sintax
+mv "/mnt/c/Users/USERNAME/Downloads/MIDORI2_UNIQ_NUC_SP_GB272_CO1_SINTAX.fasta.gz" data/sintax/
 ```
 
-If the download is an archive containing multiple files, unpack it first and
-copy only the selected CO1 SINTAX FASTA here. The pipeline does not unpack ZIP or
-TAR archives. Once any outer archive is extracted, either layout is accepted:
+Either `data/sintax/MIDORI2_UNIQ_NUC_SP_GB272_CO1_SINTAX.fasta` or the same name with
+`.gz` works. The first time classification runs, the pipeline unpacks a `.gz` copy (it
+keeps the original) and builds a VSEARCH index file, `…_SINTAX.udb`. This takes a while
+and needs free disk space for both: the GB272 index is about 10 GB.
 
-```text
-data/sintax/MIDORI2_UNIQ_NUC_SP_GB272_CO1_SINTAX.fasta
-```
+## Using another release
 
-or, if the selected FASTA itself is gzipped:
-
-```text
-data/sintax/MIDORI2_UNIQ_NUC_SP_GB272_CO1_SINTAX.fasta.gz
-```
-
-Manual gzip decompression is optional. When classification is needed and the
-`.udb` is absent, `code/run_metabarcoding_pipeline.sh` decompresses the matching
-`.fasta.gz` if the plain FASTA is absent, then builds the UDB automatically. It
-keeps the gzip original. Allow disk space for both the plain FASTA and the UDB.
-For manual decompression while keeping the gzip file:
+Change these three settings in `config/pipeline.env` together, so new results are not
+mixed with old ones:
 
 ```bash
-gzip -dk data/sintax/MIDORI2_UNIQ_NUC_SP_GB272_CO1_SINTAX.fasta.gz
+SINTAX_REFERENCE=data/sintax/MIDORI2_UNIQ_NUC_SP_GB999_CO1_SINTAX.fasta
+SINTAX_DB=data/sintax/MIDORI2_UNIQ_NUC_SP_GB999_CO1_SINTAX.udb
+SINTAX_SUFFIX=sintaxGB999
 ```
 
-The settings in `config/pipeline.env` refer to the **uncompressed** FASTA path,
-even when initially supplying only its `.gz` sibling:
+An existing `.udb` is reused without checking which FASTA it came from, so never
+rename a new release to an old name.
+
+## Optional: an Arthropoda-only database
+
+Keeping only arthropod records makes the database smaller and SINTAX faster. Done for
+this project on 23 Nov 2026, in the `taxonomy` environment, from `data/sintax/`:
 
 ```bash
-SINTAX_REFERENCE=data/sintax/MIDORI2_UNIQ_NUC_SP_GB272_CO1_SINTAX.fasta
-SINTAX_DB=data/sintax/MIDORI2_UNIQ_NUC_SP_GB272_CO1_SINTAX.udb
+# Keep records whose phylum field is exactly Arthropoda (NCBI taxid 6656).
+seqkit grep -n -r -p ',p:Arthropoda_6656,' \
+  MIDORI2_UNIQ_NUC_SP_GB272_CO1_SINTAX.fasta > MIDORI2_UNIQ_NUC_SP_GB272_CO1_ARTH_SINTAX.fasta
+grep -c '^>' MIDORI2_UNIQ_NUC_SP_GB272_CO1_ARTH_SINTAX.fasta   # GB272: 2,432,079 of 3,191,213
+
+# Build the VSEARCH index for the subset.
+vsearch --makeudb_usearch MIDORI2_UNIQ_NUC_SP_GB272_CO1_ARTH_SINTAX.fasta \
+  --output MIDORI2_UNIQ_NUC_SP_GB272_CO1_ARTH_SINTAX.udb \
+  --notrunclabels
 ```
 
-An existing nonempty UDB is reused without checking whether its FASTA changed.
-For a new database release, use a new matching FASTA/UDB pair and distinct
-classification outputs (`SINTAX_OUTPUT_ROOT` and `SINTAX_SUFFIX`); update the
-post-classification settings to read those outputs. Do not rename a new release
-as GB272 or reuse an old UDB with it.
+- **Match the phylum field, not the word.** MIDORI writes the phylum as
+  `p:Arthropoda_6656`. A pattern such as `\bArthropoda\b` does not match it, because
+  regular expressions count `_` as part of a word. That pattern keeps only the ~1,000
+  unidentified `Arthropoda sp.` records, and the index looks fine but is useless.
+  Always check the record count with `grep -c '^>'`, as above.
+- **Expect about a quarter less work.** Arthropods are 76% of the GB272 COI records,
+  so SINTAX time drops by roughly that share, not several-fold.
+- **Non-arthropod reads get forced into arthropods.** SINTAX can only choose among the
+  names in the database. Reads from fungi, plants, vertebrates or bacteria are then
+  given an arthropod name, sometimes with high confidence at high ranks. Use the
+  subset only when such reads are of no interest. Do not use it when you need to
+  report or remove them.
+- **Keep the results apart.** Set the three settings together in `config/pipeline.env`,
+  for example `SINTAX_SUFFIX=sintaxARTH`, and pass `--suffix sintaxARTH` to
+  `sintax_analysis.py`. Results made with the full database are named `…_sintaxSP.tsv`.
 
-SINTAX sample tables under `data/sintax/DATASET/barcode*/` and the UDB are generated
-outputs, not additional downloads. See the [Read processing guide](../../docs/pipeline_from_fastplong_onwards.md).
-
-Classification outputs now default to a separate subdirectory per dataset. For
-older outputs directly under `data/sintax/barcode*/`, explicitly select
-`--sintax-root data/sintax` in the read-processing/report launcher.
+Classification results are written to `data/sintax/DATASET/barcodeNN/barcodeNN_sintaxSP.tsv`
+(see [Module 1](../../docs/read_processing.md)).

@@ -1,13 +1,13 @@
 """Isolate kc-align fixed filenames and restore consensus tracking headers."""
 from pathlib import Path
+
+from seqio import fasta, write_record, tsv
 import tempfile
-import subprocess
 import sys
 
 
 def validate_reference(path, table=5):
     """Require one unambiguous, in-frame coding reference before starting a run."""
-    from postprocess_sintax import fasta
     from Bio.Seq import Seq
     records = list(fasta(path))
     if len(records) != 1:
@@ -23,7 +23,6 @@ def validate_reference(path, table=5):
 
 def align_kcalign(runner, retained, alignment, reference, genetic_code=5, threads=6):
     """Run mixed mode on selected consensuses; audit reads rejected by the aligner."""
-    from postprocess_sintax import fasta, write_record, tsv, validate_outputs
     _, refseq = validate_reference(reference, genetic_code)
     alignment = Path(alignment)
     prefix = str(alignment).removesuffix('.aln.fasta')
@@ -46,8 +45,9 @@ def align_kcalign(runner, retained, alignment, reference, genetic_code=5, thread
         runner.run(command, Path(prefix+'.kcalign.stdout.log'), cwd=work)
         outputs = {}
         for name in ('codon_align.fasta', 'pre_align.fasta'):
-            validate_outputs([work/name])
-            rows = list(fasta(work/name))
+            rows = list(fasta(work/name)) if (work/name).is_file() else []
+            if not rows:
+                raise ValueError(f'kc-align did not write {name}; see its log')
             unknown = {h.split()[0] for h, _ in rows} - set(labels) - {guide}
             if unknown:
                 raise ValueError(f'Unexpected kc-align IDs: {unknown}')

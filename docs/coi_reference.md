@@ -62,7 +62,10 @@ length for all taxa and all assays.
   coding sequence of the expected length for that record/taxon, in the correct
   orientation. A short COI-5P barcode is not a complete COI ORF.
 - If your reads cover only a **COI barcode fragment**, use a verified, in-frame
-  extract corresponding to that same region. It must start and finish on complete
+  extract corresponding to that same region. Module 1 cuts the primers off, so for
+  this project's primers the reads span the ~658 nt **between** the forward primer
+  (`…TCAACMAATCATAAAGATATTGG`) and the reverse primer (`TAAACTTCWGGRTGWCCAAAAAATCA`).
+  Use a guide covering that region. It must start and finish on complete
   codon boundaries, with its exact expected coding length documented. Do not use
   an unrelated fragment or assume a fixed barcode length establishes the frame.
 - Remove laboratory primers, primer tails, tags, adapters and flanking non-COI
@@ -108,8 +111,7 @@ python -c "import sys; sys.path.insert(0, 'code'); from kcalign_alignment import
 This checks the number of sequences, letters, length divisibility and internal
 stops. It does **not** verify species identity, exact ORF boundaries, primer
 absence or mitochondrial origin. Compare the reported length with the expected
-length established from the source record. Check the alignment after the run as
-well; kc-align is not a general guarantee that every primer has been removed.
+length established from the source record, and check the alignment after the run.
 
 ## 5. Run Module 2 with kc-align
 
@@ -120,7 +122,7 @@ the project root. Replace the taxon, barcode and analysis path as needed:
 python code/postprocess_sintax.py --bold \
   --bold-db data/bold/BOLD_filtered.fasta.gz \
   --taxon Tipulidae --folders barcode15 \
-  --analysis-dir data/read_processing/sequencing2_run01/analysis \
+  --analysis-dir data/read_processing/DATASET_run01/analysis \
   --output-dir data/postprocessing/Tipulidae_barcode15_kcalign_run01 \
   --kcalign --kcalign-reference data/postprocessing/coi_refs/COI_reference.fasta \
   --translation-table 5 --threads 6
@@ -133,25 +135,9 @@ for the usual COI run. kc-align may reject problematic coding sequences; check
 `*.kcalign_selection.tsv` and the log. At least four aligned consensus sequences
 must remain for a tree. The coding guide is not automatically added as a tree tip.
 
-### Example for the downloaded postprocessing-inputs.tar.gz archive
-
-Follow Route A's extraction, path update, BOLD preparation and guide checks first.
-From `~/metabarcoding`, with `taxonomy` active, run:
-
-```bash
-python code/postprocess_sintax.py --bold \
-  --bold-db data/bold/BOLD_filtered.fasta.gz \
-  --taxon Ceratopogonidae --folders barcode01 \
-  --analysis-dir data/sintax_analysis/mergedseq5_20261021 \
-  --output-dir data/postprocessing/Ceratopogonidae_barcode01_A_run01 \
-  --kcalign --kcalign-reference data/postprocessing/coi_refs/COI_reference.fasta \
-  --translation-table 5 --threads 6
-```
-
-The archive does not supply a validated guide for every taxon. Prepare the guide
-before running this command. Do not repeat Module 1. Continue to Section C of the
-Postprocessing guide for reviewing the outputs. Add `--resume` only to continue
-the same interrupted analysis with unchanged inputs and settings.
+If you received a shared archive instead of running Module 1, use the analysis path
+the sender gave you as `--analysis-dir` (see
+[Module 2, A.1](post_processing.md#a1-a-completed-module-1-analysis)).
 
 ## Review and final record selection
 
@@ -163,4 +149,4 @@ guarantees record quality. You must inspect the ClipKIT-trimmed alignment in
 Final decisions about local reads/consensuses, BOLD species and individual
 reference records are at the user’s scientific discretion. Document exclusions
 and re-estimate the tree after changing its alignment or sequence set. See the
-[full review instructions](post_processing.md#review-the-trimmed-alignment-before-interpreting-the-tree).
+[full review instructions](post_processing.md#c-review-the-results).

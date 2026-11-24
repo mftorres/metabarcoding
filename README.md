@@ -1,164 +1,82 @@
 # Deadwood insect COI metabarcoding
 
-Open the [offline browser guide](docs/metabarcoding-guide.html) for WSL/Conda setup,
-copyable commands, a left-hand process menu and a Postprocessing command builder.
-Double-click the HTML file; no hosting, compilation or server is required.
-The [taxonomy environment recipe](config/taxonomy-environment.yml) records current
-direct dependency versions for Linux x86_64 / WSL2.
+This project turns Oxford Nanopore (ONT) sequencing reads of the insect COI barcode
+gene into a **draft alignment and phylogenetic tree that a person then reviews**.
+It is written for biologists: every step can be run by copying commands, and the
+guides explain what each step does and what to check.
 
-Get the project from [GitHub](https://github.com/mftorres/metabarcoding):
+Open the [offline browser guide](docs/metabarcoding-guide.html) (double-click the
+file; no internet or server needed) for a menu-driven version of these instructions
+with copy buttons and a command builder.
 
-```bash
-cd /mnt/c/Users/USERNAME/Documents
-git clone --branch devfull https://github.com/mftorres/metabarcoding.git
-cd metabarcoding
-```
+## What the pipeline does
 
-Replace `USERNAME` with your Windows account folder name. See the
-[Ubuntu/WSL setup instructions](docs/setup.md) for the Linux Miniconda download,
-installation, Windows Downloads/Documents access, and environment creation.
+Each sequencing **barcode folder** (`barcode01`, `barcode02`, … as written by MinKNOW)
+holds the reads of one pool of PCR products. Inside a pool, each insect specimen was
+amplified with a different **tagged forward primer** (`bc1001`–`bc1096`) and one of three
+**tagged reverse primers** (`bc1100rc`, `bc1107rc`, `bc1122rc`). The tag tells you which
+specimen a read came from.
 
-For faster file I/O under WSL, consider running analyses in the local Linux
-filesystem (for example `~/metabarcoding`) rather than `/mnt/c/Users/USERNAME/`.
-Keep inputs, databases and outputs there; choose the location before starting
-analyses. See the [setup performance note](docs/setup.md#performance-run-analyses-on-the-linux-filesystem).
+![Pipeline map: Module 1 read processing and Module 2 postprocessing, with the path each kind of dataset takes, its inputs, key outputs and main tools](docs/pipeline_diagram.svg)
 
-Before running, download the external reference databases. The folder READMEs
-provide source links, release selection, exact destination paths, compression
-instructions and BOLD empty-record cleanup with SeqKit:
+Read the map left to right. Each coloured line is one stream of data: your reads (blue), the tags that identify specimens (yellow), the MIDORI classification database (purple), the BOLD or NCBI reference sequences (orange), the optional COI guide for kc-align (pink) and a shared archive for collaborators who only run Module 2 (grey). Where lines run side by side through one step, that step uses both; the local reads become one consensus per specimen, the references are reduced to one centroid per ≥98% species cluster, and the two join at "Combine". Squares are files you provide; grey pills are key outputs; the shaded area is Module 2.
 
-- [MIDORI SINTAX setup (Read processing)](data/sintax/README.md)
-- [BOLD FASTA setup (Postprocessing `--bold`)](data/bold/README.md)
+The pipeline never makes the final scientific decisions. You decide which reads,
+consensus sequences and reference species belong in the final tree.
 
-Database files remain local; the setup READMEs are version controlled.
+## Quick start
 
-Run a dataset by passing its parent folder once (a bare `sequencing2` resolves to
-`data/sequencing2`; any dataset name is accepted). Barcode folders and `unclassified` are discovered automatically:
-
-```bash
-# If reads are nested in pass/fail folders, merge them first; sources are preserved.
-python code/merge_pass_fail.py sequencing2 --dry-run
-python code/merge_pass_fail.py sequencing2
-python code/read_processing.py sequencing2 --output-dir data/read_processing/sequencing2_run01
-python code/postprocess_sintax.py sequencing2 --bold --taxon Tipulidae \
-  --analysis-dir data/read_processing/sequencing2_run01/analysis \
-  --output-dir data/postprocessing/Tipulidae_run01 --threads 8
-```
-
-Classification outputs are separated by dataset under `data/sintax/DATASET/`.
-`unclassified` is included in read analyses but excluded from barcode prevalence.
-See the [full workflow](docs/pipeline_from_fastplong_onwards.md#run-both-modules-using-the-dataset-parent)
-for prerequisites, path overrides and output handling.
-
-The pipeline has two modules:
-
-1. **Read processing**: `code/read_processing.py DATASET` runs
-   cleaning, SINTAX, primer tracking and all reports. The lower-level
-   `code/run_metabarcoding_pipeline.sh` and `code/run_sintax_notebooks.py` remain
-   available for individual stages. See the
-   [Read processing documentation](docs/pipeline_from_fastplong_onwards.md).
-2. **Postprocessing**: `code/postprocess_sintax.py` exports a selected taxon,
-   selects NCBI COI references (`--download`) or taxon-matched local BOLD records (`--bold`), filters references to 500–2,000 nt and builds VSEARCH cluster consensus sequences at 97% identity for local reads and 98% for references (dominant local taxon per barcode/forward primer; references grouped by taxon), optionally filters six-frame translations,
-   aligns with MAFFT FFT-NS-2 or kc-align (`--kcalign --kcalign-reference PATH`), trims alignment columns with ClipKIT smart-gap, estimates an IQ-TREE maximum-likelihood phylogeny without bootstrap replicates, and renders a midpoint-rooted
-   Baltic divergence-tree figure with supports, trusted-taxon/ID tip labels and scale bar. Mitogenomes are excluded
-   by default; `--include-mitogenomes` allows them. See the
-   [Postprocessing documentation](docs/post_processing.md).
-
-Oxford Nanopore cleaned-read taxonomic analysis using VSEARCH SINTAX and MIDORI COI
-references. The post-classification workflow parses all taxonomic ranks/confidences,
-assigns the lowest rank with confidence >=0.8, joins primer-tracking evidence,
-and flags taxa occurring in >=80% of analysed barcode folders.
-
-Per-barcode and combined tab-delimited tables preserve query IDs, parent-read IDs,
-source folder/file, and barcode provenance. The taxon FASTA exporter selects reads matching any reported SINTAX taxon label,
-with confidence >=0.80 on the queried label. Exported cleaned sequences are annotated with the lowest
-trusted taxon (lowest rank with confidence >=0.80), or `unassigned` if none qualifies.
+1. Set up Ubuntu/WSL, Miniconda and the two software environments:
+   [setup guide](docs/setup.md).
+2. Download the classification database ([MIDORI](data/sintax/README.md)) and, for
+   Module 2, the reference database ([BOLD](data/bold/README.md)).
+3. Put your raw reads in `data/DATASET/barcodeNN/` (one folder per barcode; any
+   dataset name works) and run, from the project folder:
 
 ```bash
 conda activate taxonomy
-python code/run_sintax_notebooks.py --output-dir data/sintax_analysis/my_new_run
+# Only if MinKNOW wrote pass/fail subfolders: combine them first.
+python code/merge_pass_fail.py DATASET
+# Module 1: preview, then run.
+python code/read_processing.py DATASET --dry-run
+python code/read_processing.py DATASET --output-dir data/read_processing/DATASET_run01
+# Module 2: one taxon.
+python code/postprocess_sintax.py DATASET --bold --taxon Tipulidae \
+  --analysis-dir data/read_processing/DATASET_run01/analysis \
+  --output-dir data/postprocessing/Tipulidae_run01 \
+  --kcalign --kcalign-reference data/postprocessing/coi_refs/COI_reference.fasta --threads 6
 ```
 
-This command executes post-classification notebooks only. Missing classifier outputs
-are reported and excluded. Choose a new output directory for each run.
+4. Review the trimmed alignment and the tree:
+   [what to check](docs/post_processing.md#c-review-the-results).
 
-See [workflow documentation](docs/pipeline_from_fastplong_onwards.md) for definitions,
-outputs, confidence/contamination rules, FASTA export and validation.
+## Documentation
 
-For taxon-specific COI reference retrieval, taxon-aware VSEARCH nucleotide clustering (97% local, 98% references), six-frame
-mitochondrial translation filtering, alignment and phylogeny, see the
-[post-processing module](docs/post_processing.md).
+| Guide | Read it when you want to… |
+| --- | --- |
+| [Setup](docs/setup.md) | install the software and get the project |
+| [Module 1 · Read processing](docs/read_processing.md) | clean, tag and classify reads; understand the tables; export reads |
+| [Module 2 · Postprocessing](docs/post_processing.md) | build consensus sequences, an alignment and a draft tree for one taxon, then review it |
+| [Choosing a COI guide for kc-align](docs/coi_reference.md) | prepare the trusted reference sequence kc-align needs |
+| [Sharing Module 2 inputs](docs/sharing_postprocessing.md) | send a collaborator what they need to run Module 2 without Module 1 |
+| [Glossary](docs/glossary.md) | look up a term |
+| [Module 2 output files](data/postprocessing/README.md) | find out what a file in a run folder contains |
+| [Code overview](code/README.md) | see which script does what |
 
-Postprocessing supports `--resume` in the same output directory: retained sequences
-restart at the chosen aligner, completed alignments restart at ClipKIT (or IQ-TREE when trimming is complete), and earlier saved
-download/extraction/cluster outputs are reused when needed. Batched GenBank XML
-is parsed locally without repeating completed metadata downloads.
+## Things to know before you start
 
-To export cleaned reads selected by the best forward-primer tag on their raw
-parent reads (for example bc1087 in barcode15), see the
-[standalone primer exporter](docs/export_primer_fasta.md). Optional searching of
-`unclassified` is off by default.
+- **Classification is the slow step.** SINTAX can take days for a large barcode
+  folder. Everything before and after it takes minutes to hours.
+- **Tags must be complete to be trusted.** A tag is assigned only when the read
+  contains the whole tag with at most 4 errors and it clearly beats every other tag;
+  otherwise the read is marked *ambiguous*, *too_many_errors* or *truncated*
+  ([details](docs/read_processing.md#how-tags-are-identified)).
+- **The BOLD database contains other markers** (16S, 28S, ITS, COI-3P, CYTB…). If you do
+  not use kc-align with a COI guide, references of other markers can end up in the
+  alignment ([details](data/bold/README.md#other-markers-in-the-bold-file)).
+- **The first tree is a draft.** It has no bootstrap support and has not been checked
+  by a person.
 
-Local FASTA headers contain folder, forward primer, reverse primer, the lowest
-taxon trusted at confidence >=0.80, contamination flag and cleaned read ID.
-Use a new output directory when changing biological settings or grouping policy.
+## Licence
 
-Taxon queries use reported labels with confidence >=0.80 on the queried rank; FASTA headers use the lowest
-trusted taxon at confidence >=0.80. These are separate rules. Use a new Postprocessing
-output directory for analyses using changed selection settings.
-
-Postprocessing requires exactly one reference-source flag: `--download` (NCBI Entrez)
-or `--bold` (offline header matching in `data/bold/*.fasta.gz`). BOLD mode accepts
-a taxon name and labels reference tips with the available taxon and BOLD process
-ID. Both modes use the same clustering, translation filter and phylogeny steps;
-see the [source options and examples](docs/post_processing.md#choose-the-reference-dataset).
-
-For nuclear/noncoding loci, use default MAFFT with `--skip-translation` and
-an appropriate marker-specific database. The NCBI download option still targets
-COI. See [alignment and translation options](docs/post_processing.md).
-
-The `code/` folder contains the two modules, their runtime helpers and source
-notebooks. Standalone sequence extraction remains available through
-`code/export_sintax_fasta.py` (taxon) and `code/export_primer_fasta.py`
-(barcode/forward primer); `code/export_sintax_taxa.py` is the taxon entry point
-used internally by Postprocessing. Saved executed notebooks are analysis outputs.
-
-See the [Postprocessing output-file reference](data/postprocessing/README.md) for
-file contents, producing tools and the extracted-read barcode/primer/taxon counts.
-
-Postprocessing retains the most abundant extracted taxonomic label per barcode +
-forward primer, summed across reverse primers (all tied highest-count labels are retained).
-Its extraction TSV records reverse primers and `kept_for_module2` for all labels.
-One insect per barcode/forward primer is assumed. Retained reads still undergo
-97% clustering to separate divergent sequences under broad assignments; BOLD/NCBI
-references cluster at 98% only within the same header taxon label. See the
-[selection and clustering details](docs/post_processing.md). IQ-TREE runs without bootstrap.
-
-BOLD reference extraction retains named species identifications only; genus-only,
-missing and provisional (`sp.`, `cf.`, `aff.`) identifications are excluded.
-
-New to Module 2? Start with the [step-by-step Postprocessing walkthrough](docs/post_processing.md)
-or the [HTML guide with a command builder](docs/metabarcoding-guide.html#postprocessing).
-Both explain the inputs, one-barcode example, filtering decisions and result files
-in plain language.
-
-Received `postprocessing-inputs.tar.gz`? Follow the [archive walkthrough](docs/metabarcoding-guide.html#shared-inputs)
-for Route A: clone the project, extract the data, update saved input paths and
-run COI Postprocessing with BOLD and kc-align.
-
-For COI, **kc-align is preferred when a trustworthy, primer-free coding guide is
-available**. MAFFT remains the software default. See the [COI guide-selection and
-running instructions](docs/coi_reference.md) for NCBI/BOLD sources, exact coding-region
-length and frame checks, NUMT precautions, and a shared-archive command example.
-
-For COI, BOLD is the preferred starting reference source. Before interpreting
-the tree, users must review the ClipKIT-trimmed alignment in a tool such as
-[UGENE](https://ugene.net/download-all.html). Trees can be explored quickly in
-[Peartree](https://peartree.live/). Which reads, consensuses and reference species
-to retain is the user’s scientific decision; see the
-[review and record-selection instructions](docs/post_processing.md#review-the-trimmed-alignment-before-interpreting-the-tree).
-
-Postprocessing now has two complete starting routes: [A: downloaded input archive](docs/metabarcoding-guide.html#shared-inputs)
-or [B: your own Module 1 analysis](docs/metabarcoding-guide.html#local-inputs). Follow
-one route, then [C: files and quality review](docs/metabarcoding-guide.html#review-alignment).
-Both COI examples use BOLD and kc-align; no second route is needed.
+See [LICENSE](LICENSE).

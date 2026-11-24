@@ -114,7 +114,7 @@ Add `--bold-db data/bold/BOLD_filtered.fasta.gz` to your BOLD command. For examp
 python code/postprocess_sintax.py --bold \
   --bold-db data/bold/BOLD_filtered.fasta.gz \
   --taxon Tipulidae --folders barcode15 \
-  --analysis-dir data/read_processing/sequencing2_run01/analysis \
+  --analysis-dir data/read_processing/DATASET_run01/analysis \
   --output-dir data/postprocessing/Tipulidae_barcode15_bold_updated_run01 \
   --threads 6
 ```
@@ -122,8 +122,7 @@ python code/postprocess_sintax.py --bold \
 Replace the taxon, barcode, completed analysis path and new results folder with
 your own choices. If an old command explicitly names an older database after
 `--bold-db`, change that argument to the new file; renaming another file does
-not update the command automatically. The HTML command builder's **BOLD database
-path** field should contain `data/bold/BOLD_filtered.fasta.gz`.
+not update the command automatically. In the HTML guide's command builder, enter the same path in the **BOLD database** field.
 
 Without `--bold-db`, the script scans **all** supported files in `data/bold/`.
 Keep only the intended prepared snapshot there when using that default; raw,
@@ -132,39 +131,56 @@ Specifying the prepared file explicitly is the clearest way to select a release.
 Start a new Module 2 run when changing the database; do not resume a run using
 a different snapshot.
 
-Empty-record removal is a preparation step, not a species-identification check.
-Module 2 still keeps only named species identifications from BOLD, filters
-references to 500–2,000 nucleotides, and clusters them at 98% within each taxonomic
-label. Local reads use their separate dominant-label selection and 97% clustering.
+Empty-record removal is a preparation step, not a species-identification check;
+see [How Module 2 selects BOLD records](#how-module-2-selects-bold-records).
 
 
-## BOLD headers and downstream selection
+## How Module 2 selects BOLD records
 
-Preserve the full original FASTA headers. The expected structure is:
+Keep the full original FASTA headers. Their structure is:
 
 ```text
 >processID|marker|country|comma-separated lineage
 ```
 
-Use a taxon name, not a numeric taxid. Header matching includes all matching
-markers, so use a marker-specific snapshot if needed. The pipeline generates
-selected references and metadata inside each run directory; those outputs do not
-belong in this database folder. See the [Postprocessing guide](../../docs/post_processing.md).
+Module 2 (`--bold --taxon NAME`) selects every record whose header contains `NAME`
+(not case-sensitive), anywhere in the header. `--taxon Tipula` therefore also selects
+*Tipulidae* records; this is intended, so that a genus search brings in its family as
+context. Use a taxon name, not a numeric taxid.
 
-Postprocessing extracts BOLD records as described above, then clusters at 98%
-identity within each exact taxonomic suffix after `__taxon__` in the prepared
-FASTA headers. Different species labels never share a consensus, even if their
-sequences are identical, so their positions remain visible in the tree. See the
-[Postprocessing guide](../../docs/post_processing.md) for the separate dominant-label
-selection of local reads and the extraction audit columns.
+Only records with a **named species** are kept: the eighth lineage field (species)
+must be a proper binomial (optionally with subgenus or subspecies). Genus-only,
+empty and provisional names (`sp.`, `spp.`, `cf.`, `aff.`, `nr.` …) are excluded.
+Selected records are then length-filtered (500–2,000 nt) and clustered at 98%
+identity within each species; different species never share a consensus. The
+selected references and their metadata are written into each run folder, not here.
 
-BOLD references must have a named species identification. In full BOLD lineages,
-the eighth comma-separated field is species (empty positions are preserved);
-the optional ninth subspecies field is not used as the species label. Shortened
-lineages are accepted only when their final nonempty entry is a named binomial.
-Genus-only, missing and provisional identifications (`sp.`, `spp.`, `cf.`, `aff.`)
-are excluded. Named binomials, optional subgenus annotations and trinomial names
-are accepted. If no qualifying records match, extraction stops with an error.
+## Other markers in the BOLD file
+
+The BOLD file is not COI-only. In the 16-Oct-2026 snapshot, 20.5 million records are
+COI-5P (the barcode region) and about 1.5 million (6.5%) are other markers, for example
+ITS, COI-3P, 18S, matK, rbcL, CYTB, 16S, 28S, COII and the ND genes. Module 2 does not
+filter by marker, so records of other markers whose header contains your taxon name
+are selected as references.
+
+- The protein check removes most **non-coding** markers (ITS, 16S, 18S, 28S), because
+  they rarely contain 200 amino acids without a stop codon.
+- **Protein-coding** markers (COI-3P, CYTB, COII, ND genes) can pass it. kc-align with a
+  COI guide normally rejects them, because they do not align to COI.
+- **If you use MAFFT, or `--skip-translation`, other markers can remain in the
+  alignment and the tree.** Look for references that do not line up with the COI
+  sequences during review, and check their marker in `bold_reference_metadata.tsv`
+  (column `marker`).
+
+To exclude other markers from the start, you can prepare a COI-5P-only file:
+
+```bash
+seqkit grep --by-name --use-regexp --pattern '\|COI-5P\|' \
+  data/bold/BOLD_filtered.fasta.gz -o data/bold_staging/BOLD_COI-5P.fasta.gz
+```
+
+and use it with `--bold-db data/bold_staging/BOLD_COI-5P.fasta.gz` (or move it into
+`data/bold/` instead of the full file).
 
 ## Review the chosen reference set
 
@@ -174,4 +190,4 @@ does not mean all NCBI records are uncurated or all BOLD identifications are
 correct. Which BOLD species and records to keep is the user’s scientific decision.
 Review record quality and the trimmed alignment, document exclusions, and
 re-estimate the tree if the alignment or sequence set changes. See the
-[alignment and tree review instructions](../../docs/post_processing.md#review-the-trimmed-alignment-before-interpreting-the-tree).
+[review instructions](../../docs/post_processing.md#c-review-the-results).

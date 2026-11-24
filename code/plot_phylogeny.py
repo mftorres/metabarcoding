@@ -7,15 +7,13 @@ import json
 import math
 from pathlib import Path
 from urllib.parse import unquote
-import xml.etree.ElementTree as ET
 
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import baltic as bt
 from baltic.bt_utils import plot_scale_bar
-from sintax_parser import taxon_parts
-from sequence_headers import local_header_parts
+from sequence_headers import local_fields
 from reference_labels import reference_names, reference_id
 
 
@@ -75,13 +73,12 @@ def tip_metadata(tip_ids, analysis_dir, reference_genbank):
             bold_codes = {row['sequence_id']: row['process_id'] for row in csv.DictReader(handle, delimiter='\t')}
     metadata, local = {}, {}
     for identifier in tip_ids:
-        parts = local_header_parts(identifier)
+        parts = local_fields(identifier)
         if parts is not None:
-            folder, readid = parts
-            folder = unquote(folder)
+            folder, readid = unquote(parts[0]), parts[5]
             local.setdefault(folder, {})[readid] = identifier
         else:
-            # Modern efetch headers use accession.version; also handle legacy pipe IDs.
+            # efetch FASTA IDs may be accession.version or pipe-separated.
             base_id = reference_id(identifier)
             candidates = [base_id] + base_id.split('|')
             accession = next((x for x in candidates if x in references), None)
@@ -97,11 +94,8 @@ def tip_metadata(tip_ids, analysis_dir, reference_genbank):
                 identifier = wanted.pop(row['readid'], None)
                 if identifier is None:
                     continue
-                species = taxon_parts(row['accepted_species'])[0].replace('_', ' ') if row['accepted_species'] else ''
                 name = row['assigned_name'].replace('_', ' ') or 'unassigned'
-                # Current export headers carry the canonical primer of the cluster seed.
-                parts = identifier.split('-', 5)
-                forward = unquote(parts[1]) if len(parts) == 6 and parts[4] in ('contamination', 'nocontamination') else (row.get('forward_PCR_primer') or 'unknown')
+                forward = unquote(local_fields(identifier)[1])
                 label = f"{name} | {row['readid']} | {folder} | {forward}"
                 metadata[identifier] = [identifier, 'local', name, '', row['readid'], folder, label]
                 if not wanted:
@@ -118,18 +112,7 @@ def render(tree_path, analysis_dir, reference_genbank, output_prefix):
     for path in outputs:
         if path.exists():
             raise FileExistsError(path)
-    tree_path = Path(tree_path)
     tree = bt.io.load_newick(str(tree_path), treeType='divergence')
-    # Standard-bootstrap runs may put support only on the consensus tree.
-    consensus = tree_path.with_suffix('.contree')
-    if (tree_path.suffix == '.treefile' and consensus.is_file()
-            and not any(b.traits.get('label') for b in tree.get_internal())):
-        candidate = bt.io.load_newick(str(consensus), treeType='divergence')
-        if any(b.traits.get('label') for b in candidate.get_internal()):
-            if {b.name for b in candidate.get_external()} != {b.name for b in tree.get_external()}:
-                raise ValueError('IQ-TREE consensus and ML trees have different tip sets')
-            tree, tree_path = candidate, consensus
-            print(f'Using supported consensus tree: {consensus}')
     ids = [leaf.name for leaf in tree.get_external()]
     if len(ids) != len(set(ids)) or len(ids) < 2:
         raise ValueError('Tree must contain at least two uniquely named tips')
