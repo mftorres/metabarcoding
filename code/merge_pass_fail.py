@@ -45,7 +45,7 @@ def merge_dataset(dataset, dry_run=False):
                 print(f'Reuse {output}: unchanged sources')
                 continue
             raise ValueError(f'{output} already exists or source files changed; use a fresh dataset directory')
-        if (folder/'filtered').exists() or (folder/f'{name}_primer_hits.tsv').exists():
+        if (folder/'filtered').exists():
             raise ValueError(f'{folder}: analyses already exist; merge into a fresh dataset before analysis')
         plans.append((folder, output, manifest, paths, fingerprints, total))
     if not sources:

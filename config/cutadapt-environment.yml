@@ -1,0 +1,11 @@
+# Separate environment for cutadapt (Module 1 primer finding and trimming).
+# cutadapt has no build for Python 3.14, which the taxonomy environment uses.
+# The pipeline finds it with `conda run -n cutadapt` (setting CUTADAPT_ENV).
+name: cutadapt
+channels:
+  - conda-forge
+  - bioconda
+  - nodefaults
+dependencies:
+  - python=3.13
+  - cutadapt=5.2

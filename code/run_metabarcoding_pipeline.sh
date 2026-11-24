@@ -1,164 +1,115 @@
 #!/usr/bin/env bash
+# Read processing per sample: primers/tags (cutadapt + primer_tags.py) -> fastplong -> SINTAX.
 set -euo pipefail
 CONFIG_FILE="${CONFIG_FILE:-config/pipeline.env}"
-[[ ! -f "$CONFIG_FILE" ]] || source "$CONFIG_FILE"
-: "${ADAPTER_FASTA:=data/ONT_24_native_barcode_sequences.fasta}"
-: "${FASTPLONG_UNQUALIFIED_PERCENT_LIMIT:=50}"
-: "${FASTPLONG_QUALIFIED_QUALITY_PHRED:=10}"
-: "${FASTPLONG_MEAN_QUAL:=6}"
-: "${FASTPLONG_LENGTH_REQUIRED:=300}"
-: "${FASTPLONG_LENGTH_LIMIT:=1900}"
-: "${FASTPLONG_TRIMMING_EXTENSION:=2}"
-: "${SINTAX_REFERENCE:=data/sintax/MIDORI2_UNIQ_NUC_SP_GB272_CO1_SINTAX.fasta}"
-: "${SINTAX_DB:=${SINTAX_REFERENCE%.fasta}.udb}"
-: "${SINTAX_OUTPUT_ROOT:=}"
-: "${SINTAX_SUFFIX:=sintaxSP}"
-: "${SINTAX_THREADS:=8}"
-: "${SINTAX_CUTOFF:=1}"
-: "${SINTAX_RANDSEED:=666}"
-: "${SINTAX_MIN_LENGTH:=300}"
-: "${SINTAX_MAX_LENGTH:=2000}"
-: "${MAX_JOBS:=1}"
-: "${FORCE:=0}"
-: "${FORCE_SINTAX:=0}"
+[[ -f "$CONFIG_FILE" ]] || { echo "Missing settings file: $CONFIG_FILE (run from the project root)" >&2; exit 1; }
+source "$CONFIG_FILE"
+CODE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PYTHON="${PYTHON:-python3}"
 
 prepare_database() (
-    # Called only when classification is needed, before starting folder workers.
+    # Called only when classification is needed, before starting sample workers.
     [[ ! -s "$SINTAX_DB" ]] || return 0
-    command -v vsearch >/dev/null
-    mkdir -p "$(dirname "$SINTAX_DB")" "$(dirname "$SINTAX_REFERENCE")"
+    mkdir -p "$(dirname "$SINTAX_DB")"
     local temp_ref="" temp_db=""
     trap '[[ -z "$temp_ref" ]] || rm -f -- "$temp_ref"; [[ -z "$temp_db" ]] || rm -f -- "$temp_db"' EXIT
     if [[ ! -s "$SINTAX_REFERENCE" ]]; then
         [[ -s "${SINTAX_REFERENCE}.gz" ]] || { echo "Missing reference: $SINTAX_REFERENCE[.gz]" >&2; exit 1; }
         temp_ref="$(mktemp "${SINTAX_REFERENCE}.XXXXXX")"
         gzip -dc -- "${SINTAX_REFERENCE}.gz" > "$temp_ref"
-        [[ -s "$temp_ref" ]]
-        mv -- "$temp_ref" "$SINTAX_REFERENCE"
-        temp_ref=""
+        mv -- "$temp_ref" "$SINTAX_REFERENCE"; temp_ref=""
     fi
     temp_db="$(mktemp "${SINTAX_DB}.XXXXXX")"
     vsearch --makeudb_usearch "$SINTAX_REFERENCE" --output "$temp_db"
-    [[ -s "$temp_db" ]]
-    mv -- "$temp_db" "$SINTAX_DB"
-    temp_db=""
+    mv -- "$temp_db" "$SINTAX_DB"; temp_db=""
 )
 
-filter_reads() {
-  local folder="$1"
-  local filtered_dir="$folder/filtered"
-  local logs_dir="$filtered_dir/logs"
-  local done_file="$filtered_dir/filtering.done"
+cleaned_ready() {
+    [[ -s "$1/filtered/asinput.fastq.gz" && -s "$1/filtered/primer_tags.tsv.gz" ]]
+}
 
-  if [[ "$FORCE" != "1" && -f "$done_file" ]]; then
-    echo "[$folder] filter_reads: already done"
-    return
-  fi
-
-  mkdir -p "$logs_dir"
-
-  shopt -s nullglob
-  local files=("$folder"/*.fastq.gz "$folder"/*.fq.gz)
-  shopt -u nullglob
-
-  if [[ "${#files[@]}" -eq 0 ]]; then
-    echo "[$folder] no *.fastq.gz files found directly inside folder" >&2
-    return 1
-  fi
-
-  local file filename base out html per_read_log
-  for file in "${files[@]}"; do
-    filename="$(basename "$file")"
-    base="${filename%.fastq.gz}"
-    # Retain .fq in the basename so reads.fq.gz cannot collide with reads.fastq.gz.
-    if [[ "$base" == "$filename" ]]; then base="${filename%.gz}"; fi
-    out="$filtered_dir/${base}_filtered.fastq.gz"
-    html="$filtered_dir/${base}_report.html"
-    per_read_log="$logs_dir/${base}.log"
-
-    if [[ "$FORCE" != "1" && -s "$out" ]]; then
-      echo "[$folder] fastplong: skipping $filename"
-      continue
+clean_sample() (
+    # Raw reads -> primer/tag table + primer-trimmed, quality-filtered reads.
+    local folder="$1" filtered="$1/filtered" sample work fifo_dir pid
+    sample="$(basename "$folder")"
+    if [[ -e "$filtered" ]] && ! cleaned_ready "$folder"; then
+        [[ "$FORCE" == 1 ]] || { echo "[$sample] $filtered is incomplete or was made by an older pipeline; set FORCE=1 to replace it" >&2; exit 1; }
     fi
-
-    echo "[$folder] fastplong: $filename"
-
-    local fastplong_cmd=(
-      fastplong
-      -i "$file"
-      -o "$out"
-      --unqualified_percent_limit "$FASTPLONG_UNQUALIFIED_PERCENT_LIMIT"
-      --qualified_quality_phred "$FASTPLONG_QUALIFIED_QUALITY_PHRED"
-      --mean_qual "$FASTPLONG_MEAN_QUAL"
-      --length_required "$FASTPLONG_LENGTH_REQUIRED"
-      --length_limit "$FASTPLONG_LENGTH_LIMIT"
-      --trimming_extension "$FASTPLONG_TRIMMING_EXTENSION"
-      --adapter_fasta "$ADAPTER_FASTA"
-      -h "$html"
-    )
-
-    printf 'Command:' > "$per_read_log"
-    printf ' %q' "${fastplong_cmd[@]}" >> "$per_read_log"
-    printf '\n\n' >> "$per_read_log"
-
-    # fastplong prints some adapter-trimming details only when attached to a TTY.
-    # script provides a pseudo-terminal and records that screen output in the log.
-    script -q -e -a -c "$(printf '%q ' "${fastplong_cmd[@]}")" "$per_read_log"
-  done
-
-  date > "$done_file"
-}
-combine_filtered_reads() {
-  local folder="$1"
-  local filtered_dir="$folder/filtered"
-  local logs_dir="$filtered_dir/logs"
-  local combined="$filtered_dir/asinput.fastq.gz"
-  local done_file="$filtered_dir/combined.done"
-
-  if [[ "$FORCE" != "1" && -f "$done_file" && -s "$combined" ]]; then
-    echo "[$folder] combine_filtered_reads: already done"
-    return
-  fi
-
-  mkdir -p "$logs_dir"
-
-  shopt -s nullglob
-  local files=("$filtered_dir"/*_filtered.fastq.gz)
-  shopt -u nullglob
-
-  if [[ "${#files[@]}" -eq 0 ]]; then
-    echo "[$folder] no filtered FASTQ files found in $filtered_dir" >&2
-    return 1
-  fi
-
-  echo "[$folder] combining ${#files[@]} filtered FASTQ files"
-  cat "${files[@]}" > "$combined"
-  date > "$done_file"
-}
+    rm -rf -- "$filtered"
+    mkdir -p "$filtered/logs"
+    shopt -s nullglob
+    local files=("$folder"/*.fastq.gz "$folder"/*.fq.gz)
+    shopt -u nullglob
+    [[ "${#files[@]}" -gt 0 ]] || { echo "[$sample] no raw *.fastq.gz files directly inside the folder" >&2; exit 1; }
+    work="$(mktemp -d "$filtered/.work.XXXXXX")"
+    # Windows drives mounted in WSL (/mnt/c) cannot hold a named pipe, so it lives in the Linux temp folder.
+    fifo_dir="$(mktemp -d "${TMPDIR:-/tmp}/primer_tags.XXXXXX")"
+    trap 'rm -rf -- "$work" "$fifo_dir"' EXIT
+    mkfifo "$fifo_dir/info.fifo"
+    echo "[$sample] cutadapt + tag scoring on ${#files[@]} raw FASTQ files"
+    "$PYTHON" "$CODE_DIR/primer_tags.py" --primers "$PRIMER_FASTA" --info "$fifo_dir/info.fifo" \
+        --output "$work/primer_tags.tsv.gz" --max-tag-errors "$TAG_MAX_ERRORS" \
+        --min-margin "$TAG_MIN_MARGIN" --min-observed "$TAG_MIN_OBSERVED" 2> "$filtered/logs/primer_tags.log" &
+    pid=$!
+    # Multi-core cutadapt needs an uncompressed stream; gzip members concatenate safely.
+    # Reads shorter than fastplong's minimum are dropped here: fastplong would remove them
+    # anyway, and it stops reading its input at the first empty read (nothing between the
+    # primers). The tag table still lists every raw read.
+    if ! gzip -dc -- "${files[@]}" | "$CUTADAPT_BIN" -j "$PRIMER_THREADS" --revcomp -g "$PRIMER_ADAPTER" \
+            --minimum-length "$FASTPLONG_LENGTH_REQUIRED" \
+            --info-file "$fifo_dir/info.fifo" -o "$work/primer_trimmed.fastq.gz" - > "$filtered/logs/cutadapt.log" 2>&1; then
+        kill "$pid" 2>/dev/null || true
+        echo "[$sample] cutadapt failed; see $filtered/logs/cutadapt.log" >&2; exit 1
+    fi
+    wait "$pid" || { echo "[$sample] tag scoring failed; see $filtered/logs/primer_tags.log" >&2; exit 1; }
+    cat "$filtered/logs/primer_tags.log"
+    local fastplong_cmd=(fastplong -i "$work/primer_trimmed.fastq.gz" -o "$work/asinput.fastq.gz"
+        --unqualified_percent_limit "$FASTPLONG_UNQUALIFIED_PERCENT_LIMIT"
+        --qualified_quality_phred "$FASTPLONG_QUALIFIED_QUALITY_PHRED"
+        --mean_qual "$FASTPLONG_MEAN_QUAL" --length_required "$FASTPLONG_LENGTH_REQUIRED"
+        --length_limit "$FASTPLONG_LENGTH_LIMIT" --trimming_extension "$FASTPLONG_TRIMMING_EXTENSION"
+        --adapter_fasta "$ADAPTER_FASTA" --start_adapter "$FASTPLONG_START_ADAPTER"
+        --end_adapter "$FASTPLONG_END_ADAPTER" --thread "$FASTPLONG_THREADS"
+        -j "$filtered/fastplong.json" -h "$filtered/fastplong.html")
+    echo "[$sample] fastplong quality filtering"
+    { printf 'Command:'; printf ' %q' "${fastplong_cmd[@]}"; printf '\n\n'; } > "$filtered/logs/fastplong.log"
+    # fastplong prints some trimming details only to a terminal; script records them.
+    script -q -e -a -c "$(printf '%q ' "${fastplong_cmd[@]}")" "$filtered/logs/fastplong.log" > /dev/null
+    # Guard against fastplong silently reading only part of its input.
+    "$PYTHON" - "$filtered/logs/cutadapt.log" "$filtered/fastplong.json" <<'PY' || exit 1
+import json, re, sys
+written = int(re.search(r'Reads written \(passing filters\): +([0-9,]+)', open(sys.argv[1]).read())[1].replace(',', ''))
+read = json.load(open(sys.argv[2]))['summary']['before_filtering']['total_reads']
+if read != written:
+    sys.exit(f'fastplong read {read} of the {written} reads written by cutadapt; see {sys.argv[2]}')
+PY
+    mv -- "$work/primer_tags.tsv.gz" "$filtered/primer_tags.tsv.gz"
+    mv -- "$work/asinput.fastq.gz" "$filtered/asinput.fastq.gz"
+)
 
 classification_output() {
-    local folder="$1" sample dataset output_root
+    local folder="$1" sample dataset
     sample="$(basename "$folder")"
     dataset="$(basename "$(dirname "$folder")")"
-    output_root="${SINTAX_OUTPUT_ROOT:-data/sintax/$dataset}"
-    printf '%s/%s/%s_%s.tsv\n' "$output_root" "$sample" "$sample" "$SINTAX_SUFFIX"
+    printf '%s/%s/%s_%s.tsv\n' "${SINTAX_OUTPUT_ROOT:-data/sintax/$dataset}" "$sample" "$sample" "$SINTAX_SUFFIX"
+}
+
+needs_cleaning() { [[ "$FORCE" == 1 ]] || ! cleaned_ready "$1"; }
+
+needs_sintax() {
+    local output
+    output="$(classification_output "$1")"
+    # Reclassify when the cleaned reads are newer than the existing classification.
+    needs_cleaning "$1" || [[ "$FORCE_SINTAX" == 1 || ! -f "$output" || "$1/filtered/asinput.fastq.gz" -nt "$output" ]]
 }
 
 run_folder() (
     local folder="$1" sample output tmp=""
     sample="$(basename "$folder")"
     output="$(classification_output "$folder")"
-    # Preserve completed results even if their parameters differ from today's settings.
-    if [[ -f "$output" && "$FORCE" != 1 && "$FORCE_SINTAX" != 1 ]]; then
-        echo "[$sample] existing SINTAX output; skipping: $output"
-        return 0
-    fi
-    if [[ ! -s "$folder/filtered/asinput.fastq.gz" || "$FORCE" == 1 ]]; then
-        command -v fastplong >/dev/null
-        [[ -f "$ADAPTER_FASTA" ]] || { echo "Missing adapter FASTA: $ADAPTER_FASTA" >&2; exit 1; }
-        filter_reads "$folder"
-        combine_filtered_reads "$folder"
-    fi
+    if needs_cleaning "$folder"; then clean_sample "$folder"; else echo "[$sample] reuse cleaned reads"; fi
+    [[ "$CLEAN_ONLY" != 1 ]] || return 0
+    if ! needs_sintax "$folder"; then echo "[$sample] reuse $output"; return 0; fi
     mkdir -p "$(dirname "$output")"
     tmp="$(mktemp "${output}.XXXXXX")"
     trap '[[ -z "$tmp" ]] || rm -f -- "$tmp"' EXIT
@@ -167,8 +118,7 @@ run_folder() (
         --threads "$SINTAX_THREADS" --randseed "$SINTAX_RANDSEED" \
         --maxseqlength "$SINTAX_MAX_LENGTH" --minseqlength "$SINTAX_MIN_LENGTH" \
         --tabbedout "$tmp"
-    mv -- "$tmp" "$output"
-    tmp=""
+    mv -- "$tmp" "$output"; tmp=""
 )
 
 main() {
@@ -179,31 +129,27 @@ main() {
     fi
     local dry_run=0
     if [[ "$1" == --dry-run ]]; then dry_run=1; shift; fi
-    [[ "$#" -gt 0 && "$MAX_JOBS" =~ ^[1-9][0-9]*$ ]] || return 2
-    local folder sample output needs_db=0 failed=0 pid
+    [[ "$MAX_JOBS" =~ ^[1-9][0-9]*$ ]] || { echo "MAX_JOBS must be a positive integer" >&2; return 2; }
+    local folder needs_db=0 needs_clean=0 failed=0 pid discovered
     local -a folders=() pids=()
-    local -A seen=()
-    local discovered
-    discovered="$(python3 "$(dirname "${BASH_SOURCE[0]}")/sample_folders.py" "$@")" || return 1
-    local -a discovered_folders=()
-    mapfile -t discovered_folders <<< "$discovered"
-    for folder in "${discovered_folders[@]}"; do
-        [[ -d "$folder" ]] || { echo "Missing folder: $folder" >&2; return 1; }
-        folder="$(realpath "$folder")"
-        sample="$(basename "$folder")"
-        [[ -z "${seen[$sample]:-}" ]] || { echo "Duplicate sample name: $sample; use separate output roots for separate datasets" >&2; return 1; }
-        seen[$sample]=1
-        folders+=("$folder")
-        output="$(classification_output "$folder")"
-        if [[ -f "$output" && "$FORCE" != 1 && "$FORCE_SINTAX" != 1 ]]; then
-            echo "[$sample] reuse $output"
-        else
-            needs_db=1
-            echo "[$sample] filtered/asinput.fastq.gz -> $output (cutoff=$SINTAX_CUTOFF)"
-        fi
+    discovered="$("$PYTHON" "$CODE_DIR/sample_folders.py" "$@")" || return 1
+    mapfile -t folders <<< "$discovered"
+    for folder in "${folders[@]}"; do
+        if needs_cleaning "$folder"; then needs_clean=1; echo "[$(basename "$folder")] clean raw reads -> filtered/"; fi
+        if [[ "$CLEAN_ONLY" == 1 ]]; then continue; fi
+        if needs_sintax "$folder"; then needs_db=1; echo "[$(basename "$folder")] classify -> $(classification_output "$folder")"
+        else echo "[$(basename "$folder")] reuse $(classification_output "$folder")"; fi
     done
     [[ "$dry_run" != 1 ]] || return 0
-    if [[ "$needs_db" == 1 ]]; then prepare_database; fi
+    if [[ "$needs_clean" == 1 ]]; then
+        for file in "$PRIMER_FASTA" "$ADAPTER_FASTA"; do [[ -f "$file" ]] || { echo "Missing $file" >&2; return 1; }; done
+        command -v fastplong >/dev/null || { echo "fastplong not found; activate the taxonomy environment" >&2; return 1; }
+        CUTADAPT_BIN="${CUTADAPT_BIN:-$(command -v cutadapt || "${CONDA_EXE:-conda}" run -n "$CUTADAPT_ENV" which cutadapt)}" ||
+            { echo "cutadapt not found; create the '$CUTADAPT_ENV' environment (docs/setup.md)" >&2; return 1; }
+        PRIMER_ADAPTER="$("$PYTHON" "$CODE_DIR/primer_tags.py" --primers "$PRIMER_FASTA" --print-adapter "$PRIMER_CORE_MAX_ERRORS")"
+        export CUTADAPT_BIN PRIMER_ADAPTER
+    fi
+    if [[ "$needs_db" == 1 ]]; then command -v vsearch >/dev/null; prepare_database; fi
     for folder in "${folders[@]}"; do
         run_folder "$folder" &
         pids+=("$!")

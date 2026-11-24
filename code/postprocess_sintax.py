@@ -1,105 +1,50 @@
 #!/usr/bin/env python3
-"""Export a SINTAX taxon, retrieve COI references, cluster, filter and infer a tree."""
+"""Module 2, Postprocessing: export one taxon, add references, cluster, align and build a draft tree."""
 import argparse
 from collections import Counter, OrderedDict
 import csv
-import hashlib
-from contextlib import contextmanager
-import time
-import tempfile
 from datetime import date
+import hashlib
 import json
-import os
 from pathlib import Path
 import re
 import shlex
 import shutil
 import subprocess
 import sys
-from urllib.parse import unquote
+import time
 import xml.etree.ElementTree as ET
-from genbank_xml import iter_genbank_records
-from sequence_headers import HEADER_SCHEMA
+
 from bold_references import database_files, extract_bold
+from genbank_xml import iter_genbank_records
 from reference_labels import TAXON_SEPARATOR, reference_names, labelled_reference_id, reference_id
 from sample_folders import analysis_folders
-from export_sintax_fasta import TAXON_SELECTION_POLICY
+from sequence_headers import local_annotations
+from seqio import fasta, write_record, tsv
 
-
-def fasta(path):
-    """Stream multiline FASTA while preserving complete tracking headers."""
-    header, parts = None, []
-    with Path(path).open() as handle:
-        for line in handle:
-            line = line.strip()
-            if not line:
-                continue
-            if line.startswith('>'):
-                if header is not None:
-                    yield header, ''.join(parts)
-                header, parts = line[1:], []
-            else:
-                if header is None:
-                    raise ValueError(f'Invalid FASTA: {path}')
-                parts.append(line)
-    if header is not None:
-        yield header, ''.join(parts)
-
-
-def write_record(handle, header, sequence):
-    """Write a FASTA record with consistent 80-base wrapping."""
-    handle.write(f'>{header}\n')
-    for start in range(0, len(sequence), 80):
-        handle.write(sequence[start:start + 80] + '\n')
-
-
-def tsv(path, columns, rows):
-    """Write a tab-delimited audit table with its column headers."""
-    with Path(path).open('w', newline='') as handle:
-        writer = csv.writer(handle, delimiter='\t')
-        writer.writerow(columns)
-        writer.writerows(rows)
-
-
-def local_annotations(header):
-    """Read the four grouping annotations from an exported local header."""
-    parts = header.split()[0].split('-', 5)
-    if len(parts) != 6 or parts[4] not in ('contamination', 'nocontamination'):
-        raise ValueError(f'Expected annotated local extraction header: {header}')
-    return tuple(unquote(value) for value in parts[:4])
+# Settings that name the run's files; they cannot change on --resume.
+FROZEN = ('taxon', 'folders', 'analysis_dir', 'date', 'reference_source')
+CODE = Path(__file__).resolve().parent
 
 
 def write_extraction_summary(source, output):
-    """Count all extracted reads and retain all highest-count taxa per barcode/forward primer."""
+    """Count extracted reads and keep all highest-count taxa per barcode/forward tag."""
     counts = Counter(local_annotations(header) for header, _ in fasta(source))
     totals = Counter()
     for (barcode, forward, reverse, taxon), count in counts.items():
         totals[barcode, forward, taxon] += count
     maxima = {}
     for (barcode, forward, taxon), count in totals.items():
-        key = barcode, forward
-        maxima[key] = max(maxima.get(key, 0), count)
-    output = Path(output)
-    output.parent.mkdir(parents=True, exist_ok=True)
-    temporary = None
-    try:
-        with tempfile.NamedTemporaryFile(mode='w', newline='', dir=output.parent, prefix='.' + output.name, delete=False) as handle:
-            temporary = Path(handle.name)
-            writer = csv.writer(handle, delimiter='\t', lineterminator='\n')
-            writer.writerow(['barcode', 'forward_primer', 'reverse_primer', 'taxonomic_identification', 'read_count', 'kept_for_module2'])
-            for barcode, forward, reverse, taxon in sorted(counts):
-                kept = totals[barcode, forward, taxon] == maxima[barcode, forward]
-                writer.writerow([barcode, forward, reverse, taxon, counts[barcode, forward, reverse, taxon], str(kept).lower()])
-        if not output.exists() or output.read_bytes() != temporary.read_bytes():
-            temporary.replace(output)
-    finally:
-        if temporary is not None:
-            temporary.unlink(missing_ok=True)
-    return sum(counts.values())
+        maxima[barcode, forward] = max(maxima.get((barcode, forward), 0), count)
+    rows = [(barcode, forward, reverse, taxon, counts[barcode, forward, reverse, taxon],
+             str(totals[barcode, forward, taxon] == maxima[barcode, forward]).lower())
+            for barcode, forward, reverse, taxon in sorted(counts)]
+    tsv(output, ['barcode', 'forward_primer', 'reverse_primer', 'taxonomic_identification', 'read_count',
+                 'kept_for_module2'], rows)
 
 
 def filter_dominant_reads(source, summary, output):
-    """Apply the recorded selection without changing the original extraction."""
+    """Apply the recorded dominant-taxon selection without changing the extraction."""
     with Path(summary).open() as handle:
         kept = {(row['barcode'], row['forward_primer'], row['reverse_primer'], row['taxonomic_identification'])
                 for row in csv.DictReader(handle, delimiter='\t') if row['kept_for_module2'] == 'true'}
@@ -136,42 +81,38 @@ def genome_description(header):
     """Recognise whole-genome titles without excluding ordinary mitochondrial genes."""
     title = header.partition(' ')[2].lower()
     return bool(re.search(r'\b(?:complete|partial) genome\b|\bmitogenomes?\b|\bmitochondrial genomes?\b', title)
-                or (re.search(r'\b(?:mitochondrion|mitochondria)\b', title)
-                    and 'complete sequence' in title))
+                or (re.search(r'\b(?:mitochondrion|mitochondria)\b', title) and 'complete sequence' in title))
 
 
-def filter_references(download, output, report, kept_accessions, include_mitogenomes=False, reference_taxa=None):
-    """Apply the reference title policy and record every keep/exclude decision."""
+def filter_references(download, output, report, kept_accessions, include_mitogenomes, reference_taxa):
+    """Apply the whole-genome title policy, label references with their taxon and audit every decision."""
     kept = excluded = 0
     with Path(output).open('x') as writer, Path(report).open('x', newline='') as audit, Path(kept_accessions).open('x') as ids:
-        table = csv.writer(audit, delimiter='\t')
+        table = csv.writer(audit, delimiter='\t', lineterminator='\n')
         table.writerow(['accession', 'description', 'length_nt', 'decision', 'reason'])
         for header, sequence in fasta(download):
+            identifier = header.split()[0]
             genome = genome_description(header)
             retain = include_mitogenomes or not genome
-            table.writerow([header.split()[0], header, len(sequence), 'retained' if retain else 'excluded',
+            table.writerow([identifier, header, len(sequence), 'retained' if retain else 'excluded',
                             'genome_description' if genome else 'no_genome_description'])
-            if retain:
-                identifier = header.split()[0]
-                if reference_taxa is not None:
-                    base = reference_id(identifier)
-                    candidates = [base] + base.split('|')
-                    accession = next((x for x in candidates if x in reference_taxa), None)
-                    if accession is None:
-                        raise ValueError(f'No taxon metadata for reference {identifier}')
-                    header = labelled_reference_id(identifier, reference_taxa[accession])
-                write_record(writer, header, sequence)
-                ids.write(identifier + '\n')
-                kept += 1
-            else:
+            if not retain:
                 excluded += 1
+                continue
+            base = reference_id(identifier)
+            accession = next((x for x in [base] + base.split('|') if x in reference_taxa), None)
+            if accession is None:
+                raise ValueError(f'No taxon metadata for reference {identifier}')
+            write_record(writer, labelled_reference_id(identifier, reference_taxa[accession]), sequence)
+            ids.write(identifier + '\n')
+            kept += 1
     if not kept:
         raise ValueError('No references remain after mitogenome filtering; inspect reference_filter.tsv')
     return kept, excluded
 
 
-def filter_translations(representatives, translated, output, report, minimum, mode):
-    """Measure all six frames and retain original nucleotides meeting the peptide rule."""
+def filter_translations(representatives, translated, output, report, minimum):
+    """Keep sequences with at least `minimum` consecutive amino acids free of stops (*) and X in any frame."""
     lengths = {}
     for header, peptide in fasta(translated):
         match = re.fullmatch(r'(.+)_frame=(-?[123])', header.split()[0])
@@ -193,30 +134,27 @@ def filter_translations(representatives, translated, output, report, minimum, mo
             frames = lengths.get(identifier, {})
             if set(frames) != {'1', '2', '3', '-1', '-2', '-3'}:
                 raise ValueError(f'Missing translation frames for {identifier}')
-            passed = any(values[0 if mode == 'total' else 1] >= minimum for values in frames.values())
+            passed = any(longest >= minimum for _, longest in frames.values())
             for frame, (total, longest) in frames.items():
-                rows.append((identifier, frame, total, longest, mode, minimum, passed))
+                rows.append((identifier, frame, total, longest, minimum, passed))
             if passed:
                 write_record(handle, header, sequence)
                 kept += 1
     if set(lengths) != seen:
         raise ValueError('Translation IDs do not match representatives')
     tsv(report, ['sequence_id', 'frame', 'translation_length', 'longest_stop_free_length',
-                 'length_mode', 'minimum_amino_acids', 'sequence_pass'], rows)
+                 'minimum_amino_acids', 'sequence_pass'], rows)
     return kept
 
 
 def vsearch_cluster(runner, source, consensus_sequences, uc, stdout, threads, identity):
-    """Build consensuses at the requested identity and restore seed headers while retaining UC memberships."""
+    """Build consensuses at the requested identity, restoring seed headers and keeping UC memberships."""
     lengths = [len(sequence) for _, sequence in fasta(source)]
-    if not lengths:
-        raise ValueError(f'No sequences to cluster in {source}')
     raw_consensus = Path(str(consensus_sequences) + '.raw')
     runner.run(['vsearch', '--cluster_fast', source, '--id', identity, '--iddef', '2',
                 '--strand', 'both', '--qmask', 'none', '--minseqlength', '1',
                 '--maxseqlength', max(lengths), '--notrunclabels',
                 '--consout', raw_consensus, '--uc', uc, '--threads', threads], stdout)
-    validate_outputs([raw_consensus, uc])
     source_headers = {header for header, _ in fasta(source)}
     seen = set()
     with Path(consensus_sequences).open('x') as output:
@@ -230,12 +168,11 @@ def vsearch_cluster(runner, source, consensus_sequences, uc, stdout, threads, id
             seen.add(label)
             write_record(output, label, sequence)
     raw_consensus.unlink()
-    validate_outputs([consensus_sequences, uc])
-    return len(lengths), sum(1 for _ in fasta(consensus_sequences))
+    return len(lengths), len(seen)
 
 
 def cluster_groups(runner, source, output, groups_dir, summary, memberships, threads, references=False):
-    """Cluster local individuals or reference taxa independently using one implementation."""
+    """Cluster local reads per barcode/forward tag/taxon, or references per taxon label."""
     identity = '0.98' if references else '0.97'
     groups_dir.mkdir()
     groups, handles, seen = {}, OrderedDict(), set()
@@ -243,26 +180,24 @@ def cluster_groups(runner, source, output, groups_dir, summary, memberships, thr
         for header, sequence in fasta(source):
             identifier = header.split()[0]
             if references:
-                _, separator, taxon = identifier.partition(TAXON_SEPARATOR)
-                if not separator or not taxon:
+                taxon = identifier.partition(TAXON_SEPARATOR)[2]
+                if not taxon:
                     raise ValueError(f'Reference lacks a taxonomic label: {header}')
                 key = (taxon,)
             else:
-                barcode, forward, reverse, taxon = local_annotations(header)
+                barcode, forward, _, taxon = local_annotations(header)
                 key = (barcode, forward, taxon)
             if identifier in seen:
                 raise ValueError(f'Duplicate sequence ID: {identifier}')
             seen.add(identifier)
             if key not in groups:
                 group_id = f'group{len(groups)+1:06d}'
-                groups[key] = (group_id, groups_dir / f'{group_id}.input.fasta')
-            group_id, path = groups[key]
+                groups[key] = (group_id, groups_dir/f'{group_id}.input.fasta')
             handle = handles.pop(key, None)
             if handle is None:
                 if len(handles) >= 64:
-                    _, old = handles.popitem(last=False)
-                    old.close()
-                handle = path.open('a')
+                    handles.popitem(last=False)[1].close()
+                handle = groups[key][1].open('a')
             handles[key] = handle
             write_record(handle, header, sequence)
     finally:
@@ -272,15 +207,15 @@ def cluster_groups(runner, source, output, groups_dir, summary, memberships, thr
         raise ValueError('No sequences to cluster')
     rows = []
     with output.open('x') as combined, memberships.open('x', newline='') as audit:
-        writer = csv.writer(audit, delimiter='\t')
-        writer.writerow(['group_id', 'record_type', 'cluster_number', 'size_or_length',
-                         'percent_identity', 'strand', 'unused_1', 'unused_2', 'alignment', 'query', 'target'])
+        writer = csv.writer(audit, delimiter='\t', lineterminator='\n')
+        writer.writerow(['group_id', 'record_type', 'cluster_number', 'size_or_length', 'percent_identity',
+                         'strand', 'unused_1', 'unused_2', 'alignment', 'query', 'target'])
         for key, (group_id, path) in groups.items():
-            consensus_sequences = groups_dir / f'{group_id}.consensus.fasta'
-            uc = groups_dir / f'{group_id}.uc'
-            before, after = vsearch_cluster(runner, path, consensus_sequences, uc,
-                                           groups_dir / f'{group_id}.stdout.log', threads, identity)
-            for header, sequence in fasta(consensus_sequences):
+            consensus = groups_dir/f'{group_id}.consensus.fasta'
+            uc = groups_dir/f'{group_id}.uc'
+            before, after = vsearch_cluster(runner, path, consensus, uc, groups_dir/f'{group_id}.stdout.log',
+                                            threads, identity)
+            for header, sequence in fasta(consensus):
                 write_record(combined, header, sequence)
             with uc.open() as handle:
                 for line in handle:
@@ -289,12 +224,10 @@ def cluster_groups(runner, source, output, groups_dir, summary, memberships, thr
             rows.append((group_id, *key, before, after, identity))
     fields = ['taxon_label'] if references else ['source_folder', 'forward_primer', 'taxon_label']
     tsv(summary, ['group_id', *fields, 'input_sequences', 'consensus_sequences', 'identity'], rows)
-    runner.note(f'VSEARCH: {len(seen)} sequences in {len(groups)} groups -> '
-                f'{sum(row[-2] for row in rows)} consensus sequences')
+    runner.note(f'VSEARCH: {len(seen)} sequences in {len(groups)} groups -> {sum(r[-2] for r in rows)} consensus sequences')
 
 
 def file_digest(path):
-    """Hash output contents for resume validation without loading the whole file."""
     digest = hashlib.sha256()
     with Path(path).open('rb') as handle:
         for chunk in iter(lambda: handle.read(1024 * 1024), b''):
@@ -304,8 +237,9 @@ def file_digest(path):
 
 def validate_outputs(paths):
     """Reject missing, empty, malformed or duplicate-ID stage outputs."""
-    for path in paths:
-        path = Path(path)
+    for path in map(Path, paths):
+        if path.is_dir():
+            continue
         if not path.is_file() or path.stat().st_size == 0:
             raise ValueError(f'Missing or empty output: {path}')
         if path.suffix in ('.fasta', '.faa'):
@@ -315,172 +249,36 @@ def validate_outputs(paths):
                 if identifier in seen or not sequence:
                     raise ValueError(f'Duplicate ID or empty sequence in {path}: {identifier}')
                 seen.add(identifier)
-            if not seen:
-                raise ValueError(f'No FASTA records in {path}')
         elif path.name.endswith('.gb.xml'):
             for _ in iter_genbank_records(path):
                 pass
         elif path.suffix == '.xml':
-            # Streaming parse also detects truncated downloads without retaining sequences.
             for _, element in ET.iterparse(path, events=['end']):
                 element.clear()
 
 
-def validate_retained_checkpoint(representatives, translated, retained, report, minimum, mode):
-    # Older runs have no hashes: independently verify the retained file and report
-    # against all six saved translations before adopting them as a checkpoint.
-    """Recompute translation selection to validate uncheckpointed saved results."""
-    with tempfile.TemporaryDirectory(prefix='sintax_resume_') as directory:
-        expected = Path(directory) / 'retained.fasta'
-        expected_report = Path(directory) / 'translation_lengths.tsv'
-        filter_translations(representatives, translated, expected, expected_report, minimum, mode)
-        if file_digest(expected) != file_digest(retained) or file_digest(expected_report) != file_digest(report):
-            raise ValueError('Retained sequences/report do not match saved translations')
-
-
-def valid_alignment(alignment, retained=None, allow_trimmed=False):
-    """Check rectangular FASTA and IDs; MAFFT must also preserve nucleotide content."""
-    validate_outputs([alignment])
-    aligned = dict(fasta(alignment))
+def check_alignment(alignment, retained, trimmed=False):
+    """Rectangular alignment with the retained IDs; untrimmed rows must equal their input (either strand)."""
+    aligned, originals = dict(fasta(alignment)), dict(fasta(retained))
     if len({len(seq) for seq in aligned.values()}) != 1:
-        raise ValueError('Incomplete alignment: unequal sequence lengths')
-    if retained is not None and retained.exists():
-        originals = dict(fasta(retained))
-        ids_match = set(aligned).issubset(originals) if allow_trimmed else set(aligned) == set(originals)
-        if not ids_match:
-            raise ValueError('Incomplete alignment: sequence IDs do not match retained FASTA')
-        if allow_trimmed:
-            if any(set(seq.upper()) - set('ACGTRYSWKMBDHVN-') for seq in aligned.values()):
-                raise ValueError('Invalid nucleotide characters in trimmed alignment')
-            return
-        complement = str.maketrans('ACGTRYMKBDHVNacgtrymkbdhvn', 'TGCAYRKMVHDBNtgcayrkmvhdbn')
-        for name, seq in aligned.items():
-            ungapped = seq.replace('-', '').upper()
-            original = originals[name].upper()
-            if ungapped not in (original, original.translate(complement)[::-1]):
-                raise ValueError(f'Alignment sequence differs from retained sequence: {name}')
-
-
-def latest_sequences(root, args, records):
-    """Read-only discovery of the latest usable sequence stage, without network."""
-    stage_label = 'selected' if getattr(args, 'skip_translation', False) else 'nonumt'
-    candidates = list(root.glob(f'combined_*_{stage_label}_{args.date}.fasta'))
-    # An alignment can also stand alone after earlier intermediate files were removed.
-    candidates += [Path(str(p).replace('.aln.fasta', '.fasta'))
-                   for p in root.glob(f'combined_*_{stage_label}_{args.date}.aln.fasta') if
-                   Path(str(p).replace('.aln.fasta', '.fasta')) not in candidates]
-    if len(candidates) > 1:
-        raise ValueError('Multiple retained sequence sets found; use a separate run directory per taxon')
-    if not candidates:
-        return None
-    retained = candidates[0]
-    slug = retained.name[len('combined_'):-len(f'_{stage_label}_{args.date}.fasta')]
-    alignment = retained.with_suffix('.aln.fasta')
-    orientation = root / 'alignment_orientation.tsv'
-    marker = root / 'alignment.complete.json'
-    try:
-        invalidated = root / 'invalidated_stages.json'
-        if invalidated.exists() and 'alignment' in json.loads(invalidated.read_text()):
-            raise ValueError('Alignment was invalidated by an explicit restart')
-        valid_alignment(alignment, retained, allow_trimmed=getattr(args, 'kcalign', False))
-        if marker.exists():
-            saved = json.loads(marker.read_text())
-            if saved.get('algorithm') != ('kc-align' if getattr(args, 'kcalign', False) else 'FFT-NS-2'):
-                raise ValueError('Alignment algorithm mismatch')
-            if retained.exists() and saved.get('retained_sha256') != file_digest(retained):
-                raise ValueError('Alignment input hash mismatch')
-            if saved['alignment_sha256'] != file_digest(alignment):
-                raise ValueError('Alignment completion hash mismatch')
-        elif getattr(args, 'kcalign', False):
-            raise ValueError('kc-align requires an alignment completion marker')
-        elif 'alignment' in records:
-            if records['alignment'] != {p.name: file_digest(p) for p in (alignment, orientation)}:
-                raise ValueError('Alignment checkpoint hash mismatch')
-        elif not orientation.is_file():
-            raise ValueError('No proof that alignment finished successfully')
-        return slug, retained, True
-    except (OSError, ValueError, KeyError):
-        pass
-    try:
-        validate_outputs([retained])
-        if getattr(args, 'skip_translation', False):
-            record = records.get('selection')
-            if record != {retained.name: file_digest(retained)}:
-                raise ValueError('Unfiltered selection checkpoint mismatch')
-            return slug, retained, False
-        report = root / 'translation_lengths.tsv'
-        record = records.get('retained')
-        if record and record != {p.name: file_digest(p) for p in (retained, report)}:
-            raise ValueError('Retained sequence checkpoint mismatch')
-        # Validate legacy retained files against their report/translations when available.
-        reps = root / f'combined_{slug}_{args.date}.fasta'
-        translations = root / f'combined_{slug}_{args.date}.six_frames.faa'
-        if not record and all(p.is_file() for p in (report, reps, translations)):
-            validate_retained_checkpoint(reps, translations, retained, report, args.min_aa, args.aa_length_mode)
-        return slug, retained, False
-    except (OSError, ValueError):
-        return None
-
-
-class Checkpoints:
-    def __init__(self, runner, resume):
-        self.runner, self.resume = runner, resume
-        self.path = runner.directory / 'checkpoints.json'
-        self.records = json.loads(self.path.read_text()) if self.path.exists() else {}
-        self.legacy = resume and not self.path.exists()
-        self.dirty = False
-        self.invalidated_path = runner.directory / "invalidated_stages.json"
-        self.invalidated = set(json.loads(self.invalidated_path.read_text())) if self.invalidated_path.exists() else set()
-
-    @contextmanager
-    def stage(self, name, paths, extra=(), legacy=True, legacy_validator=None):
-        paths = list(map(Path, paths))
-        record = self.records.get(name)
-        reusable = False
-        independent = name in ('download', 'bold_extraction', 'reference_metadata')
-        if self.resume and (not self.dirty or independent) and (name not in self.invalidated or independent) and (record or legacy):
-            try:
-                validate_outputs(paths)
-                if not record and legacy_validator is not None:
-                    legacy_validator()
-                fingerprints = {str(p.name): file_digest(p) for p in paths}
-                reusable = record == fingerprints if record else True
-            except (OSError, ValueError, ET.ParseError):
-                reusable = False
-        if reusable:
-            self.runner.note(f'REUSE {name}: validated existing outputs')
-        else:
-            # Invalidate downstream stages after rebuilding an upstream stage.
-            self.dirty = True
-            # Persist invalidation before doing work, including interrupted retries.
-            if name in self.records:
-                keys = list(self.records)
-                self.invalidated.update(keys[keys.index(name):])
-                self.invalidated_path.write_text(json.dumps(sorted(self.invalidated)))
-                self.records = {key: self.records[key] for key in keys[:keys.index(name)]}
-            self.path.write_text(json.dumps(self.records, indent=2) + '\n')
-            (self.runner.directory / 'postprocessing.complete').unlink(missing_ok=True)
-            existing = [p for p in dict.fromkeys(paths + list(map(Path, extra))) if p.exists()]
-            if existing:
-                archive = self.runner.directory / 'resume_archive' / f'{time.time_ns()}_{name}'
-                archive.mkdir(parents=True)
-                for path in existing:
-                    path.rename(archive / path.name)
-                self.runner.note(f'Archived incomplete/stale {name} outputs in {archive}')
-        yield not reusable
-        validate_outputs(paths)
-        self.records[name] = {str(p.name): file_digest(p) for p in paths}
-        temporary = self.path.with_suffix('.tmp')
-        temporary.write_text(json.dumps(self.records, indent=2) + '\n')
-        temporary.replace(self.path)
-        self.invalidated.discard(name)
-        self.invalidated_path.write_text(json.dumps(sorted(self.invalidated)))
+        raise ValueError(f'Incomplete alignment: unequal sequence lengths in {alignment}')
+    if not set(aligned) <= set(originals) or (not trimmed and set(aligned) != set(originals)):
+        raise ValueError(f'Alignment IDs do not match the retained FASTA: {alignment}')
+    if any(set(seq.upper()) - set('ACGTRYSWKMBDHVN-') for seq in aligned.values()):
+        raise ValueError(f'Invalid nucleotide characters in {alignment}')
+    if trimmed:
+        return
+    complement = str.maketrans('ACGTRYMKBDHVN', 'TGCAYRKMVHDBN')
+    for name, seq in aligned.items():
+        ungapped, original = seq.replace('-', '').upper(), originals[name].upper()
+        if ungapped not in (original, original.translate(complement)[::-1]):
+            raise ValueError(f'Alignment sequence differs from retained sequence: {name}')
 
 
 class Runner:
     def __init__(self, directory):
         self.directory = directory
-        self.log = directory / 'postprocessing.log'
+        self.log = directory/'postprocessing.log'
 
     def note(self, message):
         print(message, flush=True)
@@ -492,461 +290,351 @@ class Runner:
         self.note('$ ' + shlex.join(command))
         source = Path(input_path).open('rb') if input_path else subprocess.DEVNULL
         try:
-            with Path(output).open('xb') as target, self.log.open('ab') as log:
-                subprocess.run(command, stdin=source, stdout=target, stderr=log, check=True, cwd=cwd)
+            with Path(output).open('xb') as target:
+                result = subprocess.run(command, stdin=source, stdout=target, stderr=subprocess.PIPE, cwd=cwd)
+            with self.log.open('ab') as log:
+                log.write(result.stderr)
+            if result.returncode:
+                # Show the tool's own last error lines, not just the exit status.
+                tail = result.stderr.decode(errors='replace').strip().splitlines()[-5:]
+                raise ValueError(f'{Path(command[1] if command[0] == sys.executable else command[0]).name} '
+                                 f'failed (exit {result.returncode}):\n  ' + '\n  '.join(tail))
         finally:
             if input_path:
                 source.close()
 
 
+class Stages:
+    """Run each stage, or on --resume reuse it when outputs, inputs and settings are unchanged."""
+
+    def __init__(self, runner, resume):
+        self.runner = runner
+        self.path = runner.directory/'checkpoints.json'
+        self.records = json.loads(self.path.read_text()) if resume and self.path.exists() else {}
+
+    @staticmethod
+    def fingerprint(paths):
+        # Size and modification time detect regenerated inputs without re-hashing large files.
+        return {str(p): [p.stat().st_size, p.stat().st_mtime_ns] for p in map(Path, paths)}
+
+    def run(self, name, outputs, build, inputs=(), settings=None, extra=()):
+        outputs = [Path(p) for p in outputs]
+        expected = {'inputs': self.fingerprint(inputs), 'settings': settings}
+        record = self.records.get(name)
+        if record and all(record.get(key) == value for key, value in expected.items()):
+            try:
+                validate_outputs(outputs)
+                if record['outputs'] == {p.name: file_digest(p) for p in outputs if p.is_file()}:
+                    self.runner.note(f'REUSE {name}: outputs, inputs and settings unchanged')
+                    return
+            except (OSError, ValueError, ET.ParseError):
+                pass
+        stale = [p for p in dict.fromkeys(outputs + [Path(x) for x in extra]) if p.exists()]
+        if stale:
+            archive = self.runner.directory/'resume_archive'/f'{time.time_ns()}_{name}'
+            archive.mkdir(parents=True)
+            for path in stale:
+                path.rename(archive/path.name)
+            self.runner.note(f'Archived previous {name} outputs in {archive}')
+        (self.runner.directory/'postprocessing.complete').unlink(missing_ok=True)
+        build()
+        validate_outputs(outputs)
+        self.records[name] = {**expected, 'outputs': {p.name: file_digest(p) for p in outputs if p.is_file()}}
+        temporary = self.path.with_suffix('.tmp')
+        temporary.write_text(json.dumps(self.records, indent=2) + '\n')
+        temporary.replace(self.path)
+
+
+def check_environment(args):
+    required = ['vsearch', 'seqkit', 'clipkit', 'iqtree'] + (['kc-align', 'kalign', 'mafft'] if args.kcalign else ['mafft'])
+    if args.reference_source == 'download':
+        required += ['esearch', 'efetch']
+    missing = [name for name in required if not shutil.which(name)]
+    if missing:
+        raise ValueError('Missing programs: ' + ', '.join(missing) + '. Activate the taxonomy environment.')
+    from importlib.util import find_spec
+    if find_spec('baltic') is None:
+        raise ValueError('Baltic is required: conda install -n taxonomy -c bioconda baltic')
+    return {name: shutil.which(name) for name in required}
+
+
+def kcalign_threads(threads):
+    """kc-align mixed mode splits work in threes: use 1 or the largest multiple of 3 not above --threads."""
+    return 1 if threads < 3 else threads - threads % 3
+
+
+def align_mafft(runner, retained, alignment, orientation, threads):
+    """MAFFT FFT-NS-2 with default gap penalties; restore headers of reverse-complemented rows (_R_) and record their strand."""
+    partial = Path(str(alignment) + '.partial')
+    partial.unlink(missing_ok=True)
+    try:
+        runner.run(['mafft', '--retree', '2', '--maxiterate', '0', '--adjustdirectionaccurately',
+                    '--thread', threads, retained], partial)
+        originals = {header for header, _ in fasta(retained)}
+        restored, strands = [], []
+        for header, sequence in fasta(partial):
+            reverse = header not in originals and header.startswith('_R_') and header[3:] in originals
+            original = header[3:] if reverse else header
+            if original not in originals:
+                raise ValueError(f'Unexpected MAFFT header: {header}')
+            restored.append((original, sequence))
+            strands.append((original.split()[0], '-' if reverse else '+'))
+        with alignment.open('x') as handle:
+            for header, sequence in restored:
+                write_record(handle, header, sequence)
+        tsv(orientation, ['sequence_id', 'alignment_strand'], strands)
+    finally:
+        partial.unlink(missing_ok=True)
+
+
+def trim_alignment(runner, alignment, trimmed, log):
+    """ClipKIT gappy mode: remove alignment columns that are >=90% gaps."""
+    runner.run(['clipkit', alignment, '-m', 'gappy', '-s', 'nt', '-if', 'fasta', '-of', 'fasta', '-o', trimmed], log)
+    original, result = dict(fasta(alignment)), dict(fasta(trimmed))
+    if set(result) != set(original):
+        raise ValueError('ClipKIT changed the sequence set')
+    if len({len(seq) for seq in result.values()}) != 1 or not next(iter(result.values())):
+        raise ValueError('ClipKIT produced an empty or unequal-length alignment')
+
+
+def resolve_taxon(args, root, stages, runner):
+    """BOLD uses the plain name; NCBI resolves the name or taxid in the NCBI taxonomy."""
+    taxon = args.taxon.strip()
+    if not taxon or any(char in taxon for char in '\n\r"[]'):
+        raise ValueError('Taxon must be a numeric taxid or a plain taxonomic name')
+    if args.reference_source == 'bold':
+        if taxon.isdigit():
+            raise ValueError('--bold requires a taxon name; use --download for numeric taxids')
+        return taxon, taxon
+    taxonomy, search = root/'taxonomy.xml', root/'taxonomy_search.xml'
+
+    def fetch():
+        if taxon.isdigit():
+            runner.run(['efetch', '-db', 'taxonomy', '-id', taxon, '-format', 'xml'], taxonomy)
+        else:
+            runner.run(['esearch', '-db', 'taxonomy', '-query', f'"{taxon}"[All Names]'], search)
+            runner.run(['efetch', '-format', 'xml'], taxonomy, search)
+    stages.run('taxonomy', [taxonomy], fetch, settings=taxon, extra=[search])
+    taxa = ET.parse(taxonomy).getroot().findall('./Taxon')
+    if len(taxa) != 1:
+        raise ValueError(f'Taxon resolved to {len(taxa)} NCBI records; supply an unambiguous taxid')
+    taxid, name = taxa[0].findtext('TaxId'), taxa[0].findtext('ScientificName')
+    if not taxid or not name:
+        raise ValueError('NCBI taxonomy response lacks taxid/name')
+    return taxid, name
+
+
 def run_pipeline(args):
-    # Freeze biological settings on resume so cached data cannot bypass new choices.
     """Orchestrate source selection, consensus construction, alignment, tree and figure."""
-    args.restart_alignment = getattr(args, 'restart_alignment', False)
-    if args.restart_alignment and not getattr(args, 'resume', False):
-        raise ValueError('--restart-alignment requires --resume')
-    args.skip_translation = getattr(args, 'skip_translation', False)
-    args.kcalign = getattr(args, 'kcalign', False)
-    args.kcalign_reference = getattr(args, 'kcalign_reference', None)
-    reference_snapshot = None
     if args.kcalign:
         if args.kcalign_reference is None:
             raise ValueError('--kcalign requires --kcalign-reference with a trusted coding FASTA')
-        if args.threads != 1 and args.threads % 3:
-            raise ValueError('kc-align mixed mode requires --threads 1 or a multiple of 3 (e.g. 6)')
         from kcalign_alignment import validate_reference
         validate_reference(args.kcalign_reference, args.translation_table)
-        reference_snapshot = file_digest(args.kcalign_reference)
     elif args.kcalign_reference is not None:
         raise ValueError('--kcalign-reference requires --kcalign')
-    stage_label = 'selected' if args.skip_translation else 'nonumt'
-    args.reference_source = getattr(args, 'reference_source', 'download')
-    args.bold_db = getattr(args, 'bold_db', None)
-    if args.reference_source == 'bold' and args.taxon.strip().isdigit():
-        raise ValueError('--bold requires a taxon name for header matching; use --download for numeric taxids')
-    bold_files = database_files(args.bold_db or Path(__file__).resolve().parents[1] / 'data/bold') if args.reference_source == 'bold' else []
-    bold_snapshot = [{'path': str(p.resolve()), 'bytes': p.stat().st_size, 'mtime_ns': p.stat().st_mtime_ns} for p in bold_files]
-    required = ['vsearch', 'seqkit', 'clipkit', 'kc-align' if args.kcalign else 'mafft', 'iqtree']
-    if args.reference_source == 'download':
-        required += ['esearch', 'efetch']
-    if args.kcalign:
-        required += ['kalign', 'mafft']
-    missing = [name for name in required if not shutil.which(name)]
-    if missing:
-        raise ValueError('Missing executables on PATH: ' + ', '.join(missing) +
-                         '. Activate taxonomy; install missing packages (see docs/post_processing.md).')
-    from importlib.util import find_spec
-    from importlib.metadata import version
-    if find_spec('baltic') is None or int(version('baltic').split('.')[0]) < 1:
-        raise ValueError('Baltic >=1.0.0 is required; conda install -n taxonomy -c conda-forge -c bioconda baltic')
-    if not (args.analysis_dir / 'analysis.complete').is_file():
-        raise ValueError('Provide a completed SINTAX analysis directory')
-    dataset = getattr(args, 'dataset', None)
-    if dataset is not None and args.folders:
+    if not (args.analysis_dir/'analysis.complete').is_file():
+        raise ValueError('Provide a completed Read processing analysis directory (--analysis-dir)')
+    if args.dataset is not None and args.folders:
         raise ValueError('Use a dataset argument or --folders, not both')
-    args.folders = analysis_folders([str(dataset)] if dataset else args.folders, args.analysis_dir)
-    folders = list(args.folders)
-    if len(folders) != len(set(folders)):
-        raise ValueError('Duplicate folder names')
-    resume = getattr(args, 'resume', False)
-    if resume:
-        if not (args.output_dir / 'parameters.json').is_file():
-            raise ValueError('--resume requires an existing run with parameters.json')
-        previous = json.loads((args.output_dir / 'parameters.json').read_text())
-        if previous.get('reference_source', 'download') != args.reference_source:
-            raise ValueError('Cannot change --download/--bold during resume; use a new output directory')
-        if args.reference_source == 'bold' and previous.get('bold_database_files') != bold_snapshot:
-            raise ValueError('BOLD database files changed since this run; use a new output directory')
-        if not args.restart_alignment and previous.get('kcalign_reference_sha256') != reference_snapshot:
-            raise ValueError('Cannot resume with changed trusted alignment reference; use a new output directory')
-        if previous.get('taxon_selection_policy') != TAXON_SELECTION_POLICY:
-            raise ValueError('This run used an older taxon-selection policy. Use a new output directory to require queried-label confidence >=0.80.')
-        if previous.get('header_schema') != HEADER_SCHEMA:
-            raise ValueError('This run uses old FASTA headers without primer fields. Use a new output directory to regenerate exports, clusters, alignment and tree with the current header format.')
-        if args.date is None:
-            args.date = previous['date']
-        for key in ('taxon', 'folders', 'analysis_dir', 'date', 'include_mitogenomes',
-                    'translation_table', 'min_aa', 'aa_length_mode', 'skip_translation', 'kcalign'):
-            if key == 'kcalign' and args.restart_alignment:
-                continue
-            current = getattr(args, key)
-            old = previous.get(key)
-            if key == 'analysis_dir':
-                equal = Path(current).resolve() == Path(old).resolve()
-            elif key == 'folders':
-                equal = sorted(Path(x).name for x in current) == sorted(Path(x).name for x in old)
-            else:
-                equal = current == old
+    args.folders = analysis_folders([args.dataset] if args.dataset else args.folders, args.analysis_dir)
+    executables = check_environment(args)
+    bold_files = database_files(args.bold_db or CODE.parent/'data/bold') if args.reference_source == 'bold' else []
+    root = args.output_dir
+    if args.resume:
+        previous = json.loads((root/'parameters.json').read_text())
+        args.date = args.date or previous['date']
+        for key in FROZEN:
+            old, current = previous.get(key), getattr(args, key)
+            equal = (Path(old).resolve() == Path(current).resolve()) if key == 'analysis_dir' else old == current
             if not equal:
                 raise ValueError(f'Cannot resume with changed {key}: {old!r} -> {current!r}; use a new output directory')
     else:
         args.date = args.date or date.today().strftime('%Y%m%d')
-        args.output_dir.mkdir(parents=True, exist_ok=False)
-    runner = Runner(args.output_dir)
-    root = args.output_dir
-    checkpoints = Checkpoints(runner, resume)
+        root.mkdir(parents=True, exist_ok=False)
+    runner = Runner(root)
+    stages = Stages(runner, args.resume)
+    config = {key: str(value) if isinstance(value, Path) else value for key, value in vars(args).items()}
+    config.update(executables=executables, alignment_algorithm='kc-align' if args.kcalign else 'FFT-NS-2',
+                  alignment_trimming='clipkit-gappy-nt', bootstrap_method='none')
+    (root/('resume_parameters.json' if args.resume else 'parameters.json')).write_text(json.dumps(config, indent=2) + '\n')
     try:
-        config = {key: str(value) if isinstance(value, Path) else value for key, value in vars(args).items()}
-        config['bold_database_files'] = bold_snapshot
-        config['executables'] = {name: shutil.which(name) for name in required}
-        config['kcalign_reference_sha256'] = reference_snapshot
-        config['bootstrap_method'] = 'none'
-        config['alignment_trimming'] = 'clipkit-smart-gap-nt-v1'
-        config['alignment_algorithm'] = 'kc-align' if args.kcalign else 'FFT-NS-2'
-        config['header_schema'] = HEADER_SCHEMA
-        config['taxon_selection_policy'] = TAXON_SELECTION_POLICY
-        if not resume:
-            (root / 'parameters.json').write_text(json.dumps(config, indent=2) + '\n')
-        else:
-            (root / 'resume_parameters.json').write_text(json.dumps(config, indent=2) + '\n')
-        restart = latest_sequences(root, args, checkpoints.records) if resume else None
-        if args.restart_alignment:
-            if restart is None or not restart[1].is_file():
-                raise ValueError('Restarting alignment requires valid retained/selected consensus sequences')
-            # Reuse validated upstream sequences, but invalidate all alignment-dependent results.
-            archive = root / 'resume_archive' / f'{time.time_ns()}_alignment_settings'
-            archive.mkdir(parents=True)
-            shutil.copyfile(root / 'parameters.json', archive / 'parameters.json')
-            (root / 'parameters.json').write_text(json.dumps(config, indent=2) + '\n')
-            checkpoints.dirty = True
-            checkpoints.invalidated.update(('alignment', 'clipkit', 'phylogeny', 'figure'))
-            checkpoints.invalidated_path.write_text(json.dumps(sorted(checkpoints.invalidated)))
-            (root / 'postprocessing.complete').unlink(missing_ok=True)
-            restart = (restart[0], restart[1], False)
-        if restart is not None:
-            slug, retained, alignment_ready = restart
-            stem = f'{slug}_{args.date}'
-            runner.note('RESUME directly from completed alignment' if alignment_ready else
-                        'RESUME directly from retained/selected consensus sequences')
-            extracted = root / f'cleaned_{stem}.fasta'
-            summary = root / 'extraction_by_barcode_primer_taxon.tsv'
-            if extracted.is_file():
-                write_extraction_summary(extracted, summary)
-                runner.note(f'Extraction barcode/primer/taxon summary: {summary}')
-            elif not summary.is_file():
-                runner.note('Extraction summary unavailable: original unclustered local FASTA was removed')
-        else:
-            alignment_ready = False
-            taxon = args.taxon.strip()
-            if not taxon or any(char in taxon for char in '\n\r"[]'):
-                raise ValueError('Taxon must be a numeric taxid or a plain taxonomic name')
-            if args.reference_source == 'bold':
-                name, taxid = taxon, taxon
-            else:
-                taxonomy = root / 'taxonomy.xml'
-                with checkpoints.stage('taxonomy', [taxonomy], extra=[root / 'taxonomy_search.xml'], legacy=True) as execute:
-                    if execute:
-                        if taxon.isdigit():
-                            runner.run(['efetch', '-db', 'taxonomy', '-id', taxon, '-format', 'xml'], taxonomy)
-                        else:
-                            search = root / 'taxonomy_search.xml'
-                            runner.run(['esearch', '-db', 'taxonomy', '-query', f'"{taxon}"[All Names]'], search)
-                            runner.run(['efetch', '-format', 'xml'], taxonomy, search)
-                taxa = ET.parse(taxonomy).getroot().findall('./Taxon')
-                if len(taxa) != 1:
-                    raise ValueError(f'Taxon resolved to {len(taxa)} NCBI records; supply an unambiguous taxid')
-                taxid, name = taxa[0].findtext('TaxId'), taxa[0].findtext('ScientificName')
-                if not taxid or not name:
-                    raise ValueError('NCBI taxonomy response lacks taxid/name')
-            slug = re.sub(r'[^A-Za-z0-9_.-]+', '_', name).strip('_.')
-            stem = f'{slug}_{args.date}'
-            runner.note(f'Resolved taxon: {name} (taxid {taxid}); folders: {", ".join(folders)}')
-            # Export exact cleaned query IDs using trusted queried-rank SINTAX evidence.
-            local = root / f'cleaned_{stem}.fasta'
-            extraction_log = root / 'extraction.log'
-            with checkpoints.stage('extraction', [local, extraction_log], extra=(), legacy=True) as execute:
-                if execute:
-                    runner.run([sys.executable, Path(__file__).with_name('export_sintax_taxa.py'),
-                                '--taxon', taxid, '--taxon', name, '--folders', *args.folders,
-                                '--analysis-dir', args.analysis_dir, '--output', local], extraction_log)
-            runner.note(extraction_log.read_text().rstrip())
-            counts = Counter(unquote(header.split('-', 1)[0]) for header, _ in fasta(local))
-            tsv(root / 'extraction_counts.tsv', ['source_folder', 'reads_extracted'],
-                [(folder, counts[folder]) for folder in folders] + [('TOTAL', sum(counts.values()))])
-            summary = root / 'extraction_by_barcode_primer_taxon.tsv'
-            write_extraction_summary(local, summary)
-            runner.note(f'Extraction barcode/primer/taxon summary: {summary}')
-            selected_local = root / f'cleaned_{stem}.dominant.fasta'
-            with checkpoints.stage('dominant_taxon_selection', [selected_local]) as execute:
-                if execute:
-                    retained_count = filter_dominant_reads(local, summary, selected_local)
-                    runner.note(f'Dominant-taxon selection retained {retained_count} extracted local reads')
-            local_representatives = root / f'cleaned_{stem}.vsearch97.fasta'
-            local_groups = root / 'vsearch_local_groups'
-            local_summary = root / 'vsearch_local_groups.tsv'
-            local_memberships = root / 'vsearch_local_memberships.tsv'
-            with checkpoints.stage('vsearch_local', [local_representatives, local_summary, local_memberships],
-                                   extra=[local_groups]) as execute:
-                if execute:
-                    cluster_groups(runner, selected_local, local_representatives, local_groups,
-                                         local_summary, local_memberships, args.threads)
-            # References remain independent of local groups through clustering.
-            reference_prefix = 'BOLD' if args.reference_source == 'bold' else 'COI'
-            references = root / f'{reference_prefix}_{stem}.fasta'
-            accessions = root / 'reference_accessions.txt'
-            if args.reference_source == 'bold':
-                download = root / 'references_bold.fasta'
-                (root / 'reference_query.txt').write_text(f'BOLD header contains (case-insensitive): {name}\n')
-                bold_metadata = root / 'bold_reference_metadata.tsv'
-                with checkpoints.stage('bold_extraction', [download, accessions, bold_metadata]) as execute:
-                    if execute:
-                        count_bold = extract_bold(bold_files, name, download, bold_metadata, accessions)
-                        runner.note(f'Extracted {count_bold} BOLD records matching {name}')
-            else:
-                query = reference_query(taxid, args.include_mitogenomes)
-                (root / 'reference_query.txt').write_text(query + '\n')
-                search = root / 'coi_search.xml'
-                download = root / 'references_downloaded.fasta'
-                with checkpoints.stage('download', [download, accessions], extra=[search], legacy=True) as execute:
-                    if execute:
-                        runner.run(['esearch', '-db', 'nuccore', '-query', query], search)
-                        runner.run(['efetch', '-format', 'acc'], accessions, search)
-                        if not accessions.read_text().strip():
-                            raise ValueError('NCBI returned no COI accessions')
-                        runner.run(['efetch', '-format', 'fasta'], download, search)
-            # Fetch NCBI organisms before clustering so labels survive all analyses.
-            reference_metadata = root / ('bold_reference_metadata.tsv' if args.reference_source == 'bold'
-                                         else 'reference_records.gb.xml')
-            if args.reference_source != 'bold':
-                with checkpoints.stage('reference_metadata', [reference_metadata], legacy=True) as execute:
-                    if execute:
-                        runner.run(['efetch', '-db', 'nuccore', '-format', 'gb', '-mode', 'xml'],
-                                   reference_metadata, accessions)
-            reference_taxa = reference_names(reference_metadata)
-            with checkpoints.stage('reference_policy', [references, root / 'reference_filter.tsv', root / 'reference_accessions_retained.txt'], extra=(), legacy=True) as execute:
-                if execute:
-                    retained_refs, excluded_refs = filter_references(
-                        download, references, root / 'reference_filter.tsv',
-                        root / 'reference_accessions_retained.txt', args.include_mitogenomes, reference_taxa)
-                    runner.note(f'Reference policy: include_mitogenomes={args.include_mitogenomes}; '
-                                f'retained {retained_refs}, excluded {excluded_refs} downloaded records')
-            length_filtered = root / f'{reference_prefix}_{stem}.length500-2000.fasta'
-            with checkpoints.stage('reference_lengths', [length_filtered], extra=(), legacy=True) as execute:
-                if execute:
-                    runner.run(['seqkit', 'seq', '--min-len', '500', '--max-len', '2000', references], length_filtered)
-            reference_count = sum(1 for _ in fasta(length_filtered))
-            if not reference_count:
-                raise ValueError('No reference sequences remain in the inclusive 500–2000 nt range')
-            runner.note(f'References retained after 500–2000 nt filtering: {reference_count}')
-            reference_representatives = root / f'{reference_prefix}_{stem}.vsearch98.fasta'
-            reference_uc = root / 'vsearch_reference_memberships.tsv'
-            reference_groups = root / 'vsearch_reference_groups'
-            reference_summary = root / 'vsearch_reference_groups.tsv'
-            with checkpoints.stage('vsearch_references', [reference_representatives, reference_uc, reference_summary],
-                                   extra=[reference_groups]) as execute:
-                if execute:
-                    cluster_groups(runner, length_filtered, reference_representatives, reference_groups,
-                                   reference_summary, reference_uc, args.threads, references=True)
-            cluster_counts = [(dataset, sum(1 for _ in fasta(source)), sum(1 for _ in fasta(target)),
-                               '0.97' if dataset == 'local' else '0.98')
-                              for dataset, source, target in [('local', selected_local, local_representatives),
-                                                               ('reference', length_filtered, reference_representatives)]]
-            tsv(root / 'clustering_counts.tsv', ['dataset', 'input_sequences', 'consensus_sequences', 'identity'], cluster_counts)
-            # Combine consensus sets only after each source has been clustered.
-            representatives = root / f'combined_{stem}.fasta'
-            with checkpoints.stage('combined_representatives', [representatives]) as execute:
-                if execute:
-                    seen = set()
-                    with representatives.open('x') as handle:
-                        for source in (local_representatives, reference_representatives):
-                            for header, sequence in fasta(source):
-                                identifier = header.split()[0]
-                                if identifier in seen or not sequence:
-                                    raise ValueError(f'Duplicate ID or empty sequence: {identifier}')
-                                seen.add(identifier)
-                                write_record(handle, header, sequence)
-                    runner.note(f'Combined {len(seen)} independently clustered representatives')
-            # Nuclear/noncoding workflows can retain every consensus without translating it.
-            if args.skip_translation:
-                retained = root / f'combined_{slug}_{stage_label}_{args.date}.fasta'
-                with checkpoints.stage('selection', [retained], legacy=False) as execute:
-                    if execute:
-                        shutil.copyfile(representatives, retained)
-                runner.note('Translation and amino-acid selection skipped; retained all consensuses')
-            else:
-                translated = root / f'combined_{stem}.six_frames.faa'
-                with checkpoints.stage('translation', [translated], extra=(), legacy=True) as execute:
-                    if execute:
-                        runner.run(['seqkit', 'translate', '-f', '6', '-F', '-T', args.translation_table,
-                                    representatives], translated)
-                retained = root / f'combined_{slug}_{stage_label}_{args.date}.fasta'
-                with checkpoints.stage('retained', [retained, root / 'translation_lengths.tsv'],
-                                       legacy_validator=lambda: validate_retained_checkpoint(
-                                           representatives, translated, retained, root / 'translation_lengths.tsv',
-                                           args.min_aa, args.aa_length_mode)) as execute:
-                    if execute:
-                        count = filter_translations(representatives, translated, retained,
-                                                    root / 'translation_lengths.tsv', args.min_aa, args.aa_length_mode)
-        count = sum(1 for _ in fasta(retained if retained.exists() else retained.with_suffix('.aln.fasta')))
-        runner.note(f'Retained {count} nucleotide consensus sequences for alignment')
-        if count < 4:
-            raise ValueError('Fewer than four representatives passed; FASTA saved, phylogeny not run')
-        alignment = retained.with_suffix('.aln.fasta')
-        # kc-align publishes a completion marker only after mixed-mode alignment validates.
-        if args.kcalign and not alignment_ready:
-            from kcalign_alignment import align_kcalign
-            kcalign_prefix = str(alignment).removesuffix('.aln.fasta')
-            artifacts = [Path(kcalign_prefix+suffix) for suffix in (
-                '.pre_align.aa.fasta', '.kcalign_selection.tsv', '.kcalign_ids.tsv', '.kcalign.stdout.log')]
-            with checkpoints.stage('alignment', [alignment], extra=artifacts+[root/'alignment.complete.json'], legacy=False) as execute:
-                if execute:
-                    align_kcalign(runner, retained, alignment, args.kcalign_reference, args.translation_table, args.threads)
-                    (root/'alignment.complete.json').write_text(json.dumps({
-                        'algorithm': 'kc-align', 'alignment_sha256': file_digest(alignment),
-                        'retained_sha256': file_digest(retained)}, indent=2)+'\n')
-            alignment_ready = True
-        if not alignment_ready:
-            # A final-looking file without a completion record is an interrupted legacy result.
-            if alignment.exists():
-                runner.note(f'Removing interrupted alignment: {alignment}')
-                alignment.unlink()
-            with checkpoints.stage('alignment', [alignment, root / 'alignment_orientation.tsv'], extra=[root / 'alignment.complete.json'], legacy=False) as execute:
-                if execute:
-                    partial = Path(str(alignment) + '.partial')
-                    partial.unlink(missing_ok=True)
-                    try:
-                        runner.run(['mafft', '--retree', '2', '--maxiterate', '0', '--adjustdirectionaccurately','--op', '20', '--ep', '18',
-                                '--thread', args.threads, retained], partial)
-                    except BaseException:
-                        partial.unlink(missing_ok=True)
-                        raise
-                    # MAFFT prefixes reverse-complemented sequence IDs with _R_. Restore tracking headers.
-                    aligned = list(fasta(partial))
-                    originals = {header: sequence for header, sequence in fasta(retained)}
-                    restored, orientation = [], []
-                    for header, sequence in aligned:
-                        reverse = header not in originals and header.startswith('_R_') and header[3:] in originals
-                        original = header[3:] if reverse else header
-                        if original not in originals:
-                            raise ValueError(f'Unexpected MAFFT header: {header}')
-                        restored.append((original, sequence))
-                        orientation.append((original.split()[0], '-' if reverse else '+'))
-                    if len(restored) != len(originals) or len({h for h, _ in restored}) != len(originals):
-                        raise ValueError('MAFFT did not preserve all representative IDs')
-                    if len({len(sequence) for _, sequence in restored}) != 1:
-                        raise ValueError('MAFFT output is not an alignment')
-                    with partial.open('w') as handle:
-                        for header, sequence in restored:
-                            write_record(handle, header, sequence)
-                    tsv(root / 'alignment_orientation.tsv', ['sequence_id', 'alignment_strand'], orientation)
-                    valid_alignment(partial, retained)
-                    partial.replace(alignment)
-                    (root / 'alignment.complete.json').write_text(json.dumps({
-                        'algorithm': 'FFT-NS-2', 'alignment_sha256': file_digest(alignment),
-                        'retained_sha256': file_digest(retained)}, indent=2) + '\n')
-        prefix = root / f'combined_{slug}_{stage_label}_{args.date}'
-        # Keep the untrimmed alignment so resume can start here without repeating alignment.
-        pruned = Path(str(prefix) + '.clipkit.aln.fasta')
-        trim_marker = root / 'clipkit.complete.json'
-        trim_log = root / 'clipkit.stdout.log'
-        trim_settings = {'mode': 'smart-gap', 'sequence_type': 'nt',
-                         'input_sha256': file_digest(alignment)}
-        if trim_marker.exists():
-            try:
-                if json.loads(trim_marker.read_text()) != trim_settings:
-                    checkpoints.dirty = True
-            except (ValueError, OSError):
-                checkpoints.dirty = True
-        with checkpoints.stage('clipkit', [pruned, trim_marker],
-                               extra=[trim_log, Path(str(pruned)+'.partial')], legacy=False) as execute:
-            if execute:
-                # Persist invalidation before trimming, including runs created before this stage existed.
-                checkpoints.invalidated.update(('phylogeny', 'figure'))
-                checkpoints.invalidated_path.write_text(json.dumps(sorted(checkpoints.invalidated)))
-                partial = Path(str(pruned)+'.partial')
-                try:
-                    runner.run(['clipkit', alignment, '-m', 'gappy', '-s', 'nt',
-                                '-if', 'fasta', '-of', 'fasta', '-o', partial], trim_log)
-                    validate_outputs([partial])
-                    original_records = dict(fasta(alignment))
-                    trimmed_records = list(fasta(partial))
-                    if len(trimmed_records) != len(original_records) or {h for h, _ in trimmed_records} != set(original_records):
-                        raise ValueError('ClipKIT changed sequence headers or the sequence set')
-                    lengths = {len(seq) for _, seq in trimmed_records}
-                    if len(lengths) != 1 or 0 in lengths or next(iter(lengths)) > len(next(iter(original_records.values()))):
-                        raise ValueError('ClipKIT produced an empty or invalid alignment')
-                    partial.replace(pruned)
-                    trim_marker.write_text(json.dumps(trim_settings, indent=2)+'\n')
-                finally:
-                    partial.unlink(missing_ok=True)
-        # Both alignment branches feed the same trimmed nucleotide phylogeny and figure stages.
-        # Bootstrap inference is disabled: retain model selection and the ML tree search.
-        phylogeny_marker = root / 'phylogeny.complete.json'
-        phylogeny_settings = {'bootstrap': 'none', 'model': 'MFP', 'seed': 666,
-                              'input_sha256': file_digest(pruned)}
-        if phylogeny_marker.exists():
-            try:
-                if json.loads(phylogeny_marker.read_text()) != phylogeny_settings:
-                    checkpoints.dirty = True
-            except (OSError, ValueError):
-                checkpoints.dirty = True
-        with checkpoints.stage('phylogeny', [Path(str(prefix) + '.treefile'), phylogeny_marker], extra=[root / 'iqtree.stdout.log'] + [Path(str(prefix)+suffix) for suffix in ('.iqtree', '.log', '.ckp.gz', '.bionj', '.mldist', '.model.gz', '.contree', '.boottrees', '.ufboot', '.splits.nex')], legacy=False) as execute:
-            if execute:
-                runner.run(['iqtree', '-s', pruned, '-m', 'MFP', '-T', args.threads,
-                            '--seed', '666', '--prefix', prefix], root / 'iqtree.stdout.log')
-                if not Path(str(prefix) + '.treefile').is_file():
-                    raise ValueError('IQ-TREE did not produce the expected treefile')
-                phylogeny_marker.write_text(json.dumps(phylogeny_settings, indent=2)+'\n')
-        if args.reference_source == 'bold':
-            reference_genbank = root / 'bold_reference_metadata.tsv'
-            validate_outputs([reference_genbank])
-        else:
-            reference_genbank = root / 'reference_records.gb.xml'
-            # Resume from an alignment without fetching metadata again when it exists.
-            if reference_genbank.is_file():
-                validate_outputs([reference_genbank])
-            else:
-                metadata_checkpoints = Checkpoints(runner, resume)
-                with metadata_checkpoints.stage('reference_metadata', [reference_genbank], legacy=True) as execute:
-                    if execute:
-                        runner.run(['efetch', '-db', 'nuccore', '-format', 'gb', '-mode', 'xml'],
-                                   reference_genbank, root / 'reference_accessions.txt')
-                checkpoints.records['reference_metadata'] = metadata_checkpoints.records['reference_metadata']
-        with checkpoints.stage('figure', [Path(str(prefix) + '.figure' + suffix) for suffix in ('.pdf', '.svg', '.midpoint.nwk', '.tips.tsv', '.plot.json', '.png')], extra=[root / 'tree_figure.stdout.log'], legacy=False) as execute:
-            if execute:
-                runner.run([sys.executable, Path(__file__).with_name('plot_phylogeny.py'),
-                            '--tree', str(prefix) + '.treefile', '--analysis-dir', args.analysis_dir,
-                            '--reference-metadata', reference_genbank,
-                            '--output-prefix', str(prefix) + '.figure'], root / 'tree_figure.stdout.log')
-        (root / 'postprocessing.complete').write_text('complete\n')
-        (root / 'postprocessing.failed').unlink(missing_ok=True)
-        runner.note(f'Completed: {prefix}.treefile')
+        build_tree(args, root, runner, stages, bold_files)
+        (root/'postprocessing.complete').write_text('complete\n')
+        (root/'postprocessing.failed').unlink(missing_ok=True)
     except Exception as error:
-        for partial in root.glob('*.aln.fasta.partial'):
-            partial.unlink(missing_ok=True)
         runner.note(f'FAILED: {error}')
-        (root / 'postprocessing.failed').write_text(str(error) + '\n')
+        (root/'postprocessing.failed').write_text(str(error) + '\n')
         raise
+
+
+def build_tree(args, root, runner, stages, bold_files):
+    taxid, name = resolve_taxon(args, root, stages, runner)
+    slug = re.sub(r'[^A-Za-z0-9_.-]+', '_', name).strip('_.')
+    stem = f'{slug}_{args.date}'
+    shown = name if taxid == name else f'{name} (NCBI taxid {taxid})'
+    runner.note(f'Resolved taxon: {shown}; folders: {", ".join(args.folders)}')
+    tables = [args.analysis_dir/folder/f'{folder}_reads.tsv' for folder in args.folders]
+
+    # 1. Local reads confidently assigned to the taxon, then the dominant taxon per barcode/forward tag.
+    local, extraction_log = root/f'cleaned_{stem}.fasta', root/'extraction.log'
+    stages.run('extraction', [local, extraction_log], lambda: runner.run(
+        [sys.executable, CODE/'export_sintax_fasta.py', '--taxon', taxid, '--taxon', name,
+         '--folders', *args.folders, '--analysis-dir', args.analysis_dir, '--output', local], extraction_log),
+        inputs=tables, settings=sorted({taxid, name}))
+    runner.note(extraction_log.read_text().rstrip())
+    counts = Counter(local_annotations(header)[0] for header, _ in fasta(local))
+    tsv(root/'extraction_counts.tsv', ['source_folder', 'reads_extracted'],
+        [(folder, counts[folder]) for folder in args.folders] + [('TOTAL', sum(counts.values()))])
+    summary, selected_local = root/'extraction_by_barcode_primer_taxon.tsv', root/f'cleaned_{stem}.dominant.fasta'
+
+    def dominant():
+        write_extraction_summary(local, summary)
+        runner.note(f'Dominant-taxon selection retained {filter_dominant_reads(local, summary, selected_local)} reads')
+    stages.run('dominant_taxon_selection', [summary, selected_local], dominant, inputs=[local])
+    local_reps = root/f'cleaned_{stem}.vsearch97.fasta'
+    local_outputs = [local_reps, root/'vsearch_local_groups.tsv', root/'vsearch_local_memberships.tsv']
+    stages.run('vsearch_local', local_outputs, lambda: cluster_groups(
+        runner, selected_local, local_reps, root/'vsearch_local_groups', local_outputs[1], local_outputs[2], args.threads),
+        inputs=[selected_local], extra=[root/'vsearch_local_groups'])
+
+    # 2. External references, labelled with their taxon, length-filtered and clustered per taxon.
+    prefix_name = 'BOLD' if args.reference_source == 'bold' else 'COI'
+    accessions = root/'reference_accessions.txt'
+    if args.reference_source == 'bold':
+        download, metadata = root/'references_bold.fasta', root/'bold_reference_metadata.tsv'
+        (root/'reference_query.txt').write_text(f'BOLD header contains (case-insensitive): {name}\n')
+        stages.run('bold_extraction', [download, accessions, metadata],
+                   lambda: runner.note(f'Extracted {extract_bold(bold_files, name, download, metadata, accessions)} '
+                                       f'BOLD records matching {name}'), inputs=bold_files, settings=name)
+    else:
+        query = reference_query(taxid, args.include_mitogenomes)
+        (root/'reference_query.txt').write_text(query + '\n')
+        download, metadata, search = root/'references_downloaded.fasta', root/'reference_records.gb.xml', root/'coi_search.xml'
+
+        def fetch():
+            runner.run(['esearch', '-db', 'nuccore', '-query', query], search)
+            runner.run(['efetch', '-format', 'acc'], accessions, search)
+            if not accessions.read_text().strip():
+                raise ValueError('NCBI returned no COI accessions')
+            runner.run(['efetch', '-format', 'fasta'], download, search)
+            runner.run(['efetch', '-db', 'nuccore', '-format', 'gb', '-mode', 'xml'], metadata, accessions)
+        stages.run('download', [download, accessions, metadata], fetch, settings=query, extra=[search])
+    references = root/f'{prefix_name}_{stem}.fasta'
+    policy_outputs = [references, root/'reference_filter.tsv', root/'reference_accessions_retained.txt']
+
+    def policy():
+        kept, excluded = filter_references(download, *policy_outputs, args.include_mitogenomes, reference_names(metadata))
+        runner.note(f'Reference policy: include_mitogenomes={args.include_mitogenomes}; retained {kept}, excluded {excluded}')
+    stages.run('reference_policy', policy_outputs, policy, inputs=[download, metadata], settings=args.include_mitogenomes)
+    length_filtered = root/f'{prefix_name}_{stem}.length500-2000.fasta'
+    stages.run('reference_lengths', [length_filtered], lambda: runner.run(
+        ['seqkit', 'seq', '--min-len', '500', '--max-len', '2000', references], length_filtered), inputs=[references])
+    reference_count = sum(1 for _ in fasta(length_filtered))
+    if not reference_count:
+        raise ValueError('No reference sequences remain in the inclusive 500–2000 nt range')
+    runner.note(f'References retained after 500–2000 nt filtering: {reference_count}')
+    reference_reps = root/f'{prefix_name}_{stem}.vsearch98.fasta'
+    reference_outputs = [reference_reps, root/'vsearch_reference_memberships.tsv', root/'vsearch_reference_groups.tsv']
+    stages.run('vsearch_references', reference_outputs, lambda: cluster_groups(
+        runner, length_filtered, reference_reps, root/'vsearch_reference_groups', reference_outputs[2],
+        reference_outputs[1], args.threads, references=True), inputs=[length_filtered], extra=[root/'vsearch_reference_groups'])
+    tsv(root/'clustering_counts.tsv', ['dataset', 'input_sequences', 'consensus_sequences', 'identity'],
+        [(label, sum(1 for _ in fasta(source)), sum(1 for _ in fasta(target)), identity)
+         for label, source, target, identity in [('local', selected_local, local_reps, '0.97'),
+                                                 ('reference', length_filtered, reference_reps, '0.98')]])
+
+    # 3. Combine consensus sequences and (optionally) keep only those with a long open reading frame.
+    representatives = root/f'combined_{stem}.fasta'
+
+    def combine():
+        with representatives.open('x') as handle:
+            for source in (local_reps, reference_reps):
+                for header, sequence in fasta(source):
+                    write_record(handle, header, sequence)
+    stages.run('combined_representatives', [representatives], combine, inputs=[local_reps, reference_reps])
+    stage_label = 'selected' if args.skip_translation else 'nonumt'
+    prefix = root/f'combined_{slug}_{stage_label}_{args.date}'
+    retained = Path(str(prefix) + '.fasta')
+    if args.skip_translation:
+        stages.run('selection', [retained], lambda: shutil.copyfile(representatives, retained), inputs=[representatives])
+        runner.note('Translation and amino-acid selection skipped; retained all consensuses')
+    else:
+        translated = root/f'combined_{stem}.six_frames.faa'
+        stages.run('translation', [translated], lambda: runner.run(
+            ['seqkit', 'translate', '-f', '6', '-F', '-T', args.translation_table, representatives], translated),
+            inputs=[representatives], settings=args.translation_table)
+        report = root/'translation_lengths.tsv'
+        stages.run('retained', [retained, report], lambda: filter_translations(
+            representatives, translated, retained, report, args.min_aa),
+            inputs=[representatives, translated], settings=[args.min_aa, 'stop-free'])
+    count = sum(1 for _ in fasta(retained))
+    runner.note(f'Retained {count} nucleotide consensus sequences for alignment')
+    if count < 4:
+        raise ValueError('Fewer than four representatives passed; FASTA saved, phylogeny not run')
+
+    # 4. Align, trim gappy columns, infer the maximum-likelihood tree and draw it.
+    alignment = Path(str(prefix) + '.aln.fasta')
+    if args.kcalign:
+        from kcalign_alignment import align_kcalign
+        artifacts = [Path(str(prefix) + s) for s in ('.pre_align.aa.fasta', '.kcalign_selection.tsv', '.kcalign_ids.tsv')]
+        stages.run('alignment', [alignment, *artifacts], lambda: align_kcalign(
+            runner, retained, alignment, args.kcalign_reference, args.translation_table, kcalign_threads(args.threads)),
+            inputs=[retained, args.kcalign_reference], settings=['kc-align', args.translation_table],
+            extra=[Path(str(prefix) + '.kcalign.stdout.log'), root/'alignment_orientation.tsv'])
+        check_alignment(alignment, retained, trimmed=True)
+    else:
+        orientation = root/'alignment_orientation.tsv'
+        stages.run('alignment', [alignment, orientation], lambda: align_mafft(
+            runner, retained, alignment, orientation, args.threads), inputs=[retained], settings=['FFT-NS-2', 'default gap penalties'],
+            extra=[Path(str(prefix) + s) for s in ('.pre_align.aa.fasta', '.kcalign_selection.tsv', '.kcalign_ids.tsv',
+                                                   '.kcalign.stdout.log')])
+        check_alignment(alignment, retained)
+    trimmed = Path(str(prefix) + '.clipkit.aln.fasta')
+    stages.run('clipkit', [trimmed], lambda: trim_alignment(runner, alignment, trimmed, root/'clipkit.stdout.log'),
+               inputs=[alignment], settings=['gappy', 'nt'], extra=[root/'clipkit.stdout.log'])
+    treefile = Path(str(prefix) + '.treefile')
+    iqtree_files = [Path(str(prefix) + s) for s in ('.iqtree', '.log', '.ckp.gz', '.bionj', '.mldist', '.model.gz', '.uniqueseq.phy')]
+    stages.run('phylogeny', [treefile], lambda: runner.run(
+        ['iqtree', '-s', trimmed, '-m', 'MFP', '-T', args.threads, '--seed', '666', '--prefix', prefix],
+        root/'iqtree.stdout.log'), inputs=[trimmed], settings=['MFP', 666, 'no bootstrap'],
+        extra=[root/'iqtree.stdout.log', *iqtree_files])
+    figure = [Path(str(prefix) + '.figure' + s) for s in ('.pdf', '.svg', '.png', '.midpoint.nwk', '.tips.tsv', '.plot.json')]
+    stages.run('figure', figure, lambda: runner.run(
+        [sys.executable, CODE/'plot_phylogeny.py', '--tree', treefile, '--analysis-dir', args.analysis_dir,
+         '--reference-metadata', metadata, '--output-prefix', str(prefix) + '.figure'], root/'tree_figure.stdout.log'),
+        inputs=[treefile, metadata], extra=[root/'tree_figure.stdout.log'])
+    runner.note(f'Completed: {treefile}')
 
 
 def main():
     """Parse source, filtering and alignment choices before starting or resuming a run."""
     parser = argparse.ArgumentParser(description=__doc__)
     reference_group = parser.add_mutually_exclusive_group(required=True)
-    reference_group.add_argument('--download', dest='reference_source', action='store_const', const='download', help='Download NCBI COI references using Entrez Direct')
-    reference_group.add_argument('--bold', dest='reference_source', action='store_const', const='bold', help='Select local BOLD FASTA headers containing the taxon name; no network')
+    reference_group.add_argument('--download', dest='reference_source', action='store_const', const='download',
+                                 help='Download NCBI COI references using Entrez Direct')
+    reference_group.add_argument('--bold', dest='reference_source', action='store_const', const='bold',
+                                 help='Select local BOLD FASTA records whose header contains the taxon name; no network')
     parser.add_argument('--bold-db', type=Path, help='BOLD gzipped FASTA file or directory (default: data/bold)')
-    parser.add_argument('--include-mitogenomes', action='store_true',
-                        help='Include matching whole mitogenome records (excluded by default)')
-    parser.add_argument('--taxon', required=True, help='NCBI taxid or exact taxon name')
-    parser.add_argument('dataset', nargs='?', help='Dataset parent, e.g. sequencing2; selects its completed analysis folders')
-    parser.add_argument('--folders', nargs='+', help='Sample names or dataset parent; default: all folders in the completed analysis')
-    parser.add_argument('--analysis-dir', type=Path, required=True)
-    parser.add_argument('--output-dir', type=Path, required=True, help='New output directory, or existing run with --resume')
-    parser.add_argument('--restart-alignment', action='store_true', help='With --resume, reuse retained sequences but rebuild alignment/tree/figure; permits changing aligner and trusted reference')
-    parser.add_argument('--resume', action='store_true', help='Validate and reuse completed stages in the same output directory')
-    parser.add_argument('--date', default=None, help='YYYYMMDD; defaults to today, or saved run date with --resume')
+    parser.add_argument('--include-mitogenomes', action='store_true', help='Keep whole-mitogenome records (excluded by default)')
+    parser.add_argument('--taxon', required=True, help='Taxon name (or NCBI taxid with --download)')
+    parser.add_argument('dataset', nargs='?', help='Dataset parent, e.g. sequencing2: use all its analysed folders')
+    parser.add_argument('--folders', nargs='+', help='Sample folders; default: all folders in the completed analysis')
+    parser.add_argument('--analysis-dir', type=Path, required=True, help='Read processing analysis directory')
+    parser.add_argument('--output-dir', type=Path, required=True, help='New output directory, or an existing run with --resume')
+    parser.add_argument('--resume', action='store_true',
+                        help='Continue an existing run: reuse unchanged stages, redo stages whose inputs or settings changed')
+    parser.add_argument('--date', default=None, help='YYYYMMDD used in file names; default today, or the saved date with --resume')
     parser.add_argument('--threads', type=int, default=8)
     parser.add_argument('--kcalign-reference', type=Path, help='Trusted single-sequence, in-frame coding FASTA required with --kcalign')
-    parser.add_argument('--skip-translation', action='store_true', help='Skip six-frame translation and amino-acid selection; retain all consensuses (e.g. nuclear noncoding loci)')
+    parser.add_argument('--skip-translation', action='store_true',
+                        help='Skip the six-frame translation screen; keep all consensuses (e.g. non-coding loci)')
     aligners = parser.add_mutually_exclusive_group()
-    aligners.add_argument('--kcalign', action='store_true', help='Use kc-align mixed-mode codon alignment instead of MAFFT')
+    aligners.add_argument('--kcalign', action='store_true', help='Use kc-align codon alignment instead of MAFFT')
     aligners.add_argument('--mafft', dest='kcalign', action='store_false', help='Use MAFFT FFT-NS-2 (default)')
-    parser.set_defaults(kcalign=False)
-    parser.add_argument('--translation-table', type=int, default=5, help='SeqKit genetic code (5: invertebrate mitochondrial)')
-    parser.add_argument('--min-aa', type=int, default=200)
-    parser.add_argument('--aa-length-mode', choices=['stop-free'], default='stop-free',
-                        help='Require consecutive amino acids without stops or unknown residues')
+    parser.add_argument('--translation-table', type=int, default=5, help='Genetic code (5: invertebrate mitochondrial)')
+    parser.add_argument('--min-aa', type=int, default=200,
+                        help='Minimum number of consecutive amino acids without a stop codon or X, in any frame')
     args = parser.parse_args()
     if args.bold_db is not None and args.reference_source != 'bold':
         parser.error('--bold-db requires --bold')
@@ -954,6 +642,8 @@ def main():
         parser.error('Numeric settings must be positive')
     if args.date is not None and not re.fullmatch(r'\d{8}', args.date):
         parser.error('--date must have YYYYMMDD format')
+    if args.resume and not (args.output_dir/'parameters.json').is_file():
+        parser.error('--resume requires an existing run directory with parameters.json')
     try:
         run_pipeline(args)
     except (ValueError, OSError, subprocess.CalledProcessError, ET.ParseError) as error:

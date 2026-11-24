@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Read-level SINTAX analysis and barcode prevalence, without classification."""
+"""Read-level SINTAX analysis, primer tags and barcode prevalence for one dataset."""
 import argparse
 from collections import defaultdict
 from datetime import datetime, timezone
@@ -10,10 +10,13 @@ import tempfile
 
 import pandas as pd
 from sintax_parser import RANKS, COLUMNS, parse_output, taxon_parts
-from sample_folders import discover_samples, dataset_path
+from sample_folders import discover_samples, dataset_path, project_path
+from analysis_report import write_report
+from describe_table_headers import describe_headers
 
 RANK_NAMES = list(RANKS.values())
-PRIMER_COLUMNS = ['merged_folder', 'barcode_folder', 'seqID', 'forward_patternName', 'reverse_patternName']
+TAG_FIELDS = {'forward_primer': 'forward_PCR_primer', 'reverse_primer': 'reverse_PCR_primer',
+              'forward_status': 'forward_tag_status', 'reverse_status': 'reverse_tag_status'}
 
 
 def join_values(values):
@@ -26,70 +29,23 @@ def write_tsv(frame, path):
     frame.to_csv(path, sep='\t', index=False, header=True, mode='x', na_rep='')
 
 
-def primer_name_map(mft_fasta, pcr_fasta):
-    def records(path):
-        result, name, sequence = {}, None, []
-        with Path(path).open() as handle:
-            for line in handle:
-                if line.startswith('>'):
-                    if name: result[name] = ''.join(sequence).upper()
-                    name, sequence = line[1:].split()[0], []
-                else: sequence.append(line.strip())
-        if name: result[name] = ''.join(sequence).upper()
-        return result
-    mft, pcr = records(mft_fasta), records(pcr_fasta)
-    by_sequence = defaultdict(list)
-    for name, sequence in pcr.items(): by_sequence[sequence].append(name)
-    return {name: ';'.join(sorted(by_sequence[seq])) for name, seq in mft.items() if seq in by_sequence}
+def file_record(path):
+    return dict(path=project_path(path), bytes=Path(path).stat().st_size)
 
 
-def split_primer_table(primer_path, dataset, barcodes, temp_root):
-    """Read a large best-hit table once, retaining only fields used in this analysis."""
-    paths = {}
-    counts = dict.fromkeys(barcodes, 0)
-    saw_rows = saw_dataset = False
-    for chunk in pd.read_csv(primer_path, sep='\t', dtype=str, usecols=PRIMER_COLUMNS,
-                             keep_default_na=False, chunksize=100000):
-        saw_rows = saw_rows or not chunk.empty
-        saw_dataset = saw_dataset or bool(chunk.merged_folder.eq(dataset).any())
-        chunk = chunk[chunk.merged_folder.eq(dataset) & chunk.barcode_folder.isin(barcodes)]
-        for barcode, group in chunk.groupby('barcode_folder', sort=False):
-            path = temp_root / f'{barcode}_primers.tsv'
-            group.to_csv(path, sep='\t', index=False, mode='a', header=barcode not in paths)
-            paths[barcode] = path
-            counts[barcode] += len(group)
-    if saw_rows and not saw_dataset:
-        raise ValueError(f'Primer best-hit table has no records for dataset {dataset}')
-    for barcode in barcodes:
-        if barcode not in paths:
-            # No detected hits means no matching tracking record, not an absent primer.
-            paths[barcode] = temp_root / f'{barcode}_primers.tsv'
-            pd.DataFrame(columns=PRIMER_COLUMNS).to_csv(paths[barcode], sep='\t', index=False)
-    return paths, counts
-
-
-def sample_frame(path, cutoff, primer_path, mapping, dataset):
+def sample_frame(path, cutoff, tags):
+    """Parse one SINTAX file and attach the tag calls of each read's raw parent."""
     frame = pd.DataFrame.from_records(parse_output(path, cutoff=cutoff), columns=COLUMNS)
     if frame.readid.duplicated().any():
         raise ValueError(f'Duplicate query IDs in {path}')
-    for col in ['assigned_confidence', 'taxonomy_lowestboot'] + [r+'_bootstrap' for r in RANK_NAMES]:
+    for col in ['assigned_confidence', 'taxonomy_lowestboot'] + [r + '_bootstrap' for r in RANK_NAMES]:
         frame[col] = pd.to_numeric(frame[col], errors='coerce')
-    frame['dataset'] = dataset
-    primers = pd.read_csv(primer_path, sep='\t', dtype=str, keep_default_na=False)
-    if primers.seqID.duplicated().any(): raise ValueError(f'Duplicate primer IDs in {primer_path}')
-    primers = primers.set_index('seqID')
-    # These primer results were generated on raw reads. Match by their parent ID.
-    frame['primer_tracking_record_found'] = frame.raw_ont_read_id.isin(primers.index)
-    for direction in ('forward', 'reverse'):
-        column = direction+'_patternName'
-        original_names = frame.raw_ont_read_id.map(primers[column]).fillna('')
-        canonical_names = {name for value in mapping.values() for name in value.split(';')}
-        unknown = set(original_names[original_names.ne('')]) - set(mapping) - canonical_names
-        if unknown:
-            raise ValueError(f'Unmapped {direction} primer names: {sorted(unknown)}')
-        frame[direction+'_PCR_primer'] = original_names.map(mapping).fillna('')
-        already_mapped = original_names.isin(canonical_names)
-        frame.loc[already_mapped, direction+'_PCR_primer'] = original_names[already_mapped]
+    missing = ~frame.raw_ont_read_id.isin(tags.index)
+    if missing.any():
+        raise ValueError(f'{path}: {missing.sum()} reads have no primer_tags.tsv.gz row '
+                         f'(e.g. {frame.raw_ont_read_id[missing].iloc[0]}); rerun Read processing for this sample')
+    for source, target in TAG_FIELDS.items():
+        frame[target] = frame.raw_ont_read_id.map(tags[source]).fillna('')
     return frame
 
 
@@ -103,9 +59,9 @@ def prevalence_table(presence, barcodes, fraction):
                          barcode_fraction=len(observed)/len(barcodes), minimum_barcode_count=minimum,
                          prevalence_threshold=fraction, barcodes=';'.join(sorted(observed)),
                          contamination='contamination' if len(observed) >= minimum else 'nocontamination'))
-    return pd.DataFrame(rows, columns=['rank','taxon_label','taxon_name','taxid','barcode_count',
-        'analysed_barcode_count','barcode_fraction','minimum_barcode_count','prevalence_threshold',
-        'barcodes','contamination'])
+    return pd.DataFrame(rows, columns=['rank', 'taxon_label', 'taxon_name', 'taxid', 'barcode_count',
+        'analysed_barcode_count', 'barcode_fraction', 'minimum_barcode_count', 'prevalence_threshold',
+        'barcodes', 'contamination'])
 
 
 def add_flags(frame, flagged):
@@ -113,7 +69,7 @@ def add_flags(frame, flagged):
         'contamination' if (rank, label) in flagged else 'nocontamination'
         for rank, label in zip(frame.assigned_rank, frame.assigned_label)]
     for rank in RANK_NAMES:
-        frame[rank+'_contamination'] = frame['accepted_'+rank].map(
+        frame[rank + '_contamination'] = frame['accepted_' + rank].map(
             lambda label: 'contamination' if (rank, label) in flagged else 'nocontamination')
     return frame
 
@@ -121,163 +77,175 @@ def add_flags(frame, flagged):
 def species_summary(frame, flagged, cutoff):
     """One row per candidate species; statistics distinguish confident and candidate calls."""
     candidates = frame[frame.species.ne('')].copy()
-    keys = ['source_folder', 'source_name', 'source_file', 'species']
-    columns = keys + ['species_name','species_taxid','genus','family','order','class',
-                     'contamination','median_confidence','read_count','raw_read_count',
-                     'forward_primers_detected','reverse_primers_detected',
-                     'candidate_read_count','median_candidate_confidence']
-    if candidates.empty: return pd.DataFrame(columns=columns)
+    keys = ['source_folder', 'species']
+    columns = keys + ['species_name', 'species_taxid', 'genus', 'family', 'order', 'class',
+                      'contamination', 'median_confidence', 'read_count', 'raw_read_count',
+                      'forward_primers_detected', 'reverse_primers_detected',
+                      'candidate_read_count', 'median_candidate_confidence']
+    if candidates.empty:
+        return pd.DataFrame(columns=columns)
     all_species = candidates.groupby(keys, dropna=False).agg(
-        genus=('genus',join_values), family=('family',join_values), order=('order',join_values),
-        candidate_read_count=('readid','nunique'), median_candidate_confidence=('species_bootstrap','median'),
+        genus=('genus', join_values), family=('family', join_values), order=('order', join_values),
+        candidate_read_count=('readid', 'nunique'), median_candidate_confidence=('species_bootstrap', 'median'),
         **{'class': ('class', join_values)})
     passed = candidates[candidates.species_bootstrap.ge(cutoff)]
     confident = passed.groupby(keys, dropna=False).agg(
-        median_confidence=('species_bootstrap','median'), read_count=('readid','nunique'),
-        raw_read_count=('raw_ont_read_id','nunique'),
-        forward_primers_detected=('forward_PCR_primer',join_values),
-        reverse_primers_detected=('reverse_PCR_primer',join_values))
+        median_confidence=('species_bootstrap', 'median'), read_count=('readid', 'nunique'),
+        raw_read_count=('raw_ont_read_id', 'nunique'),
+        forward_primers_detected=('forward_PCR_primer', join_values),
+        reverse_primers_detected=('reverse_PCR_primer', join_values))
     summary = all_species.join(confident).reset_index()
-    for col in ['read_count','raw_read_count']:
+    for col in ['read_count', 'raw_read_count']:
         summary[col] = summary[col].fillna(0).astype(int)
-    for col in ['forward_primers_detected','reverse_primers_detected']:
+    for col in ['forward_primers_detected', 'reverse_primers_detected']:
         summary[col] = summary[col].fillna('')
     summary['species_name'] = summary.species.map(lambda x: taxon_parts(x)[0])
     summary['species_taxid'] = summary.species.map(lambda x: taxon_parts(x)[1])
-    for col in ['genus','family','order','class']:
+    for col in ['genus', 'family', 'order', 'class']:
         summary[col] = summary[col].map(lambda x: ';'.join(taxon_parts(v)[0] for v in x.split(';') if v))
     summary['contamination'] = summary.species.map(
-        lambda label: 'contamination' if ('species',label) in flagged else 'nocontamination')
-    return summary[columns].sort_values(['read_count','species'],ascending=[False,True])
+        lambda label: 'contamination' if ('species', label) in flagged else 'nocontamination')
+    return summary[columns].sort_values(['read_count', 'species'], ascending=[False, True])
 
 
-def run_analysis(*, project_root, merged_dir, sintax_root, output_dir, primer_hits,
-                 folders, cutoff=0.8, prevalence=0.8, suffix='sintaxSP', allow_missing=False):
-    project_root, merged_dir, sintax_root, output_dir = map(Path, (project_root, merged_dir, sintax_root, output_dir))
-    merged_dir = dataset_path(merged_dir)
+def tag_status_rows(folder, tags, frame):
+    """Tag outcomes counted over raw reads and over cleaned (classified) queries."""
+    rows = []
+    for direction in ('forward', 'reverse'):
+        raw = tags[direction + '_status'].value_counts()
+        cleaned = frame[direction + '_tag_status'].value_counts()
+        for status in sorted(set(raw.index) | set(cleaned.index)):
+            rows.append(dict(source_folder=folder, direction=direction, status=status,
+                             raw_reads=int(raw.get(status, 0)), cleaned_queries=int(cleaned.get(status, 0))))
+    return rows
+
+
+def run_analysis(*, merged_dir, sintax_root, output_dir, folders=None, cutoff=0.8, prevalence=0.8,
+                 suffix='sintaxSP', allow_missing=False):
+    merged_dir, sintax_root, output_dir = dataset_path(merged_dir), Path(sintax_root), Path(output_dir)
     if folders is None:
         folders = [p.name for p in discover_samples([merged_dir])]
-    if not 0 <= cutoff <= 1 or not 0 < prevalence <= 1: raise ValueError('Invalid confidence/prevalence threshold')
-    if len(set(folders)) != len(folders): raise ValueError('Duplicate folders')
-    if output_dir.exists(): raise FileExistsError(f'Choose a new output directory: {output_dir}')
+    if not 0 <= cutoff <= 1 or not 0 < prevalence <= 1:
+        raise ValueError('Invalid confidence/prevalence threshold')
+    if len(set(folders)) != len(folders):
+        raise ValueError('Duplicate folders')
+    if output_dir.exists():
+        raise FileExistsError(f'Choose a new output directory: {output_dir}')
     inputs, manifest = {}, []
     for folder in folders:
-        source = sintax_root / folder / f'{folder}_{suffix}.tsv'
-        clean = merged_dir / folder / 'filtered/asinput.fastq.gz'
-        status = 'analysed' if source.is_file() else 'missing_sintax'
-        if source.is_file():
-            if not clean.is_file(): raise FileNotFoundError(clean)
-            inputs[folder] = source
-        elif not allow_missing: raise FileNotFoundError(source)
-        manifest.append(dict(source_folder=folder,
-            status=status, sintax_file=str(source.resolve()), clean_reads_file=str(clean.resolve()),
-            sintax_bytes=source.stat().st_size if source.exists() else '',
-            sintax_mtime_ns=source.stat().st_mtime_ns if source.exists() else ''))
-    if not inputs: raise ValueError('No available SINTAX outputs')
+        files = dict(sintax=sintax_root/folder/f'{folder}_{suffix}.tsv',
+                     clean_reads=merged_dir/folder/'filtered/asinput.fastq.gz',
+                     primer_tags=merged_dir/folder/'filtered/primer_tags.tsv.gz')
+        row = dict(source_folder=folder, status='analysed' if files['sintax'].is_file() else 'missing_sintax')
+        if row['status'] == 'analysed':
+            for path in files.values():
+                if not path.is_file():
+                    raise FileNotFoundError(f'{path}; run Read processing for {folder}')
+            inputs[folder] = files
+        elif not allow_missing:
+            raise FileNotFoundError(files['sintax'])
+        for kind, path in files.items():
+            row[kind + '_file'] = project_path(path)
+        manifest.append(row)
+    if not inputs:
+        raise ValueError('No available SINTAX outputs')
     barcodes = {folder for folder in inputs if folder != 'unclassified'}
-    mapping = primer_name_map(project_root/'data/saproxdna_primertags_seq5_2026_1.fasta',
-                              project_root/'data/PCRsaproxdna_primertags_seq5_2026_1.fasta')
     output_dir.mkdir(parents=True)
     metadata = dict(created_utc=datetime.now(timezone.utc).isoformat(), cutoff=cutoff,
-        prevalence_threshold=prevalence, denominator='distinct analysed source_folder barcodes; unclassified excluded',
-        unclassified_policy='included in read tables; excluded from barcode prevalence',
+        prevalence_threshold=prevalence, denominator='distinct analysed barcode folders; unclassified excluded',
         analysed_barcode_count=len(barcodes), minimum_barcode_count=math.ceil(prevalence*len(barcodes)-1e-12),
         requested_folders=folders, analysed_folders=list(inputs),
-        missing_folders=[r['source_folder'] for r in manifest if r['status']!='analysed'],
-        primer_hits=str(Path(primer_hits).resolve()),
-        merged_dir=str(merged_dir.resolve()), sintax_root=str(sintax_root.resolve()),
-        read_count_unit='unique cleaned query ID; adapter fragments are separate queries',
-        median_confidence_scope='species confidence among queries with species confidence >= cutoff',
+        missing_folders=[r['source_folder'] for r in manifest if r['status'] != 'analysed'],
+        merged_dir=project_path(merged_dir), sintax_root=project_path(sintax_root),
+        input_files={folder: {kind: file_record(path) for kind, path in files.items()} for folder, files in inputs.items()},
+        read_count_unit='unique cleaned query ID; adapter-split fragments are separate queries',
         confidence_source='reported rounded SINTAX bootstrap values, not calibrated probabilities')
-    (output_dir/'analysis_parameters.json').write_text(json.dumps(metadata,indent=2)+'\n')
-    write_tsv(pd.DataFrame(manifest),output_dir/'input_manifest.tsv')
-    (output_dir/'primer_name_mapping.json').write_text(json.dumps(mapping, indent=2)+'\n')
-    summaries, stats, presence = [], [], defaultdict(set)
+    (output_dir/'analysis_parameters.json').write_text(json.dumps(metadata, indent=2)+'\n')
+    write_tsv(pd.DataFrame(manifest), output_dir/'input_manifest.tsv')
+    summaries, stats, tag_rows, presence = [], [], [], defaultdict(set)
     taxon_primers = {'forward': defaultdict(set), 'reverse': defaultdict(set)}
     with tempfile.TemporaryDirectory(prefix='sintax_analysis_') as temp:
         temp = Path(temp)
-        print('Partitioning primer best hits (one pass)...',flush=True)
-        primer_paths, primer_counts = split_primer_table(primer_hits,merged_dir.name,list(inputs),temp)
-        for folder, path in inputs.items():
-            print(f'Parsing {folder}: {path}',flush=True)
-            frame = sample_frame(path,cutoff,primer_paths[folder],mapping,merged_dir.name)
+        for folder, files in inputs.items():
+            print(f'Parsing {folder}: {files["sintax"]}', flush=True)
+            tags = pd.read_csv(files['primer_tags'], sep='\t', dtype=str, keep_default_na=False,
+                               usecols=['read_id', *TAG_FIELDS]).set_index('read_id')
+            frame = sample_frame(files['sintax'], cutoff, tags)
+            tag_rows += tag_status_rows(folder, tags, frame)
             for rank in RANK_NAMES:
                 accepted = frame[frame['accepted_'+rank].ne('')]
-                for label in accepted['accepted_'+rank].unique():
-                    if folder != 'unclassified':
-                        presence[(rank,label)].add(folder)
+                if folder != 'unclassified':
+                    for label in accepted['accepted_'+rank].unique():
+                        presence[(rank, label)].add(folder)
                 for direction in ('forward', 'reverse'):
-                    for label, primer in accepted[['accepted_'+rank, direction+'_PCR_primer']].drop_duplicates().itertuples(index=False, name=None):
-                        taxon_primers[direction][(rank,label)].update(name for name in primer.split(';') if name)
+                    pairs = accepted[['accepted_'+rank, direction+'_PCR_primer']].drop_duplicates()
+                    for label, primer in pairs.itertuples(index=False, name=None):
+                        if primer:
+                            taxon_primers[direction][(rank, label)].add(primer)
             frame.to_pickle(temp/f'{folder}.pkl')
-            stats.append(dict(source_folder=folder,
-                cleaned_query_count=len(frame),original_read_count=frame.raw_ont_read_id.nunique(),
+            stats.append(dict(source_folder=folder, raw_read_count=len(tags),
+                cleaned_query_count=len(frame), cleaned_raw_read_count=frame.raw_ont_read_id.nunique(),
                 assigned_query_count=int(frame.assigned_label.ne('').sum()),
                 species_query_count=int(frame.accepted_species.ne('').sum()),
                 genus_or_species_lowest_query_count=int(frame.taxonomy_status.eq('taxapass').sum()),
                 with_forward_primer_count=int(frame.forward_PCR_primer.ne('').sum()),
                 with_reverse_primer_count=int(frame.reverse_PCR_primer.ne('').sum()),
                 forward_primers_detected=join_values(frame.forward_PCR_primer),
-                reverse_primers_detected=join_values(frame.reverse_PCR_primer),
-                primer_tracking_rows=primer_counts[folder],
-                parent_reads_with_primer_tracking=int(frame.primer_tracking_record_found.sum())))
-            del frame
-        prevalence_frame = prevalence_table(presence,barcodes,prevalence)
+                reverse_primers_detected=join_values(frame.reverse_PCR_primer)))
+            del frame, tags
+        prevalence_frame = prevalence_table(presence, barcodes, prevalence)
         for direction in ('forward', 'reverse'):
             prevalence_frame[direction+'_primers_detected'] = [
-                ';'.join(sorted(taxon_primers[direction][(rank,label)]))
-                for rank,label in prevalence_frame[['rank','taxon_label']].itertuples(index=False,name=None)]
-        write_tsv(prevalence_frame,output_dir/'taxon_barcode_prevalence.tsv')
-        flagged = set(prevalence_frame.loc[prevalence_frame.contamination.eq('contamination'), ['rank','taxon_label']].itertuples(index=False,name=None))
-        print(f'Prevalence screen ({prevalence:.0%}): {len(barcodes)} barcodes, {metadata["minimum_barcode_count"]} required; {len(flagged)} rank/taxon flags',flush=True)
-        combined = output_dir/'all_reads.tsv'
-        with combined.open('x',encoding='utf-8',newline='') as combined_handle:
-            for i,folder in enumerate(inputs):
-                print(f'Writing read tables and species summary: {folder}',flush=True)
-                frame = add_flags(pd.read_pickle(temp/f'{folder}.pkl'),flagged)
-                folder_out = output_dir/folder
-                write_tsv(frame,folder_out/f'{folder}_reads.tsv')
-                frame.to_csv(combined_handle,sep='\t',index=False,header=i==0,na_rep='')
-                summary = species_summary(frame,flagged,cutoff)
-                summaries.append(summary)
-                write_tsv(summary,folder_out/f'{folder}_species_summary.tsv')
-                # Per-primer taxonomy evidence retains barcode provenance.
-                primer_summary = (frame[frame.assigned_label.ne('') & (frame.forward_PCR_primer.ne('') | frame.reverse_PCR_primer.ne(''))]
-                    .groupby(['source_folder','forward_PCR_primer','reverse_PCR_primer',
-                              'assigned_rank','assigned_label','contamination'],dropna=False)
-                    .agg(read_count=('readid','nunique'),raw_read_count=('raw_ont_read_id','nunique'),
-                         median_confidence=('assigned_confidence','median')).reset_index())
-                write_tsv(primer_summary,folder_out/f'{folder}_primer_taxonomy.tsv')
-                (temp/f'{folder}.pkl').unlink()
-                del frame
-    write_tsv(pd.concat(summaries,ignore_index=True),output_dir/'all_species_summary.tsv')
-    write_tsv(pd.DataFrame(stats),output_dir/'barcode_analysis_summary.tsv')
+                ';'.join(sorted(taxon_primers[direction][(rank, label)]))
+                for rank, label in prevalence_frame[['rank', 'taxon_label']].itertuples(index=False, name=None)]
+        write_tsv(prevalence_frame, output_dir/'taxon_barcode_prevalence.tsv')
+        flagged = set(prevalence_frame.loc[prevalence_frame.contamination.eq('contamination'),
+                                           ['rank', 'taxon_label']].itertuples(index=False, name=None))
+        print(f'Prevalence screen ({prevalence:.0%}): {len(barcodes)} barcodes, '
+              f'{metadata["minimum_barcode_count"]} required; {len(flagged)} rank/taxon flags', flush=True)
+        for folder in inputs:
+            print(f'Writing read tables and species summary: {folder}', flush=True)
+            frame = add_flags(pd.read_pickle(temp/f'{folder}.pkl'), flagged)
+            folder_out = output_dir/folder
+            write_tsv(frame, folder_out/f'{folder}_reads.tsv')
+            summary = species_summary(frame, flagged, cutoff)
+            summaries.append(summary)
+            write_tsv(summary, folder_out/f'{folder}_species_summary.tsv')
+            # Taxonomy per detected forward/reverse tag pair, including single-tag reads.
+            primer_summary = (frame[frame.assigned_label.ne('') & (frame.forward_PCR_primer.ne('') | frame.reverse_PCR_primer.ne(''))]
+                .groupby(['source_folder', 'forward_PCR_primer', 'reverse_PCR_primer',
+                          'assigned_rank', 'assigned_label', 'contamination'], dropna=False)
+                .agg(read_count=('readid', 'nunique'), raw_read_count=('raw_ont_read_id', 'nunique'),
+                     median_confidence=('assigned_confidence', 'median')).reset_index())
+            write_tsv(primer_summary, folder_out/f'{folder}_primer_taxonomy.tsv')
+            (temp/f'{folder}.pkl').unlink()
+            del frame
+    write_tsv(pd.concat(summaries, ignore_index=True), output_dir/'all_species_summary.tsv')
+    write_tsv(pd.DataFrame(stats), output_dir/'barcode_analysis_summary.tsv')
+    write_tsv(pd.DataFrame(tag_rows), output_dir/'primer_tag_summary.tsv')
+    write_report(output_dir)
+    describe_headers(output_dir)
     (output_dir/'analysis.complete').write_text(datetime.now(timezone.utc).isoformat()+'\n')
-    print(f'Analysis complete: {output_dir}',flush=True)
+    print(f'Analysis complete: {output_dir}', flush=True)
     return metadata
 
 
 def main():
-    parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--project-root',type=Path,default=Path(__file__).resolve().parents[1])
-    parser.add_argument('dataset', nargs='?', type=Path, help='Dataset parent, e.g. sequencing2 or data/sequencing2')
-    parser.add_argument('--merged-dir',type=Path)
-    parser.add_argument('--sintax-root',type=Path,help='Default: PROJECT/data/sintax/DATASET')
-    parser.add_argument('--output-dir',type=Path,required=True)
-    parser.add_argument('--primer-hits',type=Path,required=True)
-    parser.add_argument('--folders',nargs='+',help='Optional sample-name subset; default: discover from dataset')
-    parser.add_argument('--cutoff',type=float,default=0.8)
-    parser.add_argument('--prevalence',type=float,default=0.8)
-    parser.add_argument('--suffix',default='sintaxSP')
-    parser.add_argument('--allow-missing',action='store_true')
-    args=vars(parser.parse_args())
-    dataset = args.pop('dataset')
-    if dataset is not None and args['merged_dir'] is not None:
-        parser.error('Use a positional dataset or --merged-dir, not both')
-    if dataset is None and args['merged_dir'] is None:
-        parser.error('Provide a dataset parent or --merged-dir')
-    args['merged_dir'] = dataset_path(dataset or args['merged_dir'])
-    args['sintax_root'] = args['sintax_root'] or args['project_root']/'data/sintax'/args['merged_dir'].name
-    run_analysis(**args)
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('dataset', type=Path, help='Dataset parent, e.g. sequencing2 or data/sequencing2')
+    parser.add_argument('--output-dir', type=Path, required=True, help='New directory for the analysis tables')
+    parser.add_argument('--sintax-root', type=Path, help='Default: data/sintax/DATASET')
+    parser.add_argument('--folders', nargs='+', help='Optional sample-name subset; default: all samples in the dataset')
+    parser.add_argument('--cutoff', type=float, default=0.8)
+    parser.add_argument('--prevalence', type=float, default=0.8)
+    parser.add_argument('--suffix', default='sintaxSP')
+    parser.add_argument('--allow-missing', action='store_true', help='Record samples without SINTAX output instead of failing')
+    args = parser.parse_args()
+    dataset = dataset_path(args.dataset)
+    sintax_root = args.sintax_root or Path(__file__).resolve().parents[1]/'data/sintax'/dataset.name
+    run_analysis(merged_dir=dataset, sintax_root=sintax_root, output_dir=args.output_dir, folders=args.folders,
+                 cutoff=args.cutoff, prevalence=args.prevalence, suffix=args.suffix, allow_missing=args.allow_missing)
 
-if __name__=='__main__': main()
+
+if __name__ == '__main__':
+    main()

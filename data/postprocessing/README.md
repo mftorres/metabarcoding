@@ -26,15 +26,14 @@ report, open `P.iqtree`. For missing sequences, inspect `translation_lengths.tsv
 and `P.kcalign_selection.tsv` when those stages were used. For execution errors,
 start with `postprocessing.log` and the relevant stage's log.
 
-Postprocessing reads the saved SINTAX classification TSVs, cleaned reads and
-completed analysis; it does not need the original classifier database. Keep those
-classification outputs even if the source database is not present.
+Postprocessing reads the cleaned reads and the read tables of the completed Module 1
+analysis; it needs neither the SINTAX outputs nor the MIDORI database.
 
 ## Local read extraction and clustering
 
 | File or directory | Producer | Contents and what you can learn |
 | --- | --- | --- |
-| `cleaned_TAXON_DATE.fasta` | `export_sintax_taxa.py` / `export_sintax_fasta.py`, launched by Postprocessing | Actual selected cleaned query sequences before clustering. Headers retain barcode/folder, forward primer, reverse primer, lowest trusted taxon, contamination flag and cleaned read ID. These are cleaned reads, not raw reads or cluster consensuses. |
+| `cleaned_TAXON_DATE.fasta` | `export_sintax_fasta.py`, launched by Postprocessing | Selected cleaned, primer-free reads before clustering. Headers retain barcode/folder, forward primer, reverse primer, lowest trusted taxon, contamination flag and cleaned read ID. These are cleaned reads, not raw reads or cluster consensuses. |
 | `extraction_by_barcode_primer_taxon.tsv` | Postprocessing, from the preceding FASTA | All extracted read counts by barcode, forward primer, reverse primer and taxonomic label, plus `kept_for_module2` recording the dominant-label decision. |
 | `extraction_counts.tsv` | Postprocessing | Total extracted reads for each source folder and a TOTAL row. Its total should equal the sum of `read_count` in the grouped extraction table. |
 | `extraction.log` | Exporter, captured by Postprocessing | Selection/extraction messages, per-folder counts and export errors. |
@@ -58,6 +57,8 @@ of reverse primer or contamination flag; other labels are excluded from downstre
 analyses. Selection uses only the requested taxon's extracted reads, not reads
 outside the extraction. `none`, `unknown` and combined primer annotations remain
 exact distinct forward-primer values, including in `unclassified` when requested.
+`none` means no forward tag was assigned (status ambiguous, too_many_errors, truncated
+or primer_not_found in Module 1); such a group can mix specimens.
 
 The assumption is one insect individual per barcode + forward primer, whose DNA
 should dominate. The most abundant label need not exceed 50% and is not proof of
@@ -66,10 +67,9 @@ tipula (37), Tipula spectra (10) and Tipula nigris (2) retains the 37 Tipula tip
 reads. `cleaned_TAXON_DATE.dominant.fasta` contains the retained original reads;
 the original extraction and every audit-table row remain available.
 
-Counts represent cleaned queries, including separate adapter-split fragments,
-not distinct raw parents or final tree tips. Reverse-primer annotations in a cluster
+Counts represent cleaned reads, including separate adapter-split fragments,
+not distinct raw reads or final tree tips. Reverse-primer annotations in a cluster
 header describe its seed; contributing reads may have different reverse primers.
-A compatible resume regenerates the table when the original extraction exists.
 
 Retained local reads still cluster at 97% within each barcode/forward-primer
 individual: a broad genus or higher-rank assignment can hide multiple species,
@@ -78,8 +78,7 @@ extraction retains species-identified records only; BOLD/NCBI clustering is rest
 taxon label to preserve species positions in the tree. Local and reference
 clusters are always separate.
 
-Current local runs use `--id 0.97` and `.vsearch97.fasta`; reference runs use
-`--id 0.98` and `.vsearch98.fasta`. Consult recorded commands for historical runs.
+Local clustering uses `--id 0.97` (`.vsearch97.fasta`); references use `--id 0.98` (`.vsearch98.fasta`).
 
 ## External references: BOLD or NCBI
 
@@ -96,16 +95,16 @@ Current local runs use `--id 0.97` and `.vsearch97.fasta`; reference runs use
 | `reference_accessions.txt` | BOLD extractor or NCBI Entrez Direct | IDs of references initially selected/downloaded; BOLD uses its generated sequence IDs. |
 | `reference_filter.tsv` | Postprocessing | Reference descriptions, lengths, retain/exclude decisions and reasons, including the mitogenome-title policy. |
 | `reference_accessions_retained.txt` | Postprocessing | IDs surviving that reference policy, before the later length filter. |
-| `R.fasta` | Postprocessing | Reference sequences retained by the title policy. New runs append a safe taxon suffix to reference IDs so taxonomy carries into alignment/tree headers. |
+| `R.fasta` | Postprocessing | Reference sequences retained by the title policy, with a `__taxon__Species_name` suffix on each ID so the species carries into alignment and tree. |
 | `R.length500-2000.fasta` | SeqKit | Reference sequences with inclusive lengths 500–2,000 nucleotides. |
 | `R.vsearch98.fasta` | VSEARCH and Postprocessing | Reference cluster consensuses, clustered independently of local reads. Seed headers identify provenance. |
 | `vsearch_reference_groups.tsv` | Postprocessing | One group per exact header taxon label; input and consensus counts at 98% identity. Different species labels cannot share clusters. |
 | `vsearch_reference_memberships.tsv` | Postprocessing and VSEARCH | Group ID plus ten UC fields; trace reference contributors into their taxon-specific clusters. Cluster numbers are local to each group. |
-| `vsearch_reference_groups/` | Postprocessing and VSEARCH | Per-taxon inputs, consensuses, standard UC files and logs. Older runs may instead have `R.vsearch98.uc` and a single reference log. |
+| `vsearch_reference_groups/` | Postprocessing and VSEARCH | Per-taxon inputs, consensuses, standard UC files and logs. |
 
-BOLD and NCBI retrieval files are alternatives, so a BOLD run normally lacks the
-NCBI XML files. Older runs may retain original, shorter reference identifiers;
-current plotting supports both identifier formats.
+BOLD and NCBI retrieval files are alternatives, so a BOLD run lacks the NCBI XML files.
+`bold_reference_metadata.tsv` has a `marker` column: the BOLD file also contains
+markers other than COI-5P (see [the BOLD README](../bold/README.md#other-markers-in-the-bold-file)).
 
 ## Combined sequences, translation screening and alignments
 
@@ -122,13 +121,13 @@ current plotting supports both identifier formats.
 | `P.pre_align.aa.fasta` | kc-align via the adapter | Amino-acid pre-alignment retained for inspection. It is not the nucleotide alignment passed to IQ-TREE. |
 | `P.kcalign.stdout.log` | kc-align output captured by Postprocessing | Coding alignment messages, screening/rejection information and tool diagnostics. |
 | `P.clipkit.aln.fasta` | ClipKIT | Column-trimmed nucleotide alignment supplied to IQ-TREE. Compare with `P.aln.fasta` to inspect removed columns. |
-| `clipkit.stdout.log` | ClipKIT output captured by Postprocessing | Trimming mode, column-removal report and diagnostics. Consult the command/log for the actual mode used by that version. |
+| `clipkit.stdout.log` | ClipKIT output captured by Postprocessing | Trimming report: ClipKIT `gappy` mode removes columns that are ≥90% gaps. |
 
 ## IQ-TREE inference files
 
 | File | Producer | Contents and what you can learn |
 | --- | --- | --- |
-| `P.treefile` | IQ-TREE | Maximum-likelihood Newick tree with estimated branch lengths; existing runs may also contain support labels. The plotted midpoint root is written separately. |
+| `P.treefile` | IQ-TREE | Maximum-likelihood Newick tree with estimated branch lengths, without support values. The plotted midpoint root is written separately. |
 | `P.iqtree` | IQ-TREE | Main scientific report: model selection, alignment statistics, likelihoods, inference settings and support interpretation when applicable. |
 | `P.log` | IQ-TREE | Tree-search progress, warnings, timing and other inference diagnostics. |
 | `iqtree.stdout.log` | IQ-TREE output captured by Postprocessing | Console output for the IQ-TREE invocation. |
@@ -137,7 +136,6 @@ current plotting supports both identifier formats.
 | `P.model.gz` | IQ-TREE | Compressed model-selection results/cache. |
 | `P.ckp.gz` | IQ-TREE | Compressed checkpoint for resuming IQ-TREE itself. It is not a sequence database. |
 | `P.uniqueseq.phy` | IQ-TREE | Internal PHYLIP alignment of unique sequences used by that IQ-TREE run. Inspect the IQ-TREE report for how identical input sequences were handled. |
-| `P.contree`, `P.boottrees`, `P.ufboot`, `P.splits.nex` | IQ-TREE, when bootstrap/support analysis was requested | Consensus tree, bootstrap replicate trees or split/support information. Current default runs disable bootstrap, so these may exist only in older/alternative runs. |
 
 ## Rooted tree figures and labels
 
@@ -146,7 +144,7 @@ current plotting supports both identifier formats.
 | `P.figure.pdf` | Baltic + Matplotlib via `plot_phylogeny.py` | Vector phylogeny for reading, printing and sharing. |
 | `P.figure.png` | Same | Raster phylogeny for quick viewing or presentations. Large trees produce tall images. |
 | `P.figure.svg` | Same | Editable vector phylogeny. |
-| `P.figure.midpoint.nwk` | Baltic via `plot_phylogeny.py` | Midpoint-rooted tree used for the figure, with branch lengths and preserved existing support labels. Midpoint rooting does not establish the biological root. |
+| `P.figure.midpoint.nwk` | Baltic via `plot_phylogeny.py` | Midpoint-rooted tree used for the figure, with branch lengths. Midpoint rooting does not establish the biological root. |
 | `P.figure.tips.tsv` | `plot_phylogeny.py` | Maps original tree tip IDs to source, taxon/organism, accession or BOLD process ID, local read/folder and display label. This is a tip map, not an abundance table. |
 | `P.figure.plot.json` | `plot_phylogeny.py` | Plot provenance: Baltic version, input tree, rooting, number of tips, support-label handling and scale-bar units. |
 | `tree_figure.stdout.log` | Plotting output captured by Postprocessing | Which tree/figure files were used or written, plus plotting diagnostics. |
@@ -155,23 +153,19 @@ current plotting supports both identifier formats.
 
 | File or directory | Producer | Contents and what you can learn |
 | --- | --- | --- |
-| `parameters.json` | Postprocessing | Original options, data/reference choices, dependency paths and policy versions. Use this to reproduce the run. |
+| `parameters.json` | Postprocessing | Original options, data/reference choices and program paths. Use this to reproduce the run. |
 | `resume_parameters.json` | Postprocessing | Options from the latest resume attempt. Compare with the original settings. |
 | `postprocessing.log` | Postprocessing and captured tool stderr | Executed commands, stage decisions, counts, timing/progress messages and errors. Best starting point for an execution audit. |
-| `checkpoints.json` | Postprocessing | Recorded output hashes for reusable completed stages. |
-| `invalidated_stages.json` | Postprocessing | Stages that must be rebuilt following a change or interrupted rebuild; an empty list means none are marked invalid. |
-| `alignment.complete.json` | Postprocessing | Chosen aligner and hashes validating the alignment and retained input FASTA. |
-| `clipkit.complete.json` | Postprocessing | Trimming settings/input hash used to decide whether trimming can be reused. |
-| `phylogeny.complete.json` | Postprocessing | IQ-TREE model/bootstrap settings and trimmed-alignment input hash. |
+| `checkpoints.json` | Postprocessing | For every completed step: output checksums, input sizes/times and settings. `--resume` reuses a step only when all three are unchanged. |
 | `postprocessing.complete` | Postprocessing | Success marker written after the full run finishes. |
 | `postprocessing.failed` | Postprocessing, on failure | Last pipeline error. Removed after a successful retry. |
 | `resume_archive/` | Postprocessing | Earlier/stale outputs moved aside before rebuilding stages. Subfolders identify when and which stage was archived. |
-| `reference_header_backups/` | One-off header update, when present | Backups and mappings from a manual reference-header annotation update in an older run. Not a routine pipeline output. |
 | Hidden temporary files/directories or `*.partial` | Postprocessing/tool staging | In-progress files. Their existence does not prove that a stage completed. |
 
 Keep settings, metadata and completion records with their run. They support
-resume validation and traceability; do not edit them to make an incomplete stage
-appear complete.
+resume and traceability; do not edit them to make an incomplete step appear complete.
+Runs made before November 2026 contain older files (`*.complete.json`,
+`invalidated_stages.json`) and cannot be resumed with the current code.
 
 ## The shared `coi_refs/` folder
 
@@ -195,10 +189,10 @@ IQ-TREE; its first tree is a draft pending this review. Quickly explore
 The user decides which local reads/consensuses and reference species/records are
 appropriate. Keep originals, document changes and re-estimate the tree after
 changing the sequence set or alignment. See the
-[complete review instructions](../../docs/post_processing.md#review-the-trimmed-alignment-before-interpreting-the-tree).
+[complete review instructions](../../docs/post_processing.md#c-review-the-results).
 
 For a field-by-field explanation of local read headers and tracing a sequence
-through counts, clusters and alignments, see [Section C of the guide](../../docs/post_processing.md#common-results).
+through counts, clusters and alignments, see [Reading the local read headers](../../docs/post_processing.md#reading-the-local-read-headers).
 After reviewing and editing the alignment, estimate the final tree with bootstrap
 support; the initial automatic pipeline run remains without bootstrap. The guide
 provides a separate final IQ-TREE example and links to the
