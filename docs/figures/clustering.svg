@@ -1,0 +1,118 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 612" role="img" aria-label="How VSEARCH clusters the reads of one specimen at 97 percent identity" font-family="Inter, 'Segoe UI', Arial, sans-serif" style="width:100%;height:auto;max-width:1100px">
+<defs><marker id="clu-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#1F2430"/></marker></defs>
+<rect width="1100" height="612" rx="12" fill="#FFFFFF"/>
+<text x="24" y="32" font-size="17" fill="#1F2430" font-weight="700" text-anchor="start">What is clustered</text>
+<rect x="24" y="46" width="64" height="34" rx="0" fill="#8C94A3" stroke="none" stroke-width="1.5"/>
+<text x="56.0" y="68" font-size="14" fill="#FFFFFF" font-weight="650" text-anchor="middle">ONT</text>
+<rect x="88" y="46" width="66" height="34" rx="0" fill="#C9A040" stroke="none" stroke-width="1.5"/>
+<text x="121.0" y="68" font-size="14" fill="#FFFFFF" font-weight="650" text-anchor="middle">tag</text>
+<rect x="154" y="46" width="78" height="34" rx="0" fill="#4F5666" stroke="none" stroke-width="1.5"/>
+<text x="193.0" y="68" font-size="14" fill="#FFFFFF" font-weight="650" text-anchor="middle">primer</text>
+<rect x="232" y="46" width="636" height="34" rx="0" fill="#5D7FCB" stroke="none" stroke-width="1.5"/>
+<text x="550.0" y="68" font-size="14" fill="#FFFFFF" font-weight="650" text-anchor="middle">COI region between the primers, ≈658 nt</text>
+<rect x="868" y="46" width="78" height="34" rx="0" fill="#4F5666" stroke="none" stroke-width="1.5"/>
+<text x="907.0" y="68" font-size="14" fill="#FFFFFF" font-weight="650" text-anchor="middle">primer</text>
+<rect x="946" y="46" width="66" height="34" rx="0" fill="#C9A040" stroke="none" stroke-width="1.5"/>
+<text x="979.0" y="68" font-size="14" fill="#FFFFFF" font-weight="650" text-anchor="middle">tag</text>
+<rect x="1012" y="46" width="64" height="34" rx="0" fill="#8C94A3" stroke="none" stroke-width="1.5"/>
+<text x="1044.0" y="68" font-size="14" fill="#FFFFFF" font-weight="650" text-anchor="middle">ONT</text>
+<path d="M24 90 V98 H232 V90 M868 90 V98 H1076 V90" fill="none" stroke="#B5543C" stroke-width="1.6"/>
+<text x="128" y="116" font-size="13" fill="#B5543C" font-weight="600" text-anchor="middle">cut off by cutadapt</text>
+<text x="972" y="116" font-size="13" fill="#B5543C" font-weight="600" text-anchor="middle">cut off by cutadapt</text>
+<text x="550" y="104" font-size="14" fill="#5D7FCB" font-weight="700" text-anchor="middle">only this part is clustered, classified and aligned</text>
+<text x="550" y="142" font-size="13" fill="#4F5666" font-weight="400" text-anchor="middle">The tags were read before (tag table) and decide the specimen: only reads of one pool + forward tag are clustered together.</text>
+<text x="24" y="168" font-size="16" fill="#1F2430" font-weight="700" text-anchor="start">1 · Sort the reads, longest first</text>
+<text x="24" y="203" font-size="13" fill="#4F5666" font-weight="400" text-anchor="start" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">r1</text>
+<rect x="54" y="188" width="286" height="20" rx="4" fill="#5D7FCB" stroke="none" stroke-width="2"/>
+<rect x="95" y="188" width="3" height="20" rx="0" fill="#FFFFFF" stroke="none" stroke-width="1.5"/>
+<rect x="156" y="188" width="3" height="20" rx="0" fill="#FFFFFF" stroke="none" stroke-width="1.5"/>
+<text x="24" y="237" font-size="13" fill="#4F5666" font-weight="400" text-anchor="start" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">r2</text>
+<rect x="54" y="222" width="270" height="20" rx="4" fill="#5D7FCB" stroke="none" stroke-width="2"/>
+<rect x="132" y="222" width="3" height="20" rx="0" fill="#FFFFFF" stroke="none" stroke-width="1.5"/>
+<rect x="193" y="222" width="3" height="20" rx="0" fill="#FFFFFF" stroke="none" stroke-width="1.5"/>
+<text x="24" y="271" font-size="13" fill="#4F5666" font-weight="400" text-anchor="start" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">r3</text>
+<rect x="54" y="256" width="262" height="20" rx="4" fill="#93AAE2" stroke="none" stroke-width="2"/>
+<rect x="169" y="256" width="3" height="20" rx="0" fill="#FFFFFF" stroke="none" stroke-width="1.5"/>
+<rect x="230" y="256" width="3" height="20" rx="0" fill="#FFFFFF" stroke="none" stroke-width="1.5"/>
+<text x="24" y="305" font-size="13" fill="#4F5666" font-weight="400" text-anchor="start" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">r4</text>
+<rect x="54" y="290" width="255" height="20" rx="4" fill="#5D7FCB" stroke="none" stroke-width="2"/>
+<rect x="206" y="290" width="3" height="20" rx="0" fill="#FFFFFF" stroke="none" stroke-width="1.5"/>
+<rect x="267" y="290" width="3" height="20" rx="0" fill="#FFFFFF" stroke="none" stroke-width="1.5"/>
+<text x="24" y="339" font-size="13" fill="#4F5666" font-weight="400" text-anchor="start" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">r5</text>
+<rect x="54" y="324" width="250" height="20" rx="4" fill="#5D7FCB" stroke="none" stroke-width="2"/>
+<rect x="243" y="324" width="3" height="20" rx="0" fill="#FFFFFF" stroke="none" stroke-width="1.5"/>
+<rect x="64" y="324" width="3" height="20" rx="0" fill="#FFFFFF" stroke="none" stroke-width="1.5"/>
+<text x="24" y="373" font-size="13" fill="#4F5666" font-weight="400" text-anchor="start" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">r6</text>
+<rect x="54" y="358" width="238" height="20" rx="4" fill="#FFFFFF" stroke="#C7743C" stroke-width="2"/>
+<rect x="280" y="358" width="3" height="20" rx="0" fill="#C7743C" stroke="none" stroke-width="1.5"/>
+<rect x="113" y="358" width="3" height="20" rx="0" fill="#C7743C" stroke="none" stroke-width="1.5"/>
+<rect x="174" y="358" width="3" height="20" rx="0" fill="#C7743C" stroke="none" stroke-width="1.5"/>
+<rect x="235" y="358" width="3" height="20" rx="0" fill="#C7743C" stroke="none" stroke-width="1.5"/>
+<rect x="68" y="358" width="3" height="20" rx="0" fill="#C7743C" stroke="none" stroke-width="1.5"/>
+<rect x="129" y="358" width="3" height="20" rx="0" fill="#C7743C" stroke="none" stroke-width="1.5"/>
+<text x="24" y="407" font-size="13" fill="#4F5666" font-weight="400" text-anchor="start" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">r7</text>
+<rect x="54" y="392" width="230" height="20" rx="4" fill="#93AAE2" stroke="none" stroke-width="2"/>
+<rect x="97" y="392" width="3" height="20" rx="0" fill="#FFFFFF" stroke="none" stroke-width="1.5"/>
+<rect x="158" y="392" width="3" height="20" rx="0" fill="#FFFFFF" stroke="none" stroke-width="1.5"/>
+<text x="54" y="438" font-size="12" fill="#4F5666" font-weight="400" text-anchor="start">white ticks: sequencing errors</text>
+<text x="380" y="168" font-size="16" fill="#1F2430" font-weight="700" text-anchor="start">2 · Compare each read with the centroids found so far</text>
+<text x="380" y="203" font-size="13" fill="#4F5666" font-weight="400" text-anchor="start" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">r1</text>
+<text x="420" y="203" font-size="14" fill="#1F2430" font-weight="400" text-anchor="start" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">no centroid yet</text>
+<text x="616" y="203" font-size="13" fill="#B5543C" font-weight="700" text-anchor="start"></text>
+<text x="694" y="203" font-size="14" fill="#1F2430" font-weight="700" text-anchor="start">★ new centroid A</text>
+<text x="380" y="237" font-size="13" fill="#4F5666" font-weight="400" text-anchor="start" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">r2</text>
+<text x="420" y="237" font-size="14" fill="#1F2430" font-weight="400" text-anchor="start" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">A 98.9%</text>
+<text x="616" y="237" font-size="13" fill="#3E8E5E" font-weight="700" text-anchor="start">✓ ≥ 97%</text>
+<text x="694" y="237" font-size="14" fill="#1F2430" font-weight="400" text-anchor="start">joins A</text>
+<text x="380" y="271" font-size="13" fill="#4F5666" font-weight="400" text-anchor="start" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">r3</text>
+<text x="420" y="271" font-size="14" fill="#1F2430" font-weight="400" text-anchor="start" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">A 94.2%</text>
+<text x="616" y="271" font-size="13" fill="#B5543C" font-weight="700" text-anchor="start">✗ < 97%</text>
+<text x="694" y="271" font-size="14" fill="#1F2430" font-weight="700" text-anchor="start">★ new centroid B</text>
+<text x="380" y="305" font-size="13" fill="#4F5666" font-weight="400" text-anchor="start" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">r4</text>
+<text x="420" y="305" font-size="14" fill="#1F2430" font-weight="400" text-anchor="start" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">A 99.2%</text>
+<text x="616" y="305" font-size="13" fill="#3E8E5E" font-weight="700" text-anchor="start">✓ ≥ 97%</text>
+<text x="694" y="305" font-size="14" fill="#1F2430" font-weight="400" text-anchor="start">joins A</text>
+<text x="380" y="339" font-size="13" fill="#4F5666" font-weight="400" text-anchor="start" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">r5</text>
+<text x="420" y="339" font-size="14" fill="#1F2430" font-weight="400" text-anchor="start" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">A 97.4%</text>
+<text x="616" y="339" font-size="13" fill="#3E8E5E" font-weight="700" text-anchor="start">✓ ≥ 97%</text>
+<text x="694" y="339" font-size="14" fill="#1F2430" font-weight="400" text-anchor="start">joins A</text>
+<text x="380" y="373" font-size="13" fill="#4F5666" font-weight="400" text-anchor="start" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">r6</text>
+<text x="420" y="373" font-size="14" fill="#1F2430" font-weight="400" text-anchor="start" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">A 91.5%   B 92.0%</text>
+<text x="616" y="373" font-size="13" fill="#B5543C" font-weight="700" text-anchor="start">✗ < 97%</text>
+<text x="694" y="373" font-size="14" fill="#1F2430" font-weight="700" text-anchor="start">★ new centroid C</text>
+<text x="380" y="407" font-size="13" fill="#4F5666" font-weight="400" text-anchor="start" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">r7</text>
+<text x="420" y="407" font-size="14" fill="#1F2430" font-weight="400" text-anchor="start" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">A 95.1%   B 98.3%</text>
+<text x="616" y="407" font-size="13" fill="#3E8E5E" font-weight="700" text-anchor="start">✓ ≥ 97%</text>
+<text x="694" y="407" font-size="14" fill="#1F2430" font-weight="400" text-anchor="start">joins B</text>
+<rect x="380" y="428" width="446" height="46" rx="8" fill="#EEF2FB" stroke="none" stroke-width="1.5"/>
+<text x="392" y="446" font-size="13" fill="#4F5666" font-weight="400" text-anchor="start">identity = identical columns ÷ aligned columns, end gaps not counted;</text>
+<text x="392" y="464" font-size="13" fill="#4F5666" font-weight="400" text-anchor="start">VSEARCH tries the centroids sharing most 8-letter words first.</text>
+<text x="862" y="168" font-size="16" fill="#1F2430" font-weight="700" text-anchor="start">3 · Result</text>
+<rect x="862" y="188" width="214" height="66" rx="10" fill="#F4F6FA" stroke="#D5DAE2" stroke-width="1"/>
+<polygon points="884.0,199.0 880.8,206.6 872.6,207.3 878.9,212.7 876.9,220.7 884.0,216.4 891.1,220.7 889.1,212.7 895.4,207.3 887.2,206.6" fill="#5D7FCB" stroke="#1F2430" stroke-width="1.2"/>
+<circle cx="912" cy="211" r="8" fill="#5D7FCB"/>
+<circle cx="934" cy="211" r="8" fill="#5D7FCB"/>
+<circle cx="956" cy="211" r="8" fill="#5D7FCB"/>
+<text x="1012" y="216" font-size="13" fill="#4F5666" font-weight="400" text-anchor="middle">cluster A</text>
+<text x="874" y="244" font-size="14" fill="#1F2430" font-weight="650" text-anchor="start">consensus of 4 reads</text>
+<rect x="862" y="270" width="214" height="66" rx="10" fill="#F4F6FA" stroke="#D5DAE2" stroke-width="1"/>
+<polygon points="884.0,281.0 880.8,288.6 872.6,289.3 878.9,294.7 876.9,302.7 884.0,298.4 891.1,302.7 889.1,294.7 895.4,289.3 887.2,288.6" fill="#93AAE2" stroke="#1F2430" stroke-width="1.2"/>
+<circle cx="912" cy="293" r="8" fill="#93AAE2"/>
+<text x="1012" y="298" font-size="13" fill="#4F5666" font-weight="400" text-anchor="middle">cluster B</text>
+<text x="874" y="326" font-size="14" fill="#1F2430" font-weight="650" text-anchor="start">consensus of 2 reads</text>
+<rect x="862" y="352" width="214" height="66" rx="10" fill="#F4F6FA" stroke="#D5DAE2" stroke-width="1"/>
+<polygon points="884.0,363.0 880.8,370.6 872.6,371.3 878.9,376.7 876.9,384.7 884.0,380.4 891.1,384.7 889.1,376.7 895.4,371.3 887.2,370.6" fill="#FFFFFF" stroke="#C7743C" stroke-width="1.2"/>
+<text x="1012" y="380" font-size="13" fill="#4F5666" font-weight="400" text-anchor="middle">cluster C</text>
+<text x="874" y="408" font-size="14" fill="#1F2430" font-weight="650" text-anchor="start">single read, kept as it is</text>
+<text x="862" y="466" font-size="13" fill="#4F5666" font-weight="400" text-anchor="start">★ centroid  ● other reads</text>
+<rect x="24" y="498" width="520" height="100" rx="10" fill="#F4F6FA" stroke="#D5DAE2" stroke-width="1"/>
+<text x="40" y="524" font-size="15" fill="#1F2430" font-weight="700" text-anchor="start">The centroid</text>
+<text x="40" y="546" font-size="13.5" fill="#4F5666" font-weight="400" text-anchor="start">the longest read not yet in a cluster when it is reached. Its read ID</text>
+<text x="40" y="565" font-size="13.5" fill="#4F5666" font-weight="400" text-anchor="start">names the cluster (cluster_id, e.g. a3a699ce-677b-…). Being the longest,</text>
+<text x="40" y="584" font-size="13.5" fill="#4F5666" font-weight="400" text-anchor="start">it often has an untrimmed end; the consensus leaves such ends out.</text>
+<rect x="556" y="498" width="520" height="100" rx="10" fill="#F4F6FA" stroke="#D5DAE2" stroke-width="1"/>
+<text x="572" y="524" font-size="15" fill="#1F2430" font-weight="700" text-anchor="start">Why single reads remain</text>
+<text x="572" y="546" font-size="13.5" fill="#4F5666" font-weight="400" text-anchor="start">a read with more than about 3% errors matches no centroid and</text>
+<text x="572" y="565" font-size="13.5" fill="#4F5666" font-weight="400" text-anchor="start">starts a cluster of its own. Most single reads are such error-rich</text>
+<text x="572" y="584" font-size="13.5" fill="#4F5666" font-weight="400" text-anchor="start">reads; a few are rare variants, other organisms, chimeras or NUMTs.</text>
+</svg>

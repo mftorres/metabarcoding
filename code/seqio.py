@@ -2,6 +2,16 @@
 import csv
 import gzip
 from pathlib import Path
+import re
+
+# fastplong names the pieces of a split chimeric read chimera-segment-N-<raw read ID>
+# (older versions: split-by-adapter-left/right-<raw read ID>).
+SPLIT_PREFIX = re.compile(r'^(?:split-by-adapter-(?:left|right)|chimera-segment-[0-9]+)-')
+
+
+def raw_read_id(read_id):
+    """ID of the raw ONT read a cleaned read (or a piece of it) comes from."""
+    return SPLIT_PREFIX.sub('', read_id)
 
 
 def open_text(path, mode='rt'):
@@ -53,8 +63,14 @@ def write_record(handle, header, sequence):
 
 
 def tsv(path, columns, rows):
-    """Write a tab-delimited table with one header row."""
-    with Path(path).open('w', newline='') as handle:
+    """Write a tab-delimited table with one header row (gzip-compressed if the name ends in .gz)."""
+    with open_text(path, 'wt') as handle:
         writer = csv.writer(handle, delimiter='\t', lineterminator='\n')
         writer.writerow(columns)
         writer.writerows(rows)
+
+
+def read_tsv(path):
+    """Stream the rows of a tab-delimited table (plain or .gz) as dictionaries."""
+    with open_text(path) as handle:
+        yield from csv.DictReader(handle, delimiter='\t')

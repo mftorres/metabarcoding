@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Read processing per sample: primers/tags (cutadapt + primer_tags.py) -> fastplong -> SINTAX.
+# Module 1 per sample: primers and tags (cutadapt + primer_tags.py) -> quality filter (fastplong)
+# -> cluster each specimen at 97% (cluster_specimens.py) -> classify the clusters (VSEARCH SINTAX).
 set -euo pipefail
 CONFIG_FILE="${CONFIG_FILE:-config/pipeline.env}"
 [[ -f "$CONFIG_FILE" ]] || { echo "Missing settings file: $CONFIG_FILE (run from the project root)" >&2; exit 1; }
@@ -21,12 +22,10 @@ prepare_database() (
     fi
     temp_db="$(mktemp "${SINTAX_DB}.XXXXXX")"
     vsearch --makeudb_usearch "$SINTAX_REFERENCE" --output "$temp_db"
-    mv -- "$temp_db" "$SINTAX_DB"; temp_db=""
-)
+    mv -- "$temp_db" "$SINTAX_DB"; temp_db="" )
 
 cleaned_ready() {
-    [[ -s "$1/filtered/asinput.fastq.gz" && -s "$1/filtered/primer_tags.tsv.gz" ]]
-}
+    [[ -s "$1/filtered/asinput.fastq.gz" && -s "$1/filtered/primer_tags.tsv.gz" ]]; }
 
 clean_sample() (
     # Raw reads -> primer/tag table + primer-trimmed, quality-filtered reads.
@@ -84,42 +83,52 @@ if read != written:
     sys.exit(f'fastplong read {read} of the {written} reads written by cutadapt; see {sys.argv[2]}')
 PY
     mv -- "$work/primer_tags.tsv.gz" "$filtered/primer_tags.tsv.gz"
-    mv -- "$work/asinput.fastq.gz" "$filtered/asinput.fastq.gz"
-)
+    mv -- "$work/asinput.fastq.gz" "$filtered/asinput.fastq.gz" )
+
+clusters_ready() {
+    # Clusters exist and were made from the current cleaned reads.
+    [[ -s "$1/filtered/clusters.fasta" && -s "$1/filtered/cluster_members.tsv.gz" &&
+       ! "$1/filtered/asinput.fastq.gz" -nt "$1/filtered/clusters.fasta" ]]; }
 
 classification_output() {
     local folder="$1" sample dataset
     sample="$(basename "$folder")"
     dataset="$(basename "$(dirname "$folder")")"
-    printf '%s/%s/%s_%s.tsv\n' "${SINTAX_OUTPUT_ROOT:-data/sintax/$dataset}" "$sample" "$sample" "$SINTAX_SUFFIX"
-}
+    printf '%s/%s/%s_%s.tsv\n' "${SINTAX_OUTPUT_ROOT:-data/sintax/$dataset}" "$sample" "$sample" "$SINTAX_SUFFIX"; }
 
 needs_cleaning() { [[ "$FORCE" == 1 ]] || ! cleaned_ready "$1"; }
+
+needs_clustering() { needs_cleaning "$1" || ! clusters_ready "$1"; }
 
 needs_sintax() {
     local output
     output="$(classification_output "$1")"
-    # Reclassify when the cleaned reads are newer than the existing classification.
-    needs_cleaning "$1" || [[ "$FORCE_SINTAX" == 1 || ! -f "$output" || "$1/filtered/asinput.fastq.gz" -nt "$output" ]]
-}
+    # Reclassify when the clusters are newer than the existing classification.
+    needs_clustering "$1" || [[ "$FORCE_SINTAX" == 1 || ! -f "$output" || "$1/filtered/clusters.fasta" -nt "$output" ]]; }
 
 run_folder() (
     local folder="$1" sample output tmp=""
     sample="$(basename "$folder")"
     output="$(classification_output "$folder")"
     if needs_cleaning "$folder"; then clean_sample "$folder"; else echo "[$sample] reuse cleaned reads"; fi
+    if needs_clustering "$folder"; then
+        echo "[$sample] cluster each specimen at $CLUSTER_IDENTITY identity"
+        "$PYTHON" "$CODE_DIR/cluster_specimens.py" "$folder" --identity "$CLUSTER_IDENTITY" --threads "$CLUSTER_THREADS" |
+            tee "$folder/filtered/logs/clustering.log"
+    else
+        echo "[$sample] reuse clusters"
+    fi
     [[ "$CLEAN_ONLY" != 1 ]] || return 0
     if ! needs_sintax "$folder"; then echo "[$sample] reuse $output"; return 0; fi
     mkdir -p "$(dirname "$output")"
     tmp="$(mktemp "${output}.XXXXXX")"
     trap '[[ -z "$tmp" ]] || rm -f -- "$tmp"' EXIT
-    vsearch --sintax "$folder/filtered/asinput.fastq.gz" --db "$SINTAX_DB" \
+    vsearch --sintax "$folder/filtered/clusters.fasta" --db "$SINTAX_DB" \
         --sintax_random --strand both --sintax_cutoff "$SINTAX_CUTOFF" \
         --threads "$SINTAX_THREADS" --randseed "$SINTAX_RANDSEED" \
         --maxseqlength "$SINTAX_MAX_LENGTH" --minseqlength "$SINTAX_MIN_LENGTH" \
         --tabbedout "$tmp"
-    mv -- "$tmp" "$output"; tmp=""
-)
+    mv -- "$tmp" "$output"; tmp="" )
 
 main() {
     if [[ "$#" -eq 0 || "${1:-}" == --help ]]; then
@@ -136,6 +145,7 @@ main() {
     mapfile -t folders <<< "$discovered"
     for folder in "${folders[@]}"; do
         if needs_cleaning "$folder"; then needs_clean=1; echo "[$(basename "$folder")] clean raw reads -> filtered/"; fi
+        if needs_clustering "$folder"; then echo "[$(basename "$folder")] cluster specimens -> filtered/clusters.fasta"; fi
         if [[ "$CLEAN_ONLY" == 1 ]]; then continue; fi
         if needs_sintax "$folder"; then needs_db=1; echo "[$(basename "$folder")] classify -> $(classification_output "$folder")"
         else echo "[$(basename "$folder")] reuse $(classification_output "$folder")"; fi
@@ -149,7 +159,8 @@ main() {
         PRIMER_ADAPTER="$("$PYTHON" "$CODE_DIR/primer_tags.py" --primers "$PRIMER_FASTA" --print-adapter "$PRIMER_CORE_MAX_ERRORS")"
         export CUTADAPT_BIN PRIMER_ADAPTER
     fi
-    if [[ "$needs_db" == 1 ]]; then command -v vsearch >/dev/null; prepare_database; fi
+    command -v vsearch >/dev/null || { echo "vsearch not found; activate the taxonomy environment" >&2; return 1; }
+    if [[ "$needs_db" == 1 ]]; then prepare_database; fi
     for folder in "${folders[@]}"; do
         run_folder "$folder" &
         pids+=("$!")
@@ -159,6 +170,5 @@ main() {
         fi
     done
     for pid in "${pids[@]}"; do wait "$pid" || failed=1; done
-    return "$failed"
-}
+    return "$failed"; }
 main "$@"

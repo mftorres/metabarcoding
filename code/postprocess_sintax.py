@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Module 2, Postprocessing: export one taxon, add references, cluster, align and build a draft tree."""
+"""Module 2, Postprocessing: export the clusters of one taxon, add references, align and build a draft tree."""
 import argparse
 from collections import Counter, OrderedDict
 import csv
@@ -19,7 +19,7 @@ from bold_references import database_files, extract_bold
 from genbank_xml import iter_genbank_records
 from reference_labels import TAXON_SEPARATOR, reference_names, labelled_reference_id, reference_id
 from sample_folders import analysis_folders
-from sequence_headers import local_annotations
+from export_clusters import header_fields
 from seqio import fasta, write_record, tsv
 
 # Settings that name the run's files; they cannot change on --resume.
@@ -27,35 +27,26 @@ FROZEN = ('taxon', 'folders', 'analysis_dir', 'date', 'reference_source')
 CODE = Path(__file__).resolve().parent
 
 
-def write_extraction_summary(source, output):
-    """Count extracted reads and keep all highest-count taxa per barcode/forward tag."""
-    counts = Counter(local_annotations(header) for header, _ in fasta(source))
-    totals = Counter()
-    for (barcode, forward, reverse, taxon), count in counts.items():
-        totals[barcode, forward, taxon] += count
-    maxima = {}
-    for (barcode, forward, taxon), count in totals.items():
-        maxima[barcode, forward] = max(maxima.get((barcode, forward), 0), count)
-    rows = [(barcode, forward, reverse, taxon, counts[barcode, forward, reverse, taxon],
-             str(totals[barcode, forward, taxon] == maxima[barcode, forward]).lower())
-            for barcode, forward, reverse, taxon in sorted(counts)]
-    tsv(output, ['barcode', 'forward_primer', 'reverse_primer', 'taxonomic_identification', 'read_count',
-                 'kept_for_module2'], rows)
-
-
-def filter_dominant_reads(source, summary, output):
-    """Apply the recorded dominant-taxon selection without changing the extraction."""
-    with Path(summary).open() as handle:
-        kept = {(row['barcode'], row['forward_primer'], row['reverse_primer'], row['taxonomic_identification'])
-                for row in csv.DictReader(handle, delimiter='\t') if row['kept_for_module2'] == 'true'}
+def select_main_taxon(source, summary, output):
+    """Within each specimen (barcode + forward tag), keep the clusters of the identification
+    with most reads (all of them when tied). Return the number of clusters kept."""
+    reads, clusters = Counter(), Counter()
+    for header, _ in fasta(source):
+        folder, forward, taxon, _, read_count, _ = header_fields(header)
+        reads[folder, forward, taxon] += read_count
+        clusters[folder, forward, taxon] += 1
+    largest = {}
+    for (folder, forward, taxon), count in reads.items():
+        largest[folder, forward] = max(largest.get((folder, forward), 0), count)
+    kept = {key for key, count in reads.items() if count == largest[key[:2]]}
+    tsv(summary, ['source_folder', 'forward_tag', 'taxon', 'cluster_count', 'read_count', 'kept_for_tree'],
+        [(*key, clusters[key], reads[key], str(key in kept).lower()) for key in sorted(reads)])
     count = 0
     with Path(output).open('x') as handle:
         for header, sequence in fasta(source):
-            if local_annotations(header) in kept:
+            if header_fields(header)[:3] in kept:
                 write_record(handle, header, sequence)
                 count += 1
-    if not count:
-        raise ValueError('No local reads remain after dominant-taxon selection')
     return count
 
 
@@ -171,22 +162,18 @@ def vsearch_cluster(runner, source, consensus_sequences, uc, stdout, threads, id
     return len(lengths), len(seen)
 
 
-def cluster_groups(runner, source, output, groups_dir, summary, memberships, threads, references=False):
-    """Cluster local reads per barcode/forward tag/taxon, or references per taxon label."""
-    identity = '0.98' if references else '0.97'
+def cluster_references(runner, source, output, groups_dir, summary, memberships, threads):
+    """Cluster the references of each species at 98% and keep one consensus per cluster."""
+    identity = '0.98'
     groups_dir.mkdir()
     groups, handles, seen = {}, OrderedDict(), set()
     try:
         for header, sequence in fasta(source):
             identifier = header.split()[0]
-            if references:
-                taxon = identifier.partition(TAXON_SEPARATOR)[2]
-                if not taxon:
-                    raise ValueError(f'Reference lacks a taxonomic label: {header}')
-                key = (taxon,)
-            else:
-                barcode, forward, _, taxon = local_annotations(header)
-                key = (barcode, forward, taxon)
+            taxon = identifier.partition(TAXON_SEPARATOR)[2]
+            if not taxon:
+                raise ValueError(f'Reference lacks a taxonomic label: {header}')
+            key = (taxon,)
             if identifier in seen:
                 raise ValueError(f'Duplicate sequence ID: {identifier}')
             seen.add(identifier)
@@ -222,8 +209,7 @@ def cluster_groups(runner, source, output, groups_dir, summary, memberships, thr
                     if line.strip() and not line.startswith('#'):
                         writer.writerow([group_id] + line.rstrip('\n').split('\t'))
             rows.append((group_id, *key, before, after, identity))
-    fields = ['taxon_label'] if references else ['source_folder', 'forward_primer', 'taxon_label']
-    tsv(summary, ['group_id', *fields, 'input_sequences', 'consensus_sequences', 'identity'], rows)
+    tsv(summary, ['group_id', 'taxon_label', 'input_sequences', 'consensus_sequences', 'identity'], rows)
     runner.note(f'VSEARCH: {len(seen)} sequences in {len(groups)} groups -> {sum(r[-2] for r in rows)} consensus sequences')
 
 
@@ -388,13 +374,26 @@ def align_mafft(runner, retained, alignment, orientation, threads):
 
 
 def trim_alignment(runner, alignment, trimmed, log):
-    """ClipKIT gappy mode: remove alignment columns that are >=90% gaps."""
-    runner.run(['clipkit', alignment, '-m', 'gappy', '-s', 'nt', '-if', 'fasta', '-of', 'fasta', '-o', trimmed], log)
-    original, result = dict(fasta(alignment)), dict(fasta(trimmed))
+    """ClipKIT gappy mode: remove alignment columns that are >=90% gaps. Sequences left with
+    no base at all (they only covered removed columns) are dropped, because IQ-TREE refuses them."""
+    clipkit_output = Path(str(trimmed) + '.clipkit')
+    clipkit_output.unlink(missing_ok=True)
+    runner.run(['clipkit', alignment, '-m', 'gappy', '-s', 'nt', '-if', 'fasta', '-of', 'fasta', '-o', clipkit_output], log)
+    original, result = dict(fasta(alignment)), dict(fasta(clipkit_output))
+    clipkit_output.unlink()
     if set(result) != set(original):
         raise ValueError('ClipKIT changed the sequence set')
     if len({len(seq) for seq in result.values()}) != 1 or not next(iter(result.values())):
         raise ValueError('ClipKIT produced an empty or unequal-length alignment')
+    empty = [name for name, seq in result.items() if not set(seq.upper()) & set('ACGT')]
+    if empty:
+        runner.note(f'Removed {len(empty)} sequences with no bases left after trimming: ' + ', '.join(empty))
+    if len(result) - len(empty) < 4:
+        raise ValueError('Fewer than four sequences have bases left after trimming')
+    with Path(trimmed).open('x') as handle:
+        for name, seq in result.items():
+            if name not in empty:
+                write_record(handle, name, seq)
 
 
 def resolve_taxon(args, root, stages, runner):
@@ -425,7 +424,7 @@ def resolve_taxon(args, root, stages, runner):
 
 
 def run_pipeline(args):
-    """Orchestrate source selection, consensus construction, alignment, tree and figure."""
+    """Check the inputs, then run or resume every stage."""
     if args.kcalign:
         if args.kcalign_reference is None:
             raise ValueError('--kcalign requires --kcalign-reference with a trusted coding FASTA')
@@ -474,29 +473,21 @@ def build_tree(args, root, runner, stages, bold_files):
     stem = f'{slug}_{args.date}'
     shown = name if taxid == name else f'{name} (NCBI taxid {taxid})'
     runner.note(f'Resolved taxon: {shown}; folders: {", ".join(args.folders)}')
-    tables = [args.analysis_dir/folder/f'{folder}_reads.tsv' for folder in args.folders]
+    tables = [args.analysis_dir/folder/f'{folder}_clusters.tsv' for folder in args.folders]
 
-    # 1. Local reads confidently assigned to the taxon, then the dominant taxon per barcode/forward tag.
-    local, extraction_log = root/f'cleaned_{stem}.fasta', root/'extraction.log'
+    # 1. Local clusters (consensus sequences and single reads from Module 1) confidently
+    #    assigned to the taxon, then the main identification of each specimen.
+    local, extraction_log = root/f'clusters_{stem}.fasta', root/'extraction.log'
     stages.run('extraction', [local, extraction_log], lambda: runner.run(
-        [sys.executable, CODE/'export_sintax_fasta.py', '--taxon', taxid, '--taxon', name,
+        [sys.executable, CODE/'export_clusters.py', '--taxon', taxid, '--taxon', name,
          '--folders', *args.folders, '--analysis-dir', args.analysis_dir, '--output', local], extraction_log),
         inputs=tables, settings=sorted({taxid, name}))
     runner.note(extraction_log.read_text().rstrip())
-    counts = Counter(local_annotations(header)[0] for header, _ in fasta(local))
-    tsv(root/'extraction_counts.tsv', ['source_folder', 'reads_extracted'],
-        [(folder, counts[folder]) for folder in args.folders] + [('TOTAL', sum(counts.values()))])
-    summary, selected_local = root/'extraction_by_barcode_primer_taxon.tsv', root/f'cleaned_{stem}.dominant.fasta'
+    summary, local_reps = root/'extraction_by_specimen_taxon.tsv', root/f'clusters_{stem}.main_taxon.fasta'
 
-    def dominant():
-        write_extraction_summary(local, summary)
-        runner.note(f'Dominant-taxon selection retained {filter_dominant_reads(local, summary, selected_local)} reads')
-    stages.run('dominant_taxon_selection', [summary, selected_local], dominant, inputs=[local])
-    local_reps = root/f'cleaned_{stem}.vsearch97.fasta'
-    local_outputs = [local_reps, root/'vsearch_local_groups.tsv', root/'vsearch_local_memberships.tsv']
-    stages.run('vsearch_local', local_outputs, lambda: cluster_groups(
-        runner, selected_local, local_reps, root/'vsearch_local_groups', local_outputs[1], local_outputs[2], args.threads),
-        inputs=[selected_local], extra=[root/'vsearch_local_groups'])
+    def main_taxon():
+        runner.note(f'Main identification per specimen: kept {select_main_taxon(local, summary, local_reps)} clusters')
+    stages.run('main_taxon_selection', [summary, local_reps], main_taxon, inputs=[local])
 
     # 2. External references, labelled with their taxon, length-filtered and clustered per taxon.
     prefix_name = 'BOLD' if args.reference_source == 'bold' else 'COI'
@@ -536,15 +527,11 @@ def build_tree(args, root, runner, stages, bold_files):
     runner.note(f'References retained after 500–2000 nt filtering: {reference_count}')
     reference_reps = root/f'{prefix_name}_{stem}.vsearch98.fasta'
     reference_outputs = [reference_reps, root/'vsearch_reference_memberships.tsv', root/'vsearch_reference_groups.tsv']
-    stages.run('vsearch_references', reference_outputs, lambda: cluster_groups(
+    stages.run('vsearch_references', reference_outputs, lambda: cluster_references(
         runner, length_filtered, reference_reps, root/'vsearch_reference_groups', reference_outputs[2],
-        reference_outputs[1], args.threads, references=True), inputs=[length_filtered], extra=[root/'vsearch_reference_groups'])
-    tsv(root/'clustering_counts.tsv', ['dataset', 'input_sequences', 'consensus_sequences', 'identity'],
-        [(label, sum(1 for _ in fasta(source)), sum(1 for _ in fasta(target)), identity)
-         for label, source, target, identity in [('local', selected_local, local_reps, '0.97'),
-                                                 ('reference', length_filtered, reference_reps, '0.98')]])
+        reference_outputs[1], args.threads), inputs=[length_filtered], extra=[root/'vsearch_reference_groups'])
 
-    # 3. Combine consensus sequences and (optionally) keep only those with a long open reading frame.
+    # 3. Combine local clusters and reference consensus sequences; keep those with a long open reading frame.
     representatives = root/f'combined_{stem}.fasta'
 
     def combine():
@@ -592,7 +579,7 @@ def build_tree(args, root, runner, stages, bold_files):
         check_alignment(alignment, retained)
     trimmed = Path(str(prefix) + '.clipkit.aln.fasta')
     stages.run('clipkit', [trimmed], lambda: trim_alignment(runner, alignment, trimmed, root/'clipkit.stdout.log'),
-               inputs=[alignment], settings=['gappy', 'nt'], extra=[root/'clipkit.stdout.log'])
+               inputs=[alignment], settings=['gappy', 'nt', 'drop empty rows'], extra=[root/'clipkit.stdout.log'])
     treefile = Path(str(prefix) + '.treefile')
     iqtree_files = [Path(str(prefix) + s) for s in ('.iqtree', '.log', '.ckp.gz', '.bionj', '.mldist', '.model.gz', '.uniqueseq.phy')]
     stages.run('phylogeny', [treefile], lambda: runner.run(
@@ -601,7 +588,7 @@ def build_tree(args, root, runner, stages, bold_files):
         extra=[root/'iqtree.stdout.log', *iqtree_files])
     figure = [Path(str(prefix) + '.figure' + s) for s in ('.pdf', '.svg', '.png', '.midpoint.nwk', '.tips.tsv', '.plot.json')]
     stages.run('figure', figure, lambda: runner.run(
-        [sys.executable, CODE/'plot_phylogeny.py', '--tree', treefile, '--analysis-dir', args.analysis_dir,
+        [sys.executable, CODE/'plot_phylogeny.py', '--tree', treefile,
          '--reference-metadata', metadata, '--output-prefix', str(prefix) + '.figure'], root/'tree_figure.stdout.log'),
         inputs=[treefile, metadata], extra=[root/'tree_figure.stdout.log'])
     runner.note(f'Completed: {treefile}')

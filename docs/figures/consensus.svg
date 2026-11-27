@@ -1,0 +1,704 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 538" role="img" aria-label="How VSEARCH builds a consensus sequence from aligned reads" font-family="Inter, 'Segoe UI', Arial, sans-serif" style="width:100%;height:auto;max-width:1100px">
+<defs><marker id="con-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#1F2430"/></marker></defs>
+<rect width="1100" height="538" rx="12" fill="#FFFFFF"/>
+<text x="24" y="32" font-size="16" fill="#1F2430" font-weight="700" text-anchor="start">1 · Align every read to the centroid</text>
+<text x="334" y="32" font-size="16" fill="#1F2430" font-weight="700" text-anchor="start">2 · Count A, C, G, T and gaps in each column</text>
+<text x="740" y="32" font-size="16" fill="#1F2430" font-weight="700" text-anchor="start">3 · Keep the most common symbol</text>
+<text x="24" y="56" font-size="13.5" fill="#4F5666" font-weight="400" text-anchor="start">The last 46 columns of a real VSEARCH alignment of six reads (centroid + 5). Every read counts once.</text>
+<rect x="285.5" y="74" width="21.5" height="217.6" rx="4" fill="#FFF4D6" stroke="#E2B84B" stroke-width="1.2"/>
+<circle cx="296.2" cy="84" r="9" fill="#1F2430"/>
+<text x="296.2" y="88.5" font-size="12" fill="#FFFFFF" font-weight="700" text-anchor="middle">1</text>
+<rect x="441.5" y="74" width="21.5" height="217.6" rx="4" fill="#FFF4D6" stroke="#E2B84B" stroke-width="1.2"/>
+<circle cx="452.2" cy="84" r="9" fill="#1F2430"/>
+<text x="452.2" y="88.5" font-size="12" fill="#FFFFFF" font-weight="700" text-anchor="middle">2</text>
+<rect x="578.0" y="74" width="21.5" height="217.6" rx="4" fill="#FFF4D6" stroke="#E2B84B" stroke-width="1.2"/>
+<circle cx="588.8" cy="84" r="9" fill="#1F2430"/>
+<text x="588.8" y="88.5" font-size="12" fill="#FFFFFF" font-weight="700" text-anchor="middle">3</text>
+<rect x="773.0" y="74" width="21.5" height="217.6" rx="4" fill="#FFF4D6" stroke="#E2B84B" stroke-width="1.2"/>
+<circle cx="783.8" cy="84" r="9" fill="#1F2430"/>
+<text x="783.8" y="88.5" font-size="12" fill="#FFFFFF" font-weight="700" text-anchor="middle">4</text>
+<rect x="968.0" y="74" width="80.0" height="217.6" rx="4" fill="#FFF4D6" stroke="#E2B84B" stroke-width="1.2"/>
+<circle cx="1008.0" cy="84" r="9" fill="#1F2430"/>
+<text x="1008.0" y="88.5" font-size="12" fill="#FFFFFF" font-weight="700" text-anchor="middle">5</text>
+<text x="138" y="111" font-size="13.5" fill="#1F2430" font-weight="700" text-anchor="end">centroid ★</text>
+<rect x="151.0" y="98" width="17.5" height="20" rx="3" fill="#3F63B522" stroke="none" stroke-width="1.5"/>
+<text x="159.8" y="113" font-size="13.5" fill="#3F63B5" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">C</text>
+<rect x="170.5" y="98" width="17.5" height="20" rx="3" fill="#3E8E5E22" stroke="none" stroke-width="1.5"/>
+<text x="179.2" y="113" font-size="13.5" fill="#3E8E5E" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">A</text>
+<rect x="190.0" y="98" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="198.8" y="113" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="209.5" y="98" width="17.5" height="20" rx="3" fill="#3F63B522" stroke="none" stroke-width="1.5"/>
+<text x="218.2" y="113" font-size="13.5" fill="#3F63B5" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">C</text>
+<rect x="229.0" y="98" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="237.8" y="113" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="248.5" y="98" width="17.5" height="20" rx="3" fill="#C9A04022" stroke="none" stroke-width="1.5"/>
+<text x="257.2" y="113" font-size="13.5" fill="#C9A040" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">G</text>
+<rect x="268.0" y="98" width="17.5" height="20" rx="3" fill="#C9A04022" stroke="none" stroke-width="1.5"/>
+<text x="276.8" y="113" font-size="13.5" fill="#C9A040" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">G</text>
+<rect x="287.5" y="98" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="296.2" y="113" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="307.0" y="98" width="17.5" height="20" rx="3" fill="#C9A04022" stroke="none" stroke-width="1.5"/>
+<text x="315.8" y="113" font-size="13.5" fill="#C9A040" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">G</text>
+<rect x="326.5" y="98" width="17.5" height="20" rx="3" fill="#C9A04022" stroke="none" stroke-width="1.5"/>
+<text x="335.2" y="113" font-size="13.5" fill="#C9A040" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">G</text>
+<rect x="346.0" y="98" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="354.8" y="113" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="365.5" y="98" width="17.5" height="20" rx="3" fill="#C9A04022" stroke="none" stroke-width="1.5"/>
+<text x="374.2" y="113" font-size="13.5" fill="#C9A040" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">G</text>
+<rect x="385.0" y="98" width="17.5" height="20" rx="3" fill="#C9A04022" stroke="none" stroke-width="1.5"/>
+<text x="393.8" y="113" font-size="13.5" fill="#C9A040" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">G</text>
+<rect x="404.5" y="98" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="413.2" y="113" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="424.0" y="98" width="17.5" height="20" rx="3" fill="#C9A04022" stroke="none" stroke-width="1.5"/>
+<text x="432.8" y="113" font-size="13.5" fill="#C9A040" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">G</text>
+<rect x="443.5" y="98" width="17.5" height="20" rx="3" fill="#B9C0CC22" stroke="none" stroke-width="1.5"/>
+<text x="452.2" y="113" font-size="13.5" fill="#B9C0CC" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">-</text>
+<rect x="463.0" y="98" width="17.5" height="20" rx="3" fill="#3E8E5E22" stroke="none" stroke-width="1.5"/>
+<text x="471.8" y="113" font-size="13.5" fill="#3E8E5E" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">A</text>
+<rect x="482.5" y="98" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="491.2" y="113" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="502.0" y="98" width="17.5" height="20" rx="3" fill="#3F63B522" stroke="none" stroke-width="1.5"/>
+<text x="510.8" y="113" font-size="13.5" fill="#3F63B5" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">C</text>
+<rect x="521.5" y="98" width="17.5" height="20" rx="3" fill="#3F63B522" stroke="none" stroke-width="1.5"/>
+<text x="530.2" y="113" font-size="13.5" fill="#3F63B5" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">C</text>
+<rect x="541.0" y="98" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="549.8" y="113" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="560.5" y="98" width="17.5" height="20" rx="3" fill="#3E8E5E22" stroke="none" stroke-width="1.5"/>
+<text x="569.2" y="113" font-size="13.5" fill="#3E8E5E" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">A</text>
+<rect x="580.0" y="98" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="588.8" y="113" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="599.5" y="98" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="608.2" y="113" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="619.0" y="98" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="627.8" y="113" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="638.5" y="98" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="647.2" y="113" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="658.0" y="98" width="17.5" height="20" rx="3" fill="#3E8E5E22" stroke="none" stroke-width="1.5"/>
+<text x="666.8" y="113" font-size="13.5" fill="#3E8E5E" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">A</text>
+<rect x="677.5" y="98" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="686.2" y="113" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="697.0" y="98" width="17.5" height="20" rx="3" fill="#3E8E5E22" stroke="none" stroke-width="1.5"/>
+<text x="705.8" y="113" font-size="13.5" fill="#3E8E5E" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">A</text>
+<rect x="716.5" y="98" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="725.2" y="113" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="736.0" y="98" width="17.5" height="20" rx="3" fill="#3F63B522" stroke="none" stroke-width="1.5"/>
+<text x="744.8" y="113" font-size="13.5" fill="#3F63B5" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">C</text>
+<rect x="755.5" y="98" width="17.5" height="20" rx="3" fill="#3E8E5E22" stroke="none" stroke-width="1.5"/>
+<text x="764.2" y="113" font-size="13.5" fill="#3E8E5E" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">A</text>
+<rect x="775.0" y="98" width="17.5" height="20" rx="3" fill="#C9A04022" stroke="none" stroke-width="1.5"/>
+<text x="783.8" y="113" font-size="13.5" fill="#C9A040" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">G</text>
+<rect x="794.5" y="98" width="17.5" height="20" rx="3" fill="#3F63B522" stroke="none" stroke-width="1.5"/>
+<text x="803.2" y="113" font-size="13.5" fill="#3F63B5" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">C</text>
+<rect x="814.0" y="98" width="17.5" height="20" rx="3" fill="#3E8E5E22" stroke="none" stroke-width="1.5"/>
+<text x="822.8" y="113" font-size="13.5" fill="#3E8E5E" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">A</text>
+<rect x="833.5" y="98" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="842.2" y="113" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="853.0" y="98" width="17.5" height="20" rx="3" fill="#3F63B522" stroke="none" stroke-width="1.5"/>
+<text x="861.8" y="113" font-size="13.5" fill="#3F63B5" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">C</text>
+<rect x="872.5" y="98" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="881.2" y="113" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="892.0" y="98" width="17.5" height="20" rx="3" fill="#3F63B522" stroke="none" stroke-width="1.5"/>
+<text x="900.8" y="113" font-size="13.5" fill="#3F63B5" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">C</text>
+<rect x="911.5" y="98" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="920.2" y="113" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="931.0" y="98" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="939.8" y="113" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="950.5" y="98" width="17.5" height="20" rx="3" fill="#3F63B522" stroke="none" stroke-width="1.5"/>
+<text x="959.2" y="113" font-size="13.5" fill="#3F63B5" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">C</text>
+<rect x="970.0" y="98" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="978.8" y="113" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="989.5" y="98" width="17.5" height="20" rx="3" fill="#C9A04022" stroke="none" stroke-width="1.5"/>
+<text x="998.2" y="113" font-size="13.5" fill="#C9A040" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">G</text>
+<rect x="1009.0" y="98" width="17.5" height="20" rx="3" fill="#3E8E5E22" stroke="none" stroke-width="1.5"/>
+<text x="1017.8" y="113" font-size="13.5" fill="#3E8E5E" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">A</text>
+<rect x="1028.5" y="98" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="1037.2" y="113" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<text x="138" y="137" font-size="13.5" fill="#1F2430" font-weight="400" text-anchor="end">read3</text>
+<rect x="151.0" y="124" width="17.5" height="20" rx="3" fill="#3F63B522" stroke="none" stroke-width="1.5"/>
+<text x="159.8" y="139" font-size="13.5" fill="#3F63B5" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">C</text>
+<rect x="170.5" y="124" width="17.5" height="20" rx="3" fill="#3E8E5E22" stroke="none" stroke-width="1.5"/>
+<text x="179.2" y="139" font-size="13.5" fill="#3E8E5E" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">A</text>
+<rect x="190.0" y="124" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="198.8" y="139" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="209.5" y="124" width="17.5" height="20" rx="3" fill="#3F63B522" stroke="none" stroke-width="1.5"/>
+<text x="218.2" y="139" font-size="13.5" fill="#3F63B5" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">C</text>
+<rect x="229.0" y="124" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="237.8" y="139" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="248.5" y="124" width="17.5" height="20" rx="3" fill="#C9A04022" stroke="none" stroke-width="1.5"/>
+<text x="257.2" y="139" font-size="13.5" fill="#C9A040" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">G</text>
+<rect x="268.0" y="124" width="17.5" height="20" rx="3" fill="#C9A04022" stroke="none" stroke-width="1.5"/>
+<text x="276.8" y="139" font-size="13.5" fill="#C9A040" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">G</text>
+<rect x="287.5" y="124" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="296.2" y="139" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="307.0" y="124" width="17.5" height="20" rx="3" fill="#C9A04022" stroke="none" stroke-width="1.5"/>
+<text x="315.8" y="139" font-size="13.5" fill="#C9A040" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">G</text>
+<rect x="326.5" y="124" width="17.5" height="20" rx="3" fill="#C9A04022" stroke="none" stroke-width="1.5"/>
+<text x="335.2" y="139" font-size="13.5" fill="#C9A040" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">G</text>
+<rect x="346.0" y="124" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="354.8" y="139" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="365.5" y="124" width="17.5" height="20" rx="3" fill="#C9A04022" stroke="none" stroke-width="1.5"/>
+<text x="374.2" y="139" font-size="13.5" fill="#C9A040" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">G</text>
+<rect x="385.0" y="124" width="17.5" height="20" rx="3" fill="#C9A04022" stroke="none" stroke-width="1.5"/>
+<text x="393.8" y="139" font-size="13.5" fill="#C9A040" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">G</text>
+<rect x="404.5" y="124" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="413.2" y="139" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="424.0" y="124" width="17.5" height="20" rx="3" fill="#C9A04022" stroke="none" stroke-width="1.5"/>
+<text x="432.8" y="139" font-size="13.5" fill="#C9A040" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">G</text>
+<rect x="443.5" y="124" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="452.2" y="139" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="463.0" y="124" width="17.5" height="20" rx="3" fill="#3E8E5E22" stroke="none" stroke-width="1.5"/>
+<text x="471.8" y="139" font-size="13.5" fill="#3E8E5E" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">A</text>
+<rect x="482.5" y="124" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="491.2" y="139" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="502.0" y="124" width="17.5" height="20" rx="3" fill="#3F63B522" stroke="none" stroke-width="1.5"/>
+<text x="510.8" y="139" font-size="13.5" fill="#3F63B5" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">C</text>
+<rect x="521.5" y="124" width="17.5" height="20" rx="3" fill="#3F63B522" stroke="none" stroke-width="1.5"/>
+<text x="530.2" y="139" font-size="13.5" fill="#3F63B5" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">C</text>
+<rect x="541.0" y="124" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="549.8" y="139" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="560.5" y="124" width="17.5" height="20" rx="3" fill="#3E8E5E22" stroke="none" stroke-width="1.5"/>
+<text x="569.2" y="139" font-size="13.5" fill="#3E8E5E" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">A</text>
+<rect x="580.0" y="124" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="588.8" y="139" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="599.5" y="124" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="608.2" y="139" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="619.0" y="124" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="627.8" y="139" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="638.5" y="124" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="647.2" y="139" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="658.0" y="124" width="17.5" height="20" rx="3" fill="#3E8E5E22" stroke="none" stroke-width="1.5"/>
+<text x="666.8" y="139" font-size="13.5" fill="#3E8E5E" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">A</text>
+<rect x="677.5" y="124" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="686.2" y="139" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="697.0" y="124" width="17.5" height="20" rx="3" fill="#3E8E5E22" stroke="none" stroke-width="1.5"/>
+<text x="705.8" y="139" font-size="13.5" fill="#3E8E5E" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">A</text>
+<rect x="716.5" y="124" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="725.2" y="139" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="736.0" y="124" width="17.5" height="20" rx="3" fill="#3F63B522" stroke="none" stroke-width="1.5"/>
+<text x="744.8" y="139" font-size="13.5" fill="#3F63B5" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">C</text>
+<rect x="755.5" y="124" width="17.5" height="20" rx="3" fill="#3E8E5E22" stroke="none" stroke-width="1.5"/>
+<text x="764.2" y="139" font-size="13.5" fill="#3E8E5E" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">A</text>
+<rect x="775.0" y="124" width="17.5" height="20" rx="3" fill="#C9A04022" stroke="none" stroke-width="1.5"/>
+<text x="783.8" y="139" font-size="13.5" fill="#C9A040" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">G</text>
+<rect x="794.5" y="124" width="17.5" height="20" rx="3" fill="#3F63B522" stroke="none" stroke-width="1.5"/>
+<text x="803.2" y="139" font-size="13.5" fill="#3F63B5" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">C</text>
+<rect x="814.0" y="124" width="17.5" height="20" rx="3" fill="#3E8E5E22" stroke="none" stroke-width="1.5"/>
+<text x="822.8" y="139" font-size="13.5" fill="#3E8E5E" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">A</text>
+<rect x="833.5" y="124" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="842.2" y="139" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="853.0" y="124" width="17.5" height="20" rx="3" fill="#3F63B522" stroke="none" stroke-width="1.5"/>
+<text x="861.8" y="139" font-size="13.5" fill="#3F63B5" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">C</text>
+<rect x="872.5" y="124" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="881.2" y="139" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="892.0" y="124" width="17.5" height="20" rx="3" fill="#3F63B522" stroke="none" stroke-width="1.5"/>
+<text x="900.8" y="139" font-size="13.5" fill="#3F63B5" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">C</text>
+<rect x="911.5" y="124" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="920.2" y="139" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="931.0" y="124" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="939.8" y="139" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="950.5" y="124" width="17.5" height="20" rx="3" fill="#3F63B522" stroke="none" stroke-width="1.5"/>
+<text x="959.2" y="139" font-size="13.5" fill="#3F63B5" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">C</text>
+<rect x="970.0" y="124" width="17.5" height="20" rx="3" fill="#B9C0CC22" stroke="none" stroke-width="1.5"/>
+<text x="978.8" y="139" font-size="13.5" fill="#B9C0CC" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">-</text>
+<rect x="989.5" y="124" width="17.5" height="20" rx="3" fill="#B9C0CC22" stroke="none" stroke-width="1.5"/>
+<text x="998.2" y="139" font-size="13.5" fill="#B9C0CC" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">-</text>
+<rect x="1009.0" y="124" width="17.5" height="20" rx="3" fill="#B9C0CC22" stroke="none" stroke-width="1.5"/>
+<text x="1017.8" y="139" font-size="13.5" fill="#B9C0CC" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">-</text>
+<rect x="1028.5" y="124" width="17.5" height="20" rx="3" fill="#B9C0CC22" stroke="none" stroke-width="1.5"/>
+<text x="1037.2" y="139" font-size="13.5" fill="#B9C0CC" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">-</text>
+<text x="138" y="163" font-size="13.5" fill="#1F2430" font-weight="400" text-anchor="end">read2</text>
+<rect x="151.0" y="150" width="17.5" height="20" rx="3" fill="#3F63B522" stroke="none" stroke-width="1.5"/>
+<text x="159.8" y="165" font-size="13.5" fill="#3F63B5" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">C</text>
+<rect x="170.5" y="150" width="17.5" height="20" rx="3" fill="#3E8E5E22" stroke="none" stroke-width="1.5"/>
+<text x="179.2" y="165" font-size="13.5" fill="#3E8E5E" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">A</text>
+<rect x="190.0" y="150" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="198.8" y="165" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="209.5" y="150" width="17.5" height="20" rx="3" fill="#3F63B522" stroke="none" stroke-width="1.5"/>
+<text x="218.2" y="165" font-size="13.5" fill="#3F63B5" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">C</text>
+<rect x="229.0" y="150" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="237.8" y="165" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="248.5" y="150" width="17.5" height="20" rx="3" fill="#C9A04022" stroke="none" stroke-width="1.5"/>
+<text x="257.2" y="165" font-size="13.5" fill="#C9A040" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">G</text>
+<rect x="268.0" y="150" width="17.5" height="20" rx="3" fill="#C9A04022" stroke="none" stroke-width="1.5"/>
+<text x="276.8" y="165" font-size="13.5" fill="#C9A040" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">G</text>
+<rect x="287.5" y="150" width="17.5" height="20" rx="3" fill="#3F63B522" stroke="none" stroke-width="1.5"/>
+<text x="296.2" y="165" font-size="13.5" fill="#3F63B5" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">C</text>
+<rect x="307.0" y="150" width="17.5" height="20" rx="3" fill="#C9A04022" stroke="none" stroke-width="1.5"/>
+<text x="315.8" y="165" font-size="13.5" fill="#C9A040" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">G</text>
+<rect x="326.5" y="150" width="17.5" height="20" rx="3" fill="#C9A04022" stroke="none" stroke-width="1.5"/>
+<text x="335.2" y="165" font-size="13.5" fill="#C9A040" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">G</text>
+<rect x="346.0" y="150" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="354.8" y="165" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="365.5" y="150" width="17.5" height="20" rx="3" fill="#C9A04022" stroke="none" stroke-width="1.5"/>
+<text x="374.2" y="165" font-size="13.5" fill="#C9A040" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">G</text>
+<rect x="385.0" y="150" width="17.5" height="20" rx="3" fill="#C9A04022" stroke="none" stroke-width="1.5"/>
+<text x="393.8" y="165" font-size="13.5" fill="#C9A040" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">G</text>
+<rect x="404.5" y="150" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="413.2" y="165" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="424.0" y="150" width="17.5" height="20" rx="3" fill="#C9A04022" stroke="none" stroke-width="1.5"/>
+<text x="432.8" y="165" font-size="13.5" fill="#C9A040" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">G</text>
+<rect x="443.5" y="150" width="17.5" height="20" rx="3" fill="#B9C0CC22" stroke="none" stroke-width="1.5"/>
+<text x="452.2" y="165" font-size="13.5" fill="#B9C0CC" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">-</text>
+<rect x="463.0" y="150" width="17.5" height="20" rx="3" fill="#3E8E5E22" stroke="none" stroke-width="1.5"/>
+<text x="471.8" y="165" font-size="13.5" fill="#3E8E5E" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">A</text>
+<rect x="482.5" y="150" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="491.2" y="165" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="502.0" y="150" width="17.5" height="20" rx="3" fill="#3F63B522" stroke="none" stroke-width="1.5"/>
+<text x="510.8" y="165" font-size="13.5" fill="#3F63B5" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">C</text>
+<rect x="521.5" y="150" width="17.5" height="20" rx="3" fill="#3F63B522" stroke="none" stroke-width="1.5"/>
+<text x="530.2" y="165" font-size="13.5" fill="#3F63B5" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">C</text>
+<rect x="541.0" y="150" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="549.8" y="165" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="560.5" y="150" width="17.5" height="20" rx="3" fill="#3E8E5E22" stroke="none" stroke-width="1.5"/>
+<text x="569.2" y="165" font-size="13.5" fill="#3E8E5E" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">A</text>
+<rect x="580.0" y="150" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="588.8" y="165" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="599.5" y="150" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="608.2" y="165" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="619.0" y="150" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="627.8" y="165" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="638.5" y="150" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="647.2" y="165" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="658.0" y="150" width="17.5" height="20" rx="3" fill="#3E8E5E22" stroke="none" stroke-width="1.5"/>
+<text x="666.8" y="165" font-size="13.5" fill="#3E8E5E" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">A</text>
+<rect x="677.5" y="150" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="686.2" y="165" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="697.0" y="150" width="17.5" height="20" rx="3" fill="#3E8E5E22" stroke="none" stroke-width="1.5"/>
+<text x="705.8" y="165" font-size="13.5" fill="#3E8E5E" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">A</text>
+<rect x="716.5" y="150" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="725.2" y="165" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="736.0" y="150" width="17.5" height="20" rx="3" fill="#3F63B522" stroke="none" stroke-width="1.5"/>
+<text x="744.8" y="165" font-size="13.5" fill="#3F63B5" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">C</text>
+<rect x="755.5" y="150" width="17.5" height="20" rx="3" fill="#3E8E5E22" stroke="none" stroke-width="1.5"/>
+<text x="764.2" y="165" font-size="13.5" fill="#3E8E5E" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">A</text>
+<rect x="775.0" y="150" width="17.5" height="20" rx="3" fill="#C9A04022" stroke="none" stroke-width="1.5"/>
+<text x="783.8" y="165" font-size="13.5" fill="#C9A040" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">G</text>
+<rect x="794.5" y="150" width="17.5" height="20" rx="3" fill="#3F63B522" stroke="none" stroke-width="1.5"/>
+<text x="803.2" y="165" font-size="13.5" fill="#3F63B5" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">C</text>
+<rect x="814.0" y="150" width="17.5" height="20" rx="3" fill="#3E8E5E22" stroke="none" stroke-width="1.5"/>
+<text x="822.8" y="165" font-size="13.5" fill="#3E8E5E" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">A</text>
+<rect x="833.5" y="150" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="842.2" y="165" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="853.0" y="150" width="17.5" height="20" rx="3" fill="#3F63B522" stroke="none" stroke-width="1.5"/>
+<text x="861.8" y="165" font-size="13.5" fill="#3F63B5" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">C</text>
+<rect x="872.5" y="150" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="881.2" y="165" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="892.0" y="150" width="17.5" height="20" rx="3" fill="#3F63B522" stroke="none" stroke-width="1.5"/>
+<text x="900.8" y="165" font-size="13.5" fill="#3F63B5" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">C</text>
+<rect x="911.5" y="150" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="920.2" y="165" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="931.0" y="150" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="939.8" y="165" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="950.5" y="150" width="17.5" height="20" rx="3" fill="#3F63B522" stroke="none" stroke-width="1.5"/>
+<text x="959.2" y="165" font-size="13.5" fill="#3F63B5" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">C</text>
+<rect x="970.0" y="150" width="17.5" height="20" rx="3" fill="#B9C0CC22" stroke="none" stroke-width="1.5"/>
+<text x="978.8" y="165" font-size="13.5" fill="#B9C0CC" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">-</text>
+<rect x="989.5" y="150" width="17.5" height="20" rx="3" fill="#B9C0CC22" stroke="none" stroke-width="1.5"/>
+<text x="998.2" y="165" font-size="13.5" fill="#B9C0CC" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">-</text>
+<rect x="1009.0" y="150" width="17.5" height="20" rx="3" fill="#B9C0CC22" stroke="none" stroke-width="1.5"/>
+<text x="1017.8" y="165" font-size="13.5" fill="#B9C0CC" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">-</text>
+<rect x="1028.5" y="150" width="17.5" height="20" rx="3" fill="#B9C0CC22" stroke="none" stroke-width="1.5"/>
+<text x="1037.2" y="165" font-size="13.5" fill="#B9C0CC" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">-</text>
+<text x="138" y="189" font-size="13.5" fill="#1F2430" font-weight="400" text-anchor="end">read6</text>
+<rect x="151.0" y="176" width="17.5" height="20" rx="3" fill="#3F63B522" stroke="none" stroke-width="1.5"/>
+<text x="159.8" y="191" font-size="13.5" fill="#3F63B5" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">C</text>
+<rect x="170.5" y="176" width="17.5" height="20" rx="3" fill="#3E8E5E22" stroke="none" stroke-width="1.5"/>
+<text x="179.2" y="191" font-size="13.5" fill="#3E8E5E" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">A</text>
+<rect x="190.0" y="176" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="198.8" y="191" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="209.5" y="176" width="17.5" height="20" rx="3" fill="#3F63B522" stroke="none" stroke-width="1.5"/>
+<text x="218.2" y="191" font-size="13.5" fill="#3F63B5" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">C</text>
+<rect x="229.0" y="176" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="237.8" y="191" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="248.5" y="176" width="17.5" height="20" rx="3" fill="#C9A04022" stroke="none" stroke-width="1.5"/>
+<text x="257.2" y="191" font-size="13.5" fill="#C9A040" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">G</text>
+<rect x="268.0" y="176" width="17.5" height="20" rx="3" fill="#C9A04022" stroke="none" stroke-width="1.5"/>
+<text x="276.8" y="191" font-size="13.5" fill="#C9A040" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">G</text>
+<rect x="287.5" y="176" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="296.2" y="191" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="307.0" y="176" width="17.5" height="20" rx="3" fill="#C9A04022" stroke="none" stroke-width="1.5"/>
+<text x="315.8" y="191" font-size="13.5" fill="#C9A040" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">G</text>
+<rect x="326.5" y="176" width="17.5" height="20" rx="3" fill="#C9A04022" stroke="none" stroke-width="1.5"/>
+<text x="335.2" y="191" font-size="13.5" fill="#C9A040" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">G</text>
+<rect x="346.0" y="176" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="354.8" y="191" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="365.5" y="176" width="17.5" height="20" rx="3" fill="#C9A04022" stroke="none" stroke-width="1.5"/>
+<text x="374.2" y="191" font-size="13.5" fill="#C9A040" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">G</text>
+<rect x="385.0" y="176" width="17.5" height="20" rx="3" fill="#C9A04022" stroke="none" stroke-width="1.5"/>
+<text x="393.8" y="191" font-size="13.5" fill="#C9A040" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">G</text>
+<rect x="404.5" y="176" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="413.2" y="191" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="424.0" y="176" width="17.5" height="20" rx="3" fill="#C9A04022" stroke="none" stroke-width="1.5"/>
+<text x="432.8" y="191" font-size="13.5" fill="#C9A040" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">G</text>
+<rect x="443.5" y="176" width="17.5" height="20" rx="3" fill="#B9C0CC22" stroke="none" stroke-width="1.5"/>
+<text x="452.2" y="191" font-size="13.5" fill="#B9C0CC" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">-</text>
+<rect x="463.0" y="176" width="17.5" height="20" rx="3" fill="#3E8E5E22" stroke="none" stroke-width="1.5"/>
+<text x="471.8" y="191" font-size="13.5" fill="#3E8E5E" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">A</text>
+<rect x="482.5" y="176" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="491.2" y="191" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="502.0" y="176" width="17.5" height="20" rx="3" fill="#3F63B522" stroke="none" stroke-width="1.5"/>
+<text x="510.8" y="191" font-size="13.5" fill="#3F63B5" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">C</text>
+<rect x="521.5" y="176" width="17.5" height="20" rx="3" fill="#3F63B522" stroke="none" stroke-width="1.5"/>
+<text x="530.2" y="191" font-size="13.5" fill="#3F63B5" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">C</text>
+<rect x="541.0" y="176" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="549.8" y="191" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="560.5" y="176" width="17.5" height="20" rx="3" fill="#3E8E5E22" stroke="none" stroke-width="1.5"/>
+<text x="569.2" y="191" font-size="13.5" fill="#3E8E5E" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">A</text>
+<rect x="580.0" y="176" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="588.8" y="191" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="599.5" y="176" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="608.2" y="191" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="619.0" y="176" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="627.8" y="191" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="638.5" y="176" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="647.2" y="191" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="658.0" y="176" width="17.5" height="20" rx="3" fill="#3E8E5E22" stroke="none" stroke-width="1.5"/>
+<text x="666.8" y="191" font-size="13.5" fill="#3E8E5E" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">A</text>
+<rect x="677.5" y="176" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="686.2" y="191" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="697.0" y="176" width="17.5" height="20" rx="3" fill="#3E8E5E22" stroke="none" stroke-width="1.5"/>
+<text x="705.8" y="191" font-size="13.5" fill="#3E8E5E" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">A</text>
+<rect x="716.5" y="176" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="725.2" y="191" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="736.0" y="176" width="17.5" height="20" rx="3" fill="#3F63B522" stroke="none" stroke-width="1.5"/>
+<text x="744.8" y="191" font-size="13.5" fill="#3F63B5" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">C</text>
+<rect x="755.5" y="176" width="17.5" height="20" rx="3" fill="#3E8E5E22" stroke="none" stroke-width="1.5"/>
+<text x="764.2" y="191" font-size="13.5" fill="#3E8E5E" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">A</text>
+<rect x="775.0" y="176" width="17.5" height="20" rx="3" fill="#3E8E5E22" stroke="none" stroke-width="1.5"/>
+<text x="783.8" y="191" font-size="13.5" fill="#3E8E5E" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">A</text>
+<rect x="794.5" y="176" width="17.5" height="20" rx="3" fill="#3F63B522" stroke="none" stroke-width="1.5"/>
+<text x="803.2" y="191" font-size="13.5" fill="#3F63B5" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">C</text>
+<rect x="814.0" y="176" width="17.5" height="20" rx="3" fill="#3E8E5E22" stroke="none" stroke-width="1.5"/>
+<text x="822.8" y="191" font-size="13.5" fill="#3E8E5E" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">A</text>
+<rect x="833.5" y="176" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="842.2" y="191" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="853.0" y="176" width="17.5" height="20" rx="3" fill="#3F63B522" stroke="none" stroke-width="1.5"/>
+<text x="861.8" y="191" font-size="13.5" fill="#3F63B5" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">C</text>
+<rect x="872.5" y="176" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="881.2" y="191" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="892.0" y="176" width="17.5" height="20" rx="3" fill="#3F63B522" stroke="none" stroke-width="1.5"/>
+<text x="900.8" y="191" font-size="13.5" fill="#3F63B5" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">C</text>
+<rect x="911.5" y="176" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="920.2" y="191" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="931.0" y="176" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="939.8" y="191" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="950.5" y="176" width="17.5" height="20" rx="3" fill="#3F63B522" stroke="none" stroke-width="1.5"/>
+<text x="959.2" y="191" font-size="13.5" fill="#3F63B5" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">C</text>
+<rect x="970.0" y="176" width="17.5" height="20" rx="3" fill="#B9C0CC22" stroke="none" stroke-width="1.5"/>
+<text x="978.8" y="191" font-size="13.5" fill="#B9C0CC" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">-</text>
+<rect x="989.5" y="176" width="17.5" height="20" rx="3" fill="#B9C0CC22" stroke="none" stroke-width="1.5"/>
+<text x="998.2" y="191" font-size="13.5" fill="#B9C0CC" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">-</text>
+<rect x="1009.0" y="176" width="17.5" height="20" rx="3" fill="#B9C0CC22" stroke="none" stroke-width="1.5"/>
+<text x="1017.8" y="191" font-size="13.5" fill="#B9C0CC" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">-</text>
+<rect x="1028.5" y="176" width="17.5" height="20" rx="3" fill="#B9C0CC22" stroke="none" stroke-width="1.5"/>
+<text x="1037.2" y="191" font-size="13.5" fill="#B9C0CC" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">-</text>
+<text x="138" y="215" font-size="13.5" fill="#1F2430" font-weight="400" text-anchor="end">read4</text>
+<rect x="151.0" y="202" width="17.5" height="20" rx="3" fill="#3F63B522" stroke="none" stroke-width="1.5"/>
+<text x="159.8" y="217" font-size="13.5" fill="#3F63B5" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">C</text>
+<rect x="170.5" y="202" width="17.5" height="20" rx="3" fill="#3E8E5E22" stroke="none" stroke-width="1.5"/>
+<text x="179.2" y="217" font-size="13.5" fill="#3E8E5E" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">A</text>
+<rect x="190.0" y="202" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="198.8" y="217" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="209.5" y="202" width="17.5" height="20" rx="3" fill="#3F63B522" stroke="none" stroke-width="1.5"/>
+<text x="218.2" y="217" font-size="13.5" fill="#3F63B5" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">C</text>
+<rect x="229.0" y="202" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="237.8" y="217" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="248.5" y="202" width="17.5" height="20" rx="3" fill="#C9A04022" stroke="none" stroke-width="1.5"/>
+<text x="257.2" y="217" font-size="13.5" fill="#C9A040" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">G</text>
+<rect x="268.0" y="202" width="17.5" height="20" rx="3" fill="#C9A04022" stroke="none" stroke-width="1.5"/>
+<text x="276.8" y="217" font-size="13.5" fill="#C9A040" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">G</text>
+<rect x="287.5" y="202" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="296.2" y="217" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="307.0" y="202" width="17.5" height="20" rx="3" fill="#C9A04022" stroke="none" stroke-width="1.5"/>
+<text x="315.8" y="217" font-size="13.5" fill="#C9A040" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">G</text>
+<rect x="326.5" y="202" width="17.5" height="20" rx="3" fill="#C9A04022" stroke="none" stroke-width="1.5"/>
+<text x="335.2" y="217" font-size="13.5" fill="#C9A040" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">G</text>
+<rect x="346.0" y="202" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="354.8" y="217" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="365.5" y="202" width="17.5" height="20" rx="3" fill="#C9A04022" stroke="none" stroke-width="1.5"/>
+<text x="374.2" y="217" font-size="13.5" fill="#C9A040" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">G</text>
+<rect x="385.0" y="202" width="17.5" height="20" rx="3" fill="#C9A04022" stroke="none" stroke-width="1.5"/>
+<text x="393.8" y="217" font-size="13.5" fill="#C9A040" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">G</text>
+<rect x="404.5" y="202" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="413.2" y="217" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="424.0" y="202" width="17.5" height="20" rx="3" fill="#C9A04022" stroke="none" stroke-width="1.5"/>
+<text x="432.8" y="217" font-size="13.5" fill="#C9A040" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">G</text>
+<rect x="443.5" y="202" width="17.5" height="20" rx="3" fill="#B9C0CC22" stroke="none" stroke-width="1.5"/>
+<text x="452.2" y="217" font-size="13.5" fill="#B9C0CC" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">-</text>
+<rect x="463.0" y="202" width="17.5" height="20" rx="3" fill="#3E8E5E22" stroke="none" stroke-width="1.5"/>
+<text x="471.8" y="217" font-size="13.5" fill="#3E8E5E" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">A</text>
+<rect x="482.5" y="202" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="491.2" y="217" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="502.0" y="202" width="17.5" height="20" rx="3" fill="#3F63B522" stroke="none" stroke-width="1.5"/>
+<text x="510.8" y="217" font-size="13.5" fill="#3F63B5" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">C</text>
+<rect x="521.5" y="202" width="17.5" height="20" rx="3" fill="#3F63B522" stroke="none" stroke-width="1.5"/>
+<text x="530.2" y="217" font-size="13.5" fill="#3F63B5" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">C</text>
+<rect x="541.0" y="202" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="549.8" y="217" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="560.5" y="202" width="17.5" height="20" rx="3" fill="#3E8E5E22" stroke="none" stroke-width="1.5"/>
+<text x="569.2" y="217" font-size="13.5" fill="#3E8E5E" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">A</text>
+<rect x="580.0" y="202" width="17.5" height="20" rx="3" fill="#B9C0CC22" stroke="none" stroke-width="1.5"/>
+<text x="588.8" y="217" font-size="13.5" fill="#B9C0CC" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">-</text>
+<rect x="599.5" y="202" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="608.2" y="217" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="619.0" y="202" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="627.8" y="217" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="638.5" y="202" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="647.2" y="217" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="658.0" y="202" width="17.5" height="20" rx="3" fill="#3E8E5E22" stroke="none" stroke-width="1.5"/>
+<text x="666.8" y="217" font-size="13.5" fill="#3E8E5E" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">A</text>
+<rect x="677.5" y="202" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="686.2" y="217" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="697.0" y="202" width="17.5" height="20" rx="3" fill="#3E8E5E22" stroke="none" stroke-width="1.5"/>
+<text x="705.8" y="217" font-size="13.5" fill="#3E8E5E" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">A</text>
+<rect x="716.5" y="202" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="725.2" y="217" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="736.0" y="202" width="17.5" height="20" rx="3" fill="#3F63B522" stroke="none" stroke-width="1.5"/>
+<text x="744.8" y="217" font-size="13.5" fill="#3F63B5" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">C</text>
+<rect x="755.5" y="202" width="17.5" height="20" rx="3" fill="#3E8E5E22" stroke="none" stroke-width="1.5"/>
+<text x="764.2" y="217" font-size="13.5" fill="#3E8E5E" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">A</text>
+<rect x="775.0" y="202" width="17.5" height="20" rx="3" fill="#3E8E5E22" stroke="none" stroke-width="1.5"/>
+<text x="783.8" y="217" font-size="13.5" fill="#3E8E5E" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">A</text>
+<rect x="794.5" y="202" width="17.5" height="20" rx="3" fill="#3F63B522" stroke="none" stroke-width="1.5"/>
+<text x="803.2" y="217" font-size="13.5" fill="#3F63B5" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">C</text>
+<rect x="814.0" y="202" width="17.5" height="20" rx="3" fill="#3E8E5E22" stroke="none" stroke-width="1.5"/>
+<text x="822.8" y="217" font-size="13.5" fill="#3E8E5E" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">A</text>
+<rect x="833.5" y="202" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="842.2" y="217" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="853.0" y="202" width="17.5" height="20" rx="3" fill="#3F63B522" stroke="none" stroke-width="1.5"/>
+<text x="861.8" y="217" font-size="13.5" fill="#3F63B5" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">C</text>
+<rect x="872.5" y="202" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="881.2" y="217" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="892.0" y="202" width="17.5" height="20" rx="3" fill="#3F63B522" stroke="none" stroke-width="1.5"/>
+<text x="900.8" y="217" font-size="13.5" fill="#3F63B5" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">C</text>
+<rect x="911.5" y="202" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="920.2" y="217" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="931.0" y="202" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="939.8" y="217" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="950.5" y="202" width="17.5" height="20" rx="3" fill="#3F63B522" stroke="none" stroke-width="1.5"/>
+<text x="959.2" y="217" font-size="13.5" fill="#3F63B5" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">C</text>
+<rect x="970.0" y="202" width="17.5" height="20" rx="3" fill="#B9C0CC22" stroke="none" stroke-width="1.5"/>
+<text x="978.8" y="217" font-size="13.5" fill="#B9C0CC" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">-</text>
+<rect x="989.5" y="202" width="17.5" height="20" rx="3" fill="#B9C0CC22" stroke="none" stroke-width="1.5"/>
+<text x="998.2" y="217" font-size="13.5" fill="#B9C0CC" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">-</text>
+<rect x="1009.0" y="202" width="17.5" height="20" rx="3" fill="#B9C0CC22" stroke="none" stroke-width="1.5"/>
+<text x="1017.8" y="217" font-size="13.5" fill="#B9C0CC" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">-</text>
+<rect x="1028.5" y="202" width="17.5" height="20" rx="3" fill="#B9C0CC22" stroke="none" stroke-width="1.5"/>
+<text x="1037.2" y="217" font-size="13.5" fill="#B9C0CC" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">-</text>
+<text x="138" y="241" font-size="13.5" fill="#1F2430" font-weight="400" text-anchor="end">read5</text>
+<rect x="151.0" y="228" width="17.5" height="20" rx="3" fill="#3F63B522" stroke="none" stroke-width="1.5"/>
+<text x="159.8" y="243" font-size="13.5" fill="#3F63B5" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">C</text>
+<rect x="170.5" y="228" width="17.5" height="20" rx="3" fill="#3E8E5E22" stroke="none" stroke-width="1.5"/>
+<text x="179.2" y="243" font-size="13.5" fill="#3E8E5E" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">A</text>
+<rect x="190.0" y="228" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="198.8" y="243" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="209.5" y="228" width="17.5" height="20" rx="3" fill="#3F63B522" stroke="none" stroke-width="1.5"/>
+<text x="218.2" y="243" font-size="13.5" fill="#3F63B5" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">C</text>
+<rect x="229.0" y="228" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="237.8" y="243" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="248.5" y="228" width="17.5" height="20" rx="3" fill="#C9A04022" stroke="none" stroke-width="1.5"/>
+<text x="257.2" y="243" font-size="13.5" fill="#C9A040" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">G</text>
+<rect x="268.0" y="228" width="17.5" height="20" rx="3" fill="#C9A04022" stroke="none" stroke-width="1.5"/>
+<text x="276.8" y="243" font-size="13.5" fill="#C9A040" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">G</text>
+<rect x="287.5" y="228" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="296.2" y="243" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="307.0" y="228" width="17.5" height="20" rx="3" fill="#C9A04022" stroke="none" stroke-width="1.5"/>
+<text x="315.8" y="243" font-size="13.5" fill="#C9A040" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">G</text>
+<rect x="326.5" y="228" width="17.5" height="20" rx="3" fill="#C9A04022" stroke="none" stroke-width="1.5"/>
+<text x="335.2" y="243" font-size="13.5" fill="#C9A040" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">G</text>
+<rect x="346.0" y="228" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="354.8" y="243" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="365.5" y="228" width="17.5" height="20" rx="3" fill="#C9A04022" stroke="none" stroke-width="1.5"/>
+<text x="374.2" y="243" font-size="13.5" fill="#C9A040" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">G</text>
+<rect x="385.0" y="228" width="17.5" height="20" rx="3" fill="#C9A04022" stroke="none" stroke-width="1.5"/>
+<text x="393.8" y="243" font-size="13.5" fill="#C9A040" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">G</text>
+<rect x="404.5" y="228" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="413.2" y="243" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="424.0" y="228" width="17.5" height="20" rx="3" fill="#C9A04022" stroke="none" stroke-width="1.5"/>
+<text x="432.8" y="243" font-size="13.5" fill="#C9A040" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">G</text>
+<rect x="443.5" y="228" width="17.5" height="20" rx="3" fill="#B9C0CC22" stroke="none" stroke-width="1.5"/>
+<text x="452.2" y="243" font-size="13.5" fill="#B9C0CC" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">-</text>
+<rect x="463.0" y="228" width="17.5" height="20" rx="3" fill="#3E8E5E22" stroke="none" stroke-width="1.5"/>
+<text x="471.8" y="243" font-size="13.5" fill="#3E8E5E" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">A</text>
+<rect x="482.5" y="228" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="491.2" y="243" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="502.0" y="228" width="17.5" height="20" rx="3" fill="#3F63B522" stroke="none" stroke-width="1.5"/>
+<text x="510.8" y="243" font-size="13.5" fill="#3F63B5" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">C</text>
+<rect x="521.5" y="228" width="17.5" height="20" rx="3" fill="#3F63B522" stroke="none" stroke-width="1.5"/>
+<text x="530.2" y="243" font-size="13.5" fill="#3F63B5" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">C</text>
+<rect x="541.0" y="228" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="549.8" y="243" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="560.5" y="228" width="17.5" height="20" rx="3" fill="#3E8E5E22" stroke="none" stroke-width="1.5"/>
+<text x="569.2" y="243" font-size="13.5" fill="#3E8E5E" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">A</text>
+<rect x="580.0" y="228" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="588.8" y="243" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="599.5" y="228" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="608.2" y="243" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="619.0" y="228" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="627.8" y="243" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="638.5" y="228" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="647.2" y="243" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="658.0" y="228" width="17.5" height="20" rx="3" fill="#3E8E5E22" stroke="none" stroke-width="1.5"/>
+<text x="666.8" y="243" font-size="13.5" fill="#3E8E5E" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">A</text>
+<rect x="677.5" y="228" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="686.2" y="243" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="697.0" y="228" width="17.5" height="20" rx="3" fill="#3E8E5E22" stroke="none" stroke-width="1.5"/>
+<text x="705.8" y="243" font-size="13.5" fill="#3E8E5E" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">A</text>
+<rect x="716.5" y="228" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="725.2" y="243" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="736.0" y="228" width="17.5" height="20" rx="3" fill="#3F63B522" stroke="none" stroke-width="1.5"/>
+<text x="744.8" y="243" font-size="13.5" fill="#3F63B5" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">C</text>
+<rect x="755.5" y="228" width="17.5" height="20" rx="3" fill="#3E8E5E22" stroke="none" stroke-width="1.5"/>
+<text x="764.2" y="243" font-size="13.5" fill="#3E8E5E" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">A</text>
+<rect x="775.0" y="228" width="17.5" height="20" rx="3" fill="#3E8E5E22" stroke="none" stroke-width="1.5"/>
+<text x="783.8" y="243" font-size="13.5" fill="#3E8E5E" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">A</text>
+<rect x="794.5" y="228" width="17.5" height="20" rx="3" fill="#3F63B522" stroke="none" stroke-width="1.5"/>
+<text x="803.2" y="243" font-size="13.5" fill="#3F63B5" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">C</text>
+<rect x="814.0" y="228" width="17.5" height="20" rx="3" fill="#3E8E5E22" stroke="none" stroke-width="1.5"/>
+<text x="822.8" y="243" font-size="13.5" fill="#3E8E5E" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">A</text>
+<rect x="833.5" y="228" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="842.2" y="243" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="853.0" y="228" width="17.5" height="20" rx="3" fill="#3F63B522" stroke="none" stroke-width="1.5"/>
+<text x="861.8" y="243" font-size="13.5" fill="#3F63B5" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">C</text>
+<rect x="872.5" y="228" width="17.5" height="20" rx="3" fill="#B5543C22" stroke="none" stroke-width="1.5"/>
+<text x="881.2" y="243" font-size="13.5" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="892.0" y="228" width="17.5" height="20" rx="3" fill="#3F63B522" stroke="none" stroke-width="1.5"/>
+<text x="900.8" y="243" font-size="13.5" fill="#3F63B5" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">C</text>
+<rect x="911.5" y="228" width="17.5" height="20" rx="3" fill="#B9C0CC22" stroke="none" stroke-width="1.5"/>
+<text x="920.2" y="243" font-size="13.5" fill="#B9C0CC" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">-</text>
+<rect x="931.0" y="228" width="17.5" height="20" rx="3" fill="#B9C0CC22" stroke="none" stroke-width="1.5"/>
+<text x="939.8" y="243" font-size="13.5" fill="#B9C0CC" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">-</text>
+<rect x="950.5" y="228" width="17.5" height="20" rx="3" fill="#B9C0CC22" stroke="none" stroke-width="1.5"/>
+<text x="959.2" y="243" font-size="13.5" fill="#B9C0CC" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">-</text>
+<rect x="970.0" y="228" width="17.5" height="20" rx="3" fill="#B9C0CC22" stroke="none" stroke-width="1.5"/>
+<text x="978.8" y="243" font-size="13.5" fill="#B9C0CC" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">-</text>
+<rect x="989.5" y="228" width="17.5" height="20" rx="3" fill="#B9C0CC22" stroke="none" stroke-width="1.5"/>
+<text x="998.2" y="243" font-size="13.5" fill="#B9C0CC" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">-</text>
+<rect x="1009.0" y="228" width="17.5" height="20" rx="3" fill="#B9C0CC22" stroke="none" stroke-width="1.5"/>
+<text x="1017.8" y="243" font-size="13.5" fill="#B9C0CC" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">-</text>
+<rect x="1028.5" y="228" width="17.5" height="20" rx="3" fill="#B9C0CC22" stroke="none" stroke-width="1.5"/>
+<text x="1037.2" y="243" font-size="13.5" fill="#B9C0CC" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">-</text>
+<line x1="146" x2="1051.0" y1="257" y2="257" stroke="#1F2430" stroke-width="1.5"/>
+<text x="138" y="277" font-size="13.5" fill="#1F2430" font-weight="700" text-anchor="end">consensus</text>
+<rect x="151.0" y="264" width="17.5" height="20" rx="3" fill="#3F63B5" stroke="none" stroke-width="1.5"/>
+<text x="159.8" y="279" font-size="13.5" fill="#FFFFFF" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">C</text>
+<rect x="170.5" y="264" width="17.5" height="20" rx="3" fill="#3E8E5E" stroke="none" stroke-width="1.5"/>
+<text x="179.2" y="279" font-size="13.5" fill="#FFFFFF" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">A</text>
+<rect x="190.0" y="264" width="17.5" height="20" rx="3" fill="#B5543C" stroke="none" stroke-width="1.5"/>
+<text x="198.8" y="279" font-size="13.5" fill="#FFFFFF" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="209.5" y="264" width="17.5" height="20" rx="3" fill="#3F63B5" stroke="none" stroke-width="1.5"/>
+<text x="218.2" y="279" font-size="13.5" fill="#FFFFFF" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">C</text>
+<rect x="229.0" y="264" width="17.5" height="20" rx="3" fill="#B5543C" stroke="none" stroke-width="1.5"/>
+<text x="237.8" y="279" font-size="13.5" fill="#FFFFFF" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="248.5" y="264" width="17.5" height="20" rx="3" fill="#C9A040" stroke="none" stroke-width="1.5"/>
+<text x="257.2" y="279" font-size="13.5" fill="#FFFFFF" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">G</text>
+<rect x="268.0" y="264" width="17.5" height="20" rx="3" fill="#C9A040" stroke="none" stroke-width="1.5"/>
+<text x="276.8" y="279" font-size="13.5" fill="#FFFFFF" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">G</text>
+<rect x="287.5" y="264" width="17.5" height="20" rx="3" fill="#B5543C" stroke="none" stroke-width="1.5"/>
+<text x="296.2" y="279" font-size="13.5" fill="#FFFFFF" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="307.0" y="264" width="17.5" height="20" rx="3" fill="#C9A040" stroke="none" stroke-width="1.5"/>
+<text x="315.8" y="279" font-size="13.5" fill="#FFFFFF" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">G</text>
+<rect x="326.5" y="264" width="17.5" height="20" rx="3" fill="#C9A040" stroke="none" stroke-width="1.5"/>
+<text x="335.2" y="279" font-size="13.5" fill="#FFFFFF" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">G</text>
+<rect x="346.0" y="264" width="17.5" height="20" rx="3" fill="#B5543C" stroke="none" stroke-width="1.5"/>
+<text x="354.8" y="279" font-size="13.5" fill="#FFFFFF" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="365.5" y="264" width="17.5" height="20" rx="3" fill="#C9A040" stroke="none" stroke-width="1.5"/>
+<text x="374.2" y="279" font-size="13.5" fill="#FFFFFF" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">G</text>
+<rect x="385.0" y="264" width="17.5" height="20" rx="3" fill="#C9A040" stroke="none" stroke-width="1.5"/>
+<text x="393.8" y="279" font-size="13.5" fill="#FFFFFF" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">G</text>
+<rect x="404.5" y="264" width="17.5" height="20" rx="3" fill="#B5543C" stroke="none" stroke-width="1.5"/>
+<text x="413.2" y="279" font-size="13.5" fill="#FFFFFF" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="424.0" y="264" width="17.5" height="20" rx="3" fill="#C9A040" stroke="none" stroke-width="1.5"/>
+<text x="432.8" y="279" font-size="13.5" fill="#FFFFFF" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">G</text>
+<rect x="444.5" y="264" width="15.5" height="20" rx="3" fill="none" stroke="#B9C0CC" stroke-width="1" stroke-dasharray="2 2"/>
+<rect x="463.0" y="264" width="17.5" height="20" rx="3" fill="#3E8E5E" stroke="none" stroke-width="1.5"/>
+<text x="471.8" y="279" font-size="13.5" fill="#FFFFFF" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">A</text>
+<rect x="482.5" y="264" width="17.5" height="20" rx="3" fill="#B5543C" stroke="none" stroke-width="1.5"/>
+<text x="491.2" y="279" font-size="13.5" fill="#FFFFFF" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="502.0" y="264" width="17.5" height="20" rx="3" fill="#3F63B5" stroke="none" stroke-width="1.5"/>
+<text x="510.8" y="279" font-size="13.5" fill="#FFFFFF" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">C</text>
+<rect x="521.5" y="264" width="17.5" height="20" rx="3" fill="#3F63B5" stroke="none" stroke-width="1.5"/>
+<text x="530.2" y="279" font-size="13.5" fill="#FFFFFF" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">C</text>
+<rect x="541.0" y="264" width="17.5" height="20" rx="3" fill="#B5543C" stroke="none" stroke-width="1.5"/>
+<text x="549.8" y="279" font-size="13.5" fill="#FFFFFF" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="560.5" y="264" width="17.5" height="20" rx="3" fill="#3E8E5E" stroke="none" stroke-width="1.5"/>
+<text x="569.2" y="279" font-size="13.5" fill="#FFFFFF" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">A</text>
+<rect x="580.0" y="264" width="17.5" height="20" rx="3" fill="#B5543C" stroke="none" stroke-width="1.5"/>
+<text x="588.8" y="279" font-size="13.5" fill="#FFFFFF" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="599.5" y="264" width="17.5" height="20" rx="3" fill="#B5543C" stroke="none" stroke-width="1.5"/>
+<text x="608.2" y="279" font-size="13.5" fill="#FFFFFF" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="619.0" y="264" width="17.5" height="20" rx="3" fill="#B5543C" stroke="none" stroke-width="1.5"/>
+<text x="627.8" y="279" font-size="13.5" fill="#FFFFFF" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="638.5" y="264" width="17.5" height="20" rx="3" fill="#B5543C" stroke="none" stroke-width="1.5"/>
+<text x="647.2" y="279" font-size="13.5" fill="#FFFFFF" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="658.0" y="264" width="17.5" height="20" rx="3" fill="#3E8E5E" stroke="none" stroke-width="1.5"/>
+<text x="666.8" y="279" font-size="13.5" fill="#FFFFFF" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">A</text>
+<rect x="677.5" y="264" width="17.5" height="20" rx="3" fill="#B5543C" stroke="none" stroke-width="1.5"/>
+<text x="686.2" y="279" font-size="13.5" fill="#FFFFFF" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="697.0" y="264" width="17.5" height="20" rx="3" fill="#3E8E5E" stroke="none" stroke-width="1.5"/>
+<text x="705.8" y="279" font-size="13.5" fill="#FFFFFF" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">A</text>
+<rect x="716.5" y="264" width="17.5" height="20" rx="3" fill="#B5543C" stroke="none" stroke-width="1.5"/>
+<text x="725.2" y="279" font-size="13.5" fill="#FFFFFF" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="736.0" y="264" width="17.5" height="20" rx="3" fill="#3F63B5" stroke="none" stroke-width="1.5"/>
+<text x="744.8" y="279" font-size="13.5" fill="#FFFFFF" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">C</text>
+<rect x="755.5" y="264" width="17.5" height="20" rx="3" fill="#3E8E5E" stroke="none" stroke-width="1.5"/>
+<text x="764.2" y="279" font-size="13.5" fill="#FFFFFF" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">A</text>
+<rect x="775.0" y="264" width="17.5" height="20" rx="3" fill="#3E8E5E" stroke="none" stroke-width="1.5"/>
+<text x="783.8" y="279" font-size="13.5" fill="#FFFFFF" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">A</text>
+<rect x="794.5" y="264" width="17.5" height="20" rx="3" fill="#3F63B5" stroke="none" stroke-width="1.5"/>
+<text x="803.2" y="279" font-size="13.5" fill="#FFFFFF" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">C</text>
+<rect x="814.0" y="264" width="17.5" height="20" rx="3" fill="#3E8E5E" stroke="none" stroke-width="1.5"/>
+<text x="822.8" y="279" font-size="13.5" fill="#FFFFFF" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">A</text>
+<rect x="833.5" y="264" width="17.5" height="20" rx="3" fill="#B5543C" stroke="none" stroke-width="1.5"/>
+<text x="842.2" y="279" font-size="13.5" fill="#FFFFFF" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="853.0" y="264" width="17.5" height="20" rx="3" fill="#3F63B5" stroke="none" stroke-width="1.5"/>
+<text x="861.8" y="279" font-size="13.5" fill="#FFFFFF" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">C</text>
+<rect x="872.5" y="264" width="17.5" height="20" rx="3" fill="#B5543C" stroke="none" stroke-width="1.5"/>
+<text x="881.2" y="279" font-size="13.5" fill="#FFFFFF" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="892.0" y="264" width="17.5" height="20" rx="3" fill="#3F63B5" stroke="none" stroke-width="1.5"/>
+<text x="900.8" y="279" font-size="13.5" fill="#FFFFFF" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">C</text>
+<rect x="911.5" y="264" width="17.5" height="20" rx="3" fill="#B5543C" stroke="none" stroke-width="1.5"/>
+<text x="920.2" y="279" font-size="13.5" fill="#FFFFFF" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="931.0" y="264" width="17.5" height="20" rx="3" fill="#B5543C" stroke="none" stroke-width="1.5"/>
+<text x="939.8" y="279" font-size="13.5" fill="#FFFFFF" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T</text>
+<rect x="950.5" y="264" width="17.5" height="20" rx="3" fill="#3F63B5" stroke="none" stroke-width="1.5"/>
+<text x="959.2" y="279" font-size="13.5" fill="#FFFFFF" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">C</text>
+<rect x="971.0" y="264" width="15.5" height="20" rx="3" fill="none" stroke="#B9C0CC" stroke-width="1" stroke-dasharray="2 2"/>
+<rect x="990.5" y="264" width="15.5" height="20" rx="3" fill="none" stroke="#B9C0CC" stroke-width="1" stroke-dasharray="2 2"/>
+<rect x="1010.0" y="264" width="15.5" height="20" rx="3" fill="none" stroke="#B9C0CC" stroke-width="1" stroke-dasharray="2 2"/>
+<rect x="1029.5" y="264" width="15.5" height="20" rx="3" fill="none" stroke="#B9C0CC" stroke-width="1" stroke-dasharray="2 2"/>
+<circle cx="33" cy="309" r="9" fill="#1F2430"/>
+<text x="33" y="313.5" font-size="12" fill="#FFFFFF" font-weight="700" text-anchor="middle">1</text>
+<text x="48" y="314" font-size="13.5" fill="#1F2430" font-weight="700" text-anchor="start" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T 5 · C 1</text>
+<text x="48" y="334" font-size="13" fill="#4F5666" font-weight="400" text-anchor="start">one read differs: T wins</text>
+<circle cx="247" cy="309" r="9" fill="#1F2430"/>
+<text x="247" y="313.5" font-size="12" fill="#FFFFFF" font-weight="700" text-anchor="middle">2</text>
+<text x="262" y="314" font-size="13.5" fill="#1F2430" font-weight="700" text-anchor="start" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">gap 5 · T 1</text>
+<text x="262" y="334" font-size="13" fill="#4F5666" font-weight="400" text-anchor="start">gaps win: column left out</text>
+<circle cx="461" cy="309" r="9" fill="#1F2430"/>
+<text x="461" y="313.5" font-size="12" fill="#FFFFFF" font-weight="700" text-anchor="middle">3</text>
+<text x="476" y="314" font-size="13.5" fill="#1F2430" font-weight="700" text-anchor="start" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">T 5 · gap 1</text>
+<text x="476" y="334" font-size="13" fill="#4F5666" font-weight="400" text-anchor="start">base wins: deletion outvoted</text>
+<circle cx="675" cy="309" r="9" fill="#1F2430"/>
+<text x="675" y="313.5" font-size="12" fill="#FFFFFF" font-weight="700" text-anchor="middle">4</text>
+<text x="690" y="314" font-size="13.5" fill="#1F2430" font-weight="700" text-anchor="start" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">A 3 · G 3</text>
+<text x="690" y="334" font-size="13" fill="#4F5666" font-weight="400" text-anchor="start">tie: A, C, G, T order → A</text>
+<circle cx="889" cy="309" r="9" fill="#1F2430"/>
+<text x="889" y="313.5" font-size="12" fill="#FFFFFF" font-weight="700" text-anchor="middle">5</text>
+<text x="904" y="314" font-size="13.5" fill="#1F2430" font-weight="700" text-anchor="start" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">gap 5 · base 1</text>
+<text x="904" y="334" font-size="13" fill="#4F5666" font-weight="400" text-anchor="start">only the centroid: left out</text>
+<rect x="24" y="366" width="520" height="158" rx="10" fill="#F4F6FA" stroke="#D5DAE2" stroke-width="1"/>
+<text x="40" y="392" font-size="15" fill="#1F2430" font-weight="700" text-anchor="start">What a consensus sequence is</text>
+<text x="40" y="416" font-size="13.5" fill="#4F5666" font-weight="400" text-anchor="start">One sequence that summarises aligned reads: at each position, the</text>
+<text x="40" y="436" font-size="13.5" fill="#4F5666" font-weight="400" text-anchor="start">symbol most reads agree on. Random errors sit at different places</text>
+<text x="40" y="456" font-size="13.5" fill="#4F5666" font-weight="400" text-anchor="start">in different reads and are outvoted; differences shared by most</text>
+<text x="40" y="476" font-size="13.5" fill="#4F5666" font-weight="400" text-anchor="start">reads stay. With only 2 reads every disagreement is a tie, so a</text>
+<text x="40" y="496" font-size="13.5" fill="#4F5666" font-weight="400" text-anchor="start">2-read consensus is little better than one read.</text>
+<rect x="556" y="366" width="520" height="158" rx="10" fill="#EEF2FB" stroke="#D5DAE2" stroke-width="1"/>
+<text x="572" y="392" font-size="15" fill="#1F2430" font-weight="700" text-anchor="start">VSEARCH --consout, exactly</text>
+<text x="572" y="416" font-size="13.5" fill="#1F2430" font-weight="400" text-anchor="start">• Each read is aligned pairwise to the centroid; the alignments are</text>
+<text x="572" y="436" font-size="13.5" fill="#1F2430" font-weight="400" text-anchor="start">   merged into one (a "center-star" alignment).</text>
+<text x="572" y="456" font-size="13.5" fill="#1F2430" font-weight="400" text-anchor="start">• In every column the most common of A, C, G, T or gap wins.</text>
+<text x="572" y="476" font-size="13.5" fill="#1F2430" font-weight="400" text-anchor="start">• Ties: A before C before G before T; a base beats as many gaps.</text>
+<text x="572" y="496" font-size="13.5" fill="#1F2430" font-weight="400" text-anchor="start">• A column won by gaps is left out. No quality scores are used.</text>
+</svg>

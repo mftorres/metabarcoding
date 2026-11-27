@@ -1,0 +1,1107 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   width="297mm"
+   height="210mm"
+   viewBox="0 0 842 595"
+   version="1.1"
+   id="svg136"
+   sodipodi:docname="pipeline_diagram.svg"
+   inkscape:version="1.4.2 (f4327f4, 2025-05-13)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs136" />
+  <sodipodi:namedview
+     id="namedview136"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:document-units="mm"
+     showgrid="false"
+     inkscape:zoom="1.4165285"
+     inkscape:cx="532.64019"
+     inkscape:cy="508.63784"
+     inkscape:window-width="1920"
+     inkscape:window-height="1009"
+     inkscape:window-x="-8"
+     inkscape:window-y="-8"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg136" />
+  <title
+     id="title1">Metabarcoding pipeline metro map</title>
+  <rect
+     width="842"
+     height="595"
+     style="fill:#FFFFFF"
+     id="rect1" />
+  <path
+     d="M447 58 H826 Q836 58 836 68 V512 Q836 522 826 522 H447 Q437 522 437 512 V68 Q437 58 447 58 Z"
+     style="fill:#1E8577;fill-opacity:0.09;stroke:none"
+     id="path1" />
+  <path
+     d="M18 58 H421 Q431 58 431 68 V512 Q431 522 421 522 H18 Q8 522 8 512 V68 Q8 58 18 58 Z"
+     style="fill:#3F63B5;fill-opacity:0.07;stroke:none"
+     id="path_module1" />
+  <text
+     x="18"
+     y="30"
+     text-anchor="start"
+     style="font-family:'Space Grotesk', 'Segoe UI', Arial, sans-serif;font-size:20px;font-weight:700;fill:#1F2430"
+     id="text1">Metabarcoding pipeline map</text>
+  <text
+     x="18"
+     y="47"
+     text-anchor="start"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:11px;font-weight:400;fill:#4F5666"
+     id="text2">Nanopore COI reads → species identification → alignment and draft tree</text>
+  <text
+     x="18"
+     y="76"
+     text-anchor="start"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:11px;font-weight:700;fill:#3F63B5;letter-spacing:0.06em"
+     id="text3">MODULE 1 · READ PROCESSING</text>
+  <text
+     x="447"
+     y="76"
+     text-anchor="start"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:11px;font-weight:700;fill:#1E8577;letter-spacing:0.06em"
+     id="text4">MODULE 2 · POSTPROCESSING</text>
+  <path
+     d="M20 140 V225 H798"
+     style="fill:none;stroke:#5D7FCB;stroke-width:6;stroke-linecap:round;stroke-linejoin:round"
+     id="path4" />
+  <path
+     d="M165 140 V225"
+     style="fill:none;stroke:#5D7FCB;stroke-width:6;stroke-linecap:round;stroke-linejoin:round"
+     id="path5" />
+  <path
+     d="M90 140 V200 H570"
+     style="fill:none;stroke:#C9A040;stroke-width:6;stroke-linecap:round;stroke-linejoin:round"
+     id="path6" />
+  <path
+     d="M280 140 H325 V225"
+     style="fill:none;stroke:#7466B5;stroke-width:6;stroke-linecap:round;stroke-linejoin:round"
+     id="path7" />
+  <path
+     d="M280 140 V118 Q280 105 293 105 H312 Q325 105 325 118 V140"
+     style="fill:none;stroke:#7466B5;stroke-width:6;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:12,12;stroke-dashoffset:0"
+     id="path8" />
+  <path
+     d="M490 140 V225"
+     style="fill:none;stroke:#8C94A3;stroke-width:6;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:12,12;stroke-dashoffset:0"
+     id="path9" />
+  <path
+     d="M462 400 H635 Q655 400 655 380 V250 H798"
+     style="fill:none;stroke:#C7743C;stroke-width:6;stroke-linecap:round;stroke-linejoin:round"
+     id="path10" />
+  <path
+     d="M462 460 H472 Q487 460 487 445 V400"
+     style="fill:none;stroke:#C7743C;stroke-width:6;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:12,12;stroke-dashoffset:0"
+     id="path11" />
+  <path
+     d="M710 110 V225"
+     style="fill:none;stroke:#B0578A;stroke-width:6;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:12,12;stroke-dashoffset:0"
+     id="path12" />
+  <rect
+     x="12.5"
+     y="132.5"
+     width="15"
+     height="15"
+     rx="2.5"
+     style="fill:#FFFFFF;stroke:#1F2430;stroke-width:2.5"
+     id="rect12" />
+  <rect
+     x="82.5"
+     y="132.5"
+     width="15"
+     height="15"
+     rx="2.5"
+     style="fill:#FFFFFF;stroke:#1F2430;stroke-width:2.5"
+     id="rect13" />
+  <rect
+     x="157.5"
+     y="132.5"
+     width="15"
+     height="15"
+     rx="2.5"
+     style="fill:#FFFFFF;stroke:#1F2430;stroke-width:2.5"
+     id="rect14" />
+  <rect
+     x="272.5"
+     y="132.5"
+     width="15"
+     height="15"
+     rx="2.5"
+     style="fill:#FFFFFF;stroke:#1F2430;stroke-width:2.5"
+     id="rect15" />
+  <rect
+     x="482.5"
+     y="132.5"
+     width="15"
+     height="15"
+     rx="2.5"
+     style="fill:#FFFFFF;stroke:#1F2430;stroke-width:2.5"
+     id="rect16" />
+  <rect
+     x="454.5"
+     y="392.5"
+     width="15"
+     height="15"
+     rx="2.5"
+     style="fill:#FFFFFF;stroke:#1F2430;stroke-width:2.5"
+     id="rect17" />
+  <rect
+     x="454.5"
+     y="452.5"
+     width="15"
+     height="15"
+     rx="2.5"
+     style="fill:#FFFFFF;stroke:#1F2430;stroke-width:2.5"
+     id="rect18" />
+  <rect
+     x="702.5"
+     y="102.5"
+     width="15"
+     height="15"
+     rx="2.5"
+     style="fill:#FFFFFF;stroke:#1F2430;stroke-width:2.5"
+     id="rect19" />
+  <rect
+     x="81"
+     y="190"
+     width="18"
+     height="45"
+     rx="9"
+     style="fill:#FFFFFF;stroke:#1F2430;stroke-width:2.5"
+     id="rect20" />
+  <rect
+     x="236"
+     y="190"
+     width="18"
+     height="45"
+     rx="9"
+     style="fill:#FFFFFF;stroke:#1F2430;stroke-width:2.5"
+     id="rect_cluster" />
+  <circle
+     cx="165"
+     cy="225"
+     r="7"
+     style="fill:#FFFFFF;stroke:#1F2430;stroke-width:2.5"
+     id="circle20" />
+  <circle
+     cx="325"
+     cy="225"
+     r="7"
+     style="fill:#FFFFFF;stroke:#1F2430;stroke-width:2.5"
+     id="circle21" />
+  <rect
+     x="386"
+     y="190"
+     width="18"
+     height="45"
+     rx="9"
+     style="fill:#FFFFFF;stroke:#1F2430;stroke-width:2.5"
+     id="rect21" />
+  <circle
+     cx="302"
+     cy="105"
+     r="7"
+     style="fill:#FFFFFF;stroke:#1F2430;stroke-width:2.5"
+     id="circle22" />
+  <circle
+     cx="325"
+     cy="140"
+     r="7"
+     style="fill:#FFFFFF;stroke:#1F2430;stroke-width:2.5"
+     id="circle23" />
+  <circle
+     cx="490"
+     cy="225"
+     r="7"
+     style="fill:#FFFFFF;stroke:#1F2430;stroke-width:2.5"
+     id="circle24" />
+  <rect
+     x="561"
+     y="190"
+     width="18"
+     height="45"
+     rx="9"
+     style="fill:#FFFFFF;stroke:#1F2430;stroke-width:2.5"
+     id="rect24" />
+  <rect
+     x="646"
+     y="215"
+     width="18"
+     height="45"
+     rx="9"
+     style="fill:#FFFFFF;stroke:#1F2430;stroke-width:2.5"
+     id="rect25" />
+  <rect
+     x="701"
+     y="215"
+     width="18"
+     height="45"
+     rx="9"
+     style="fill:#FFFFFF;stroke:#1F2430;stroke-width:2.5"
+     id="rect26" />
+  <rect
+     x="746"
+     y="215"
+     width="18"
+     height="45"
+     rx="9"
+     style="fill:#FFFFFF;stroke:#1F2430;stroke-width:2.5"
+     id="rect27" />
+  <rect
+     x="788"
+     y="214"
+     width="20"
+     height="47"
+     rx="4"
+     style="fill:#FFFFFF;stroke:#1F2430;stroke-width:3"
+     id="rect28" />
+  <circle
+     cx="515"
+     cy="400"
+     r="7"
+     style="fill:#FFFFFF;stroke:#1F2430;stroke-width:2.5"
+     id="circle28" />
+  <circle
+     cx="567"
+     cy="400"
+     r="7"
+     style="fill:#FFFFFF;stroke:#1F2430;stroke-width:2.5"
+     id="circle29" />
+  <circle
+     cx="620"
+     cy="400"
+     r="7"
+     style="fill:#FFFFFF;stroke:#1F2430;stroke-width:2.5"
+     id="circle30" />
+  <text
+     x="10"
+     y="112"
+     text-anchor="start"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:12px;font-weight:700;fill:#1F2430"
+     id="text30">Raw reads</text>
+  <text
+     x="10"
+     y="125.5"
+     text-anchor="start"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:11px;font-weight:400;fill:#4F5666"
+     id="text31">FASTQ</text>
+  <text
+     x="92"
+     y="112"
+     text-anchor="start"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:12px;font-weight:700;fill:#1F2430"
+     id="text32">Tagged</text>
+  <text
+     x="92"
+     y="125.5"
+     text-anchor="start"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:11px;font-weight:400;fill:#4F5666"
+     id="text33">primers</text>
+  <text
+     x="165"
+     y="112"
+     text-anchor="middle"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:12px;font-weight:700;fill:#1F2430"
+     id="text34">ONT</text>
+  <text
+     x="165"
+     y="125.5"
+     text-anchor="middle"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:11px;font-weight:400;fill:#4F5666"
+     id="text35">barcodes</text>
+  <text
+     x="280"
+     y="160"
+     text-anchor="middle"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:12px;font-weight:700;fill:#1F2430"
+     id="text36">MIDORI</text>
+  <text
+     x="280"
+     y="173.5"
+     text-anchor="middle"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:11px;font-weight:400;fill:#4F5666"
+     id="text37">database</text>
+  <text
+     x="302"
+     y="92"
+     text-anchor="middle"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:12px;font-weight:700;fill:#1F2430"
+     id="text38">Arthropoda only (optional)</text>
+  <text
+     x="335"
+     y="137"
+     text-anchor="start"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:12px;font-weight:700;fill:#1F2430"
+     id="text40">Index</text>
+  <text
+     x="335"
+     y="150"
+     text-anchor="start"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:11px;font-weight:400;fill:#4F5666"
+     id="text41">.udb</text>
+  <text
+     x="490"
+     y="112"
+     text-anchor="middle"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:12px;font-weight:700;fill:#1F2430"
+     id="text42">Shared</text>
+  <text
+     x="490"
+     y="125.5"
+     text-anchor="middle"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:11px;font-weight:400;fill:#4F5666"
+     id="text43">archive</text>
+  <text
+     x="710"
+     y="84"
+     text-anchor="middle"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:12px;font-weight:700;fill:#1F2430"
+     id="text44">COI guide</text>
+  <text
+     x="710"
+     y="97.5"
+     text-anchor="middle"
+     style="font-weight:400;font-size:11px;font-family:Inter, 'Segoe UI', Arial, sans-serif;fill:#4f5666"
+     id="text45">(for kc-align)</text>
+  <text
+     x="462"
+     y="374"
+     text-anchor="middle"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:12px;font-weight:700;fill:#1F2430"
+     id="text46">BOLD</text>
+  <text
+     x="462"
+     y="387.5"
+     text-anchor="middle"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:11px;font-weight:400;fill:#4F5666"
+     id="text47">file</text>
+  <text
+     x="462"
+     y="482"
+     text-anchor="middle"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:12px;font-weight:700;fill:#1F2430"
+     id="text48">NCBI</text>
+  <text
+     x="462"
+     y="495.5"
+     text-anchor="middle"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:11px;font-weight:400;fill:#4F5666"
+     id="text49">(optional)</text>
+  <text
+     x="90"
+     y="254.0"
+     text-anchor="middle"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:12px;font-weight:700;fill:#1F2430"
+     id="text50">Trim primers</text>
+  <text
+     x="90"
+     y="267.5"
+     text-anchor="middle"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:11px;font-weight:400;fill:#4F5666"
+     id="text51">read the tag</text>
+  <text
+     x="90"
+     y="281.0"
+     text-anchor="middle"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:11px;font-weight:400;fill:#4F5666"
+     id="text52">at each end</text>
+  <text
+     x="90"
+     y="294.5"
+     text-anchor="middle"
+     style="font-family:'JetBrains Mono', Consolas, monospace;font-size:11px;font-weight:600;fill:#1F2430"
+     id="text53">cutadapt</text>
+  <rect
+     x="56.45"
+     y="301.5"
+     width="67.1"
+     height="16"
+     rx="8"
+     style="fill:#E9ECF1;stroke:#B9C0CC;stroke-width:0.8"
+     id="rect53" />
+  <text
+     x="90"
+     y="313.1"
+     text-anchor="middle"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:11px;font-weight:400;fill:#1F2430"
+     id="text54">tag table</text>
+  <text
+     x="165"
+     y="254.0"
+     text-anchor="middle"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:12px;font-weight:700;fill:#1F2430"
+     id="text55">Filter</text>
+  <text
+     x="165"
+     y="267.5"
+     text-anchor="middle"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:11px;font-weight:400;fill:#4F5666"
+     id="text56">quality, length,</text>
+  <text
+     x="165"
+     y="281.0"
+     text-anchor="middle"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:11px;font-weight:400;fill:#4F5666"
+     id="text57">ONT barcodes,</text>
+  <text
+     x="165"
+     y="294.5"
+     text-anchor="middle"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:11px;font-weight:400;fill:#4F5666"
+     id="text58">chimeras</text>
+  <text
+     x="165"
+     y="308.0"
+     text-anchor="middle"
+     style="font-family:'JetBrains Mono', Consolas, monospace;font-size:11px;font-weight:600;fill:#1F2430"
+     id="text59">fastplong</text>
+  <rect
+     x="125.55"
+     y="315.0"
+     width="78.9"
+     height="16"
+     rx="8"
+     style="fill:#E9ECF1;stroke:#B9C0CC;stroke-width:0.8"
+     id="rect59" />
+  <text
+     x="165"
+     y="326.6"
+     text-anchor="middle"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:11px;font-weight:400;fill:#1F2430"
+     id="text60">clean reads</text>
+  <text
+     x="245"
+     y="254.0"
+     text-anchor="middle"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:12px;font-weight:700;fill:#1F2430"
+     id="text_cluster1">Cluster</text>
+  <text
+     x="245"
+     y="267.5"
+     text-anchor="middle"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:11px;font-weight:400;fill:#4F5666"
+     id="text_cluster2">≥97% reads</text>
+  <text
+     x="245"
+     y="281.0"
+     text-anchor="middle"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:11px;font-weight:400;fill:#4F5666"
+     id="text_cluster3">per specimen</text>
+  <text
+     x="245"
+     y="294.5"
+     text-anchor="middle"
+     style="font-family:'JetBrains Mono', Consolas, monospace;font-size:11px;font-weight:600;fill:#1F2430"
+     id="text_cluster4">VSEARCH</text>
+  <rect
+     x="214.4"
+     y="301.5"
+     width="61.2"
+     height="16"
+     rx="8"
+     style="fill:#E9ECF1;stroke:#B9C0CC;stroke-width:0.8"
+     id="rect_cluster_pill" />
+  <text
+     x="245"
+     y="313.1"
+     text-anchor="middle"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:11px;font-weight:400;fill:#1F2430"
+     id="text_cluster5">clusters</text>
+  <text
+     x="325"
+     y="254.0"
+     text-anchor="middle"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:12px;font-weight:700;fill:#1F2430"
+     id="text61">Classify</text>
+  <text
+     x="325"
+     y="267.5"
+     text-anchor="middle"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:11px;font-weight:400;fill:#4F5666"
+     id="text62">consensus +</text>
+  <text
+     x="325"
+     y="281.0"
+     text-anchor="middle"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:11px;font-weight:400;fill:#4F5666"
+     id="text63">single reads,</text>
+  <text
+     x="325"
+     y="294.5"
+     text-anchor="middle"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:11px;font-weight:400;fill:#4F5666"
+     id="text64">confidence</text>
+  <text
+     x="325"
+     y="308.0"
+     text-anchor="middle"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:11px;font-weight:400;fill:#4F5666"
+     id="text64b">per rank</text>
+  <text
+     x="325"
+     y="321.5"
+     text-anchor="middle"
+     style="font-family:'JetBrains Mono', Consolas, monospace;font-size:11px;font-weight:600;fill:#1F2430"
+     id="text65">SINTAX</text>
+  <rect
+     x="294.4"
+     y="328.5"
+     width="61.2"
+     height="16"
+     rx="8"
+     style="fill:#E9ECF1;stroke:#B9C0CC;stroke-width:0.8"
+     id="rect65" />
+  <text
+     x="325"
+     y="340.1"
+     text-anchor="middle"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:11px;font-weight:400;fill:#1F2430"
+     id="text66">taxonomy</text>
+  <text
+     x="395"
+     y="254.0"
+     text-anchor="middle"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:12px;font-weight:700;fill:#1F2430"
+     id="text67">Summarise</text>
+  <text
+     x="395"
+     y="267.5"
+     text-anchor="middle"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:11px;font-weight:400;fill:#4F5666"
+     id="text68">accept ≥0.8;</text>
+  <text
+     x="395"
+     y="281.0"
+     text-anchor="middle"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:11px;font-weight:400;fill:#4F5666"
+     id="text69">flag taxa in</text>
+  <text
+     x="395"
+     y="294.5"
+     text-anchor="middle"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:11px;font-weight:400;fill:#4F5666"
+     id="text70">≥80% samples</text>
+  <text
+     x="395"
+     y="308.0"
+     text-anchor="middle"
+     style="font-family:'JetBrains Mono', Consolas, monospace;font-size:11px;font-weight:600;fill:#1F2430"
+     id="text71">Python</text>
+  <rect
+     x="364.4"
+     y="315.0"
+     width="61.2"
+     height="16"
+     rx="8"
+     style="fill:#E9ECF1;stroke:#B9C0CC;stroke-width:0.8"
+     id="rect71" />
+  <text
+     x="395"
+     y="326.6"
+     text-anchor="middle"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:11px;font-weight:400;fill:#1F2430"
+     id="text72">analysis</text>
+  <text
+     x="490"
+     y="254.0"
+     text-anchor="middle"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:12px;font-weight:700;fill:#1F2430"
+     id="text73">Export</text>
+  <text
+     x="490"
+     y="267.5"
+     text-anchor="middle"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:11px;font-weight:400;fill:#4F5666"
+     id="text74">clusters of</text>
+  <text
+     x="490"
+     y="281.0"
+     text-anchor="middle"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:11px;font-weight:400;fill:#4F5666"
+     id="text75">one taxon</text>
+  <text
+     x="490"
+     y="294.5"
+     text-anchor="middle"
+     style="font-family:'JetBrains Mono', Consolas, monospace;font-size:11px;font-weight:600;fill:#1F2430"
+     id="text76">Python</text>
+  <rect
+     x="441.7"
+     y="301.5"
+     width="96.6"
+     height="16"
+     rx="8"
+     style="fill:#E9ECF1;stroke:#B9C0CC;stroke-width:0.8"
+     id="rect76" />
+  <text
+     x="490"
+     y="313.1"
+     text-anchor="middle"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:11px;font-weight:400;fill:#1F2430"
+     id="text77">taxon clusters</text>
+  <text
+     x="570"
+     y="254.0"
+     text-anchor="middle"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:12px;font-weight:700;fill:#1F2430"
+     id="text78">Specimens</text>
+  <text
+     x="570"
+     y="267.5"
+     text-anchor="middle"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:11px;font-weight:400;fill:#4F5666"
+     id="text79">main taxon</text>
+  <text
+     x="570"
+     y="281"
+     text-anchor="middle"
+     style="font-weight:400;font-size:11px;font-family:Inter, 'Segoe UI', Arial, sans-serif;fill:#4f5666"
+     id="text80">per barcode</text>
+  <text
+     x="570"
+     y="294.5"
+     text-anchor="middle"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:11px;font-weight:400;fill:#4F5666"
+     id="text81">+ tag</text>
+  <text
+     x="570"
+     y="308.0"
+     text-anchor="middle"
+     style="font-family:'JetBrains Mono', Consolas, monospace;font-size:11px;font-weight:600;fill:#1F2430"
+     id="text82">Python</text>
+  <text
+     x="515"
+     y="425.0"
+     text-anchor="middle"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:12px;font-weight:700;fill:#1F2430"
+     id="text88">Select</text>
+  <text
+     x="515"
+     y="438.5"
+     text-anchor="middle"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:11px;font-weight:400;fill:#4F5666"
+     id="text89">named</text>
+  <text
+     x="515"
+     y="452.0"
+     text-anchor="middle"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:11px;font-weight:400;fill:#4F5666"
+     id="text90">species</text>
+  <text
+     x="515"
+     y="465.5"
+     text-anchor="middle"
+     style="font-family:'JetBrains Mono', Consolas, monospace;font-size:11px;font-weight:600;fill:#1F2430"
+     id="text91">Python</text>
+  <text
+     x="567"
+     y="425.0"
+     text-anchor="middle"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:12px;font-weight:700;fill:#1F2430"
+     id="text92">Length</text>
+  <text
+     x="567"
+     y="438.5"
+     text-anchor="middle"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:11px;font-weight:400;fill:#4F5666"
+     id="text93">500–2,000</text>
+  <text
+     x="567"
+     y="452.0"
+     text-anchor="middle"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:11px;font-weight:400;fill:#4F5666"
+     id="text94">nt</text>
+  <text
+     x="567"
+     y="465.5"
+     text-anchor="middle"
+     style="font-family:'JetBrains Mono', Consolas, monospace;font-size:11px;font-weight:600;fill:#1F2430"
+     id="text95">seqkit</text>
+  <text
+     x="620"
+     y="425.0"
+     text-anchor="middle"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:12px;font-weight:700;fill:#1F2430"
+     id="text96">Cluster</text>
+  <text
+     x="620"
+     y="438.5"
+     text-anchor="middle"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:11px;font-weight:400;fill:#4F5666"
+     id="text97">≥98%,</text>
+  <text
+     x="620"
+     y="452.0"
+     text-anchor="middle"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:11px;font-weight:400;fill:#4F5666"
+     id="text98">centroids</text>
+  <text
+     x="620"
+     y="465.5"
+     text-anchor="middle"
+     style="font-family:'JetBrains Mono', Consolas, monospace;font-size:11px;font-weight:600;fill:#1F2430"
+     id="text99">VSEARCH</text>
+  <rect
+     x="586.45"
+     y="472.5"
+     width="67.1"
+     height="16"
+     rx="8"
+     style="fill:#E9ECF1;stroke:#B9C0CC;stroke-width:0.8"
+     id="rect99" />
+  <text
+     x="620"
+     y="484.1"
+     text-anchor="middle"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:11px;font-weight:400;fill:#1F2430"
+     id="text100">centroids</text>
+  <rect
+     x="618.5"
+     y="131.5"
+     width="73.0"
+     height="16"
+     rx="8"
+     style="fill:#E9ECF1;stroke:#B9C0CC;stroke-width:0.8"
+     id="rect100" />
+  <text
+     x="655"
+     y="143.1"
+     text-anchor="middle"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:11px;font-weight:400;fill:#1F2430"
+     id="text101">aa lengths</text>
+  <text
+     x="655"
+     y="161.5"
+     text-anchor="middle"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:12px;font-weight:700;fill:#1F2430"
+     id="text102">Protein check</text>
+  <text
+     x="655"
+     y="175.0"
+     text-anchor="middle"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:11px;font-weight:400;fill:#4F5666"
+     id="text103">≥200 aa,</text>
+  <text
+     x="655"
+     y="188.5"
+     text-anchor="middle"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:11px;font-weight:400;fill:#4F5666"
+     id="text104">no stop codon</text>
+  <text
+     x="655"
+     y="202.0"
+     text-anchor="middle"
+     style="font-family:'JetBrains Mono', Consolas, monospace;font-size:11px;font-weight:600;fill:#1F2430"
+     id="text105">seqkit</text>
+  <rect
+     x="727.35"
+     y="131.5"
+     width="55.300000000000004"
+     height="16"
+     rx="8"
+     style="fill:#E9ECF1;stroke:#B9C0CC;stroke-width:0.8"
+     id="rect105" />
+  <text
+     x="755"
+     y="143.1"
+     text-anchor="middle"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:11px;font-weight:400;fill:#1F2430"
+     id="text106">trimmed</text>
+  <text
+     x="755"
+     y="161.5"
+     text-anchor="middle"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:12px;font-weight:700;fill:#1F2430"
+     id="text107">Trim</text>
+  <text
+     x="755"
+     y="175.0"
+     text-anchor="middle"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:11px;font-weight:400;fill:#4F5666"
+     id="text108">gappy</text>
+  <text
+     x="755"
+     y="188.5"
+     text-anchor="middle"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:11px;font-weight:400;fill:#4F5666"
+     id="text109">columns</text>
+  <text
+     x="755"
+     y="202.0"
+     text-anchor="middle"
+     style="font-family:'JetBrains Mono', Consolas, monospace;font-size:11px;font-weight:600;fill:#1F2430"
+     id="text110">ClipKIT</text>
+  <text
+     x="710"
+     y="280.0"
+     text-anchor="middle"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:12px;font-weight:700;fill:#1F2430"
+     id="text111">Align</text>
+  <text
+     x="710"
+     y="293.5"
+     text-anchor="middle"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:11px;font-weight:400;fill:#4F5666"
+     id="text112">default, or</text>
+  <text
+     x="710"
+     y="307.0"
+     text-anchor="middle"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:11px;font-weight:400;fill:#4F5666"
+     id="text113">codon-aware</text>
+  <text
+     x="710"
+     y="320.5"
+     text-anchor="middle"
+     style="font-family:'JetBrains Mono', Consolas, monospace;font-size:11px;font-weight:600;fill:#1F2430"
+     id="text114">MAFFT</text>
+  <text
+     x="710"
+     y="334.0"
+     text-anchor="middle"
+     style="font-family:'JetBrains Mono', Consolas, monospace;font-size:11px;font-weight:600;fill:#1F2430"
+     id="text115">kc-align</text>
+  <rect
+     x="676.45"
+     y="341.0"
+     width="67.1"
+     height="16"
+     rx="8"
+     style="fill:#E9ECF1;stroke:#B9C0CC;stroke-width:0.8"
+     id="rect115" />
+  <text
+     x="710"
+     y="352.6"
+     text-anchor="middle"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:11px;font-weight:400;fill:#1F2430"
+     id="text116">alignment</text>
+  <text
+     x="798"
+     y="280.0"
+     text-anchor="middle"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:12px;font-weight:700;fill:#1F2430"
+     id="text117">Tree</text>
+  <text
+     x="798"
+     y="293.5"
+     text-anchor="middle"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:11px;font-weight:400;fill:#4F5666"
+     id="text118">ML,</text>
+  <text
+     x="798"
+     y="307.0"
+     text-anchor="middle"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:11px;font-weight:400;fill:#4F5666"
+     id="text119">midpoint</text>
+  <text
+     x="798"
+     y="320.5"
+     text-anchor="middle"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:11px;font-weight:400;fill:#4F5666"
+     id="text120">rooted</text>
+  <text
+     x="798"
+     y="334.0"
+     text-anchor="middle"
+     style="font-family:'JetBrains Mono', Consolas, monospace;font-size:11px;font-weight:600;fill:#1F2430"
+     id="text121">IQ-TREE</text>
+  <text
+     x="798"
+     y="347.5"
+     text-anchor="middle"
+     style="font-family:'JetBrains Mono', Consolas, monospace;font-size:11px;font-weight:600;fill:#1F2430"
+     id="text122">baltic</text>
+  <rect
+     x="761.5"
+     y="354.5"
+     width="73.0"
+     height="16"
+     rx="8"
+     style="fill:#E9ECF1;stroke:#B9C0CC;stroke-width:0.8"
+     id="rect122" />
+  <text
+     x="798"
+     y="366.1"
+     text-anchor="middle"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:11px;font-weight:400;fill:#1F2430"
+     id="text123">tree + PDF</text>
+  <circle
+     cx="24"
+     cy="548"
+     r="6"
+     style="fill:#FFFFFF;stroke:#1F2430;stroke-width:2.5"
+     id="circle123" />
+  <text
+     x="36"
+     y="552"
+     text-anchor="start"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:11px;font-weight:400;fill:#1F2430"
+     id="text124">step</text>
+  <rect
+     x="72"
+     y="534"
+     width="16"
+     height="28"
+     rx="8"
+     style="fill:#FFFFFF;stroke:#1F2430;stroke-width:2.5"
+     id="rect124" />
+  <text
+     x="95"
+     y="552"
+     text-anchor="start"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:11px;font-weight:400;fill:#1F2430"
+     id="text125">step shared by lines</text>
+  <rect
+     x="215"
+     y="541.5"
+     width="13"
+     height="13"
+     rx="2"
+     style="fill:#FFFFFF;stroke:#1F2430;stroke-width:2.5"
+     id="rect125" />
+  <text
+     x="235"
+     y="552"
+     text-anchor="start"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:11px;font-weight:400;fill:#1F2430"
+     id="text126">input you provide</text>
+  <rect
+     x="333.3"
+     y="540"
+     width="49.400000000000006"
+     height="16"
+     rx="8"
+     style="fill:#E9ECF1;stroke:#B9C0CC;stroke-width:0.8"
+     id="rect126" />
+  <text
+     x="358"
+     y="551.6"
+     text-anchor="middle"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:11px;font-weight:400;fill:#1F2430"
+     id="text127">output</text>
+  <text
+     x="392"
+     y="552"
+     text-anchor="start"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:11px;font-weight:400;fill:#1F2430"
+     id="text128">key output</text>
+  <path
+     d="M456 548 H506"
+     style="fill:none;stroke:#1F2430;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:10,6"
+     id="path128" />
+  <text
+     x="514"
+     y="552"
+     text-anchor="start"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:11px;font-weight:400;fill:#1F2430"
+     id="text129">optional</text>
+  <path
+     d="M574 548 H654"
+     style="fill:none;stroke:#1F2430;stroke-width:2"
+     id="path129" />
+  <path
+     d="M654 543 L664 548 L654 553Z"
+     style="fill:#1F2430"
+     id="path130" />
+  <text
+     x="670"
+     y="552"
+     text-anchor="start"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:11px;font-weight:400;fill:#1F2430"
+     id="text130">data flow</text>
+  <rect
+     x="18"
+     y="568"
+     width="79.0"
+     height="20"
+     rx="4"
+     style="fill:#5D7FCB"
+     id="rect130" />
+  <text
+     x="57.5"
+     y="582"
+     text-anchor="middle"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:11px;font-weight:600;fill:#FFFFFF"
+     id="text131">Your reads</text>
+  <rect
+     x="105.0"
+     y="568"
+     width="116.8"
+     height="20"
+     rx="4"
+     style="fill:#C9A040"
+     id="rect131" />
+  <text
+     x="163.4"
+     y="582"
+     text-anchor="middle"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:11px;font-weight:600;fill:#1F2430"
+     id="text132">Tags (specimens)</text>
+  <rect
+     x="229.8"
+     y="568"
+     width="110.5"
+     height="20"
+     rx="4"
+     style="fill:#7466B5"
+     id="rect132" />
+  <text
+     x="285.05"
+     y="582"
+     text-anchor="middle"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:11px;font-weight:600;fill:#FFFFFF"
+     id="text133">MIDORI database</text>
+  <rect
+     x="348.3"
+     y="568"
+     width="154.6"
+     height="20"
+     rx="4"
+     style="fill:#C7743C"
+     id="rect133" />
+  <text
+     x="425.6"
+     y="582"
+     text-anchor="middle"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:11px;font-weight:600;fill:#FFFFFF"
+     id="text134">References (BOLD/NCBI)</text>
+  <rect
+     x="510.9"
+     y="568"
+     width="72.69999999999999"
+     height="20"
+     rx="4"
+     style="fill:#B0578A"
+     id="rect134" />
+  <text
+     x="547.25"
+     y="582"
+     text-anchor="middle"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:11px;font-weight:600;fill:#FFFFFF"
+     id="text135">COI guide</text>
+  <rect
+     x="591.5999999999999"
+     y="568"
+     width="104.2"
+     height="20"
+     rx="4"
+     style="fill:#8C94A3"
+     id="rect135" />
+  <text
+     x="643.6999999999999"
+     y="582"
+     text-anchor="middle"
+     style="font-family:Inter, 'Segoe UI', Arial, sans-serif;font-size:11px;font-weight:600;fill:#FFFFFF"
+     id="text136">Shared archive</text>
+</svg>

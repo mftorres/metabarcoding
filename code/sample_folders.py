@@ -1,12 +1,22 @@
-"""Shared discovery for barcode folders and the ONT unclassified folder."""
+"""Shared discovery for barcode folders and the ONT unclassified folder, and pipeline settings."""
 import argparse
 import json
+import os
 from pathlib import Path
 import re
+import subprocess
 import sys
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+
+
+def pipeline_setting(name):
+    """Value of a setting in config/pipeline.env; a value set in the shell overrides it."""
+    config = os.environ.get('CONFIG_FILE', 'config/pipeline.env')
+    result = subprocess.run(['bash', '-c', f'source "$0" && printf "%s" "${name}"', config],
+                            cwd=PROJECT_ROOT, capture_output=True, text=True, check=True)
+    return result.stdout
 
 
 def project_path(path):
@@ -67,7 +77,7 @@ def analysis_folders(values, analysis_dir):
     """Expand a parent using completed analysis metadata, including unclassified."""
     params = json.loads((Path(analysis_dir)/'analysis_parameters.json').read_text())
     available = params['analysed_folders']
-    root = from_project(params['merged_dir']).resolve()
+    root = from_project(params['dataset']).resolve()
     result = []
     for value in values or available:
         if value in available:

@@ -1,0 +1,155 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 730" role="img" aria-label="Module 2 step by step, from the clusters of one taxon to a draft tree" font-family="Inter, 'Segoe UI', Arial, sans-serif" style="width:100%;height:auto;max-width:1100px">
+<defs><marker id="m2-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#1F2430"/></marker></defs>
+<rect width="1100" height="730" rx="12" fill="#FFFFFF"/>
+<rect x="24" y="20" width="30" height="20" rx="5" fill="#FFFFFF" stroke="#6B7385" stroke-width="2" stroke-dasharray="6 4"/>
+<text x="64" y="35" font-size="14" fill="#1F2430" font-weight="400" text-anchor="start">reads the shared archive (postprocessing-inputs.tar.gz) or your own Module 1 analysis</text>
+<rect x="24" y="50" width="30" height="20" rx="5" fill="#C7743C" stroke="none" stroke-width="1.5"/>
+<text x="64" y="65" font-size="14" fill="#1F2430" font-weight="400" text-anchor="start">uses BOLD or NCBI references</text>
+<rect x="330" y="50" width="30" height="20" rx="5" fill="#B0578A" stroke="none" stroke-width="1.5"/>
+<text x="370" y="65" font-size="14" fill="#1F2430" font-weight="400" text-anchor="start">uses the COI guide (kc-align only)</text>
+<rect x="24" y="92" width="248" height="250" rx="12" fill="#F1F2F5" stroke="#6B7385" stroke-width="2.2" stroke-dasharray="7 5"/>
+<rect x="188" y="81" width="70" height="22" rx="11" fill="#6B7385" stroke="none" stroke-width="1.5"/>
+<text x="223" y="96.5" font-size="12.5" fill="#FFFFFF" font-weight="700" text-anchor="middle">archive</text>
+<circle cx="48" cy="116" r="14" fill="#1E8577"/>
+<text x="48" y="121.5" font-size="15" fill="#FFFFFF" font-weight="700" text-anchor="middle">1</text>
+<text x="70" y="122" font-size="16" fill="#1F2430" font-weight="700" text-anchor="start">Export</text>
+<rect x="42" y="140" width="150" height="12" rx="3" fill="#1E8577" stroke="none" stroke-width="1.5"/>
+<text x="202" y="151" font-size="12" fill="#1E8577" font-weight="600" text-anchor="start" font-style="italic">Lasius</text>
+<rect x="42" y="158" width="150" height="12" rx="3" fill="#C9CED8" stroke="none" stroke-width="1.5"/>
+<text x="202" y="169" font-size="12" fill="#8C94A3" font-weight="400" text-anchor="start">other</text>
+<rect x="42" y="176" width="150" height="12" rx="3" fill="#1E8577" stroke="none" stroke-width="1.5"/>
+<text x="202" y="187" font-size="12" fill="#1E8577" font-weight="600" text-anchor="start" font-style="italic">Lasius</text>
+<rect x="42" y="194" width="150" height="12" rx="3" fill="#1E8577" stroke="none" stroke-width="1.5"/>
+<text x="202" y="205" font-size="12" fill="#1E8577" font-weight="600" text-anchor="start" font-style="italic">Lasius</text>
+<rect x="42" y="212" width="150" height="12" rx="3" fill="#C9CED8" stroke="none" stroke-width="1.5"/>
+<text x="202" y="223" font-size="12" fill="#8C94A3" font-weight="400" text-anchor="start">other</text>
+<text x="40" y="250" font-size="13.5" fill="#4F5666" font-weight="400" text-anchor="start">every cluster whose identification</text>
+<text x="40" y="269" font-size="13.5" fill="#4F5666" font-weight="400" text-anchor="start">includes the taxon (≥ 0.8), from</text>
+<text x="40" y="288" font-size="13.5" fill="#4F5666" font-weight="400" text-anchor="start">the pools you chose</text>
+<rect x="64.6" y="309" width="166.8" height="22" rx="11.0" fill="#E9ECF1" stroke="#B9C0CC" stroke-width="0.8"/>
+<text x="148.0" y="325" font-size="12" fill="#1F2430" font-weight="400" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">clusters_TAXON.fasta</text>
+<path d="M274 217.0 H286" fill="none" stroke="#1E8577" stroke-width="2.5" marker-end="url(#m2-arrow)"/>
+<rect x="288" y="92" width="248" height="250" rx="12" fill="#F1F2F5" stroke="#6B7385" stroke-width="2.2" stroke-dasharray="7 5"/>
+<rect x="452" y="81" width="70" height="22" rx="11" fill="#6B7385" stroke="none" stroke-width="1.5"/>
+<text x="487" y="96.5" font-size="12.5" fill="#FFFFFF" font-weight="700" text-anchor="middle">archive</text>
+<circle cx="312" cy="116" r="14" fill="#1E8577"/>
+<text x="312" y="121.5" font-size="15" fill="#FFFFFF" font-weight="700" text-anchor="middle">2</text>
+<text x="334" y="122" font-size="16" fill="#1F2430" font-weight="700" text-anchor="start">One specimen, one taxon</text>
+<text x="306" y="156" font-size="12" fill="#1F2430" font-weight="400" text-anchor="start" font-style="italic">T. tipula</text>
+<rect x="378" y="144" width="103.6" height="16" rx="3" fill="#3E8E5E" stroke="none" stroke-width="1.5"/>
+<text x="487.6" y="157" font-size="12" fill="#3E8E5E" font-weight="700" text-anchor="start">37 kept</text>
+<text x="306" y="184" font-size="12" fill="#1F2430" font-weight="400" text-anchor="start" font-style="italic">T. spectra</text>
+<rect x="378" y="172" width="28.0" height="16" rx="3" fill="#C9CED8" stroke="none" stroke-width="1.5"/>
+<text x="412.0" y="185" font-size="12" fill="#4F5666" font-weight="400" text-anchor="start">10</text>
+<text x="306" y="212" font-size="12" fill="#1F2430" font-weight="400" text-anchor="start" font-style="italic">T. nigris</text>
+<rect x="378" y="200" width="5.6" height="16" rx="3" fill="#C9CED8" stroke="none" stroke-width="1.5"/>
+<text x="389.6" y="213" font-size="12" fill="#4F5666" font-weight="400" text-anchor="start">2</text>
+<text x="304" y="250" font-size="13.5" fill="#4F5666" font-weight="400" text-anchor="start">in each specimen, keep only the</text>
+<text x="304" y="269" font-size="13.5" fill="#4F5666" font-weight="400" text-anchor="start">identification with most reads;</text>
+<text x="304" y="288" font-size="13.5" fill="#4F5666" font-weight="400" text-anchor="start">the rest stays listed</text>
+<rect x="336.0" y="309" width="151.9" height="22" rx="11.0" fill="#E9ECF1" stroke="#B9C0CC" stroke-width="0.8"/>
+<text x="412.0" y="325" font-size="12" fill="#1F2430" font-weight="400" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">extraction_by_…tsv</text>
+<path d="M538 217.0 H550" fill="none" stroke="#1E8577" stroke-width="2.5" marker-end="url(#m2-arrow)"/>
+<rect x="552" y="92" width="248" height="250" rx="12" fill="#E8F4F2" stroke="#D5DAE2" stroke-width="1"/>
+<rect x="760" y="104" width="28" height="16" rx="4" fill="#C7743C" stroke="none" stroke-width="1.5"/>
+<circle cx="576" cy="116" r="14" fill="#1E8577"/>
+<text x="576" y="121.5" font-size="15" fill="#FFFFFF" font-weight="700" text-anchor="middle">3</text>
+<text x="598" y="122" font-size="16" fill="#1F2430" font-weight="700" text-anchor="start">References</text>
+<rect x="570" y="140" width="70" height="9" rx="2" fill="#C7743C" stroke="none" stroke-width="1.5"/>
+<rect x="570" y="154" width="70" height="9" rx="2" fill="#C7743C" stroke="none" stroke-width="1.5"/>
+<rect x="570" y="168" width="70" height="9" rx="2" fill="#C7743C" stroke="none" stroke-width="1.5"/>
+<rect x="570" y="182" width="70" height="9" rx="2" fill="#C7743C" stroke="none" stroke-width="1.5"/>
+<rect x="570" y="196" width="70" height="9" rx="2" fill="#E2A57D" stroke="none" stroke-width="1.5"/>
+<rect x="570" y="210" width="70" height="9" rx="2" fill="#E2A57D" stroke="none" stroke-width="1.5"/>
+<path d="M652 182 H688" fill="none" stroke="#1F2430" stroke-width="2" marker-end="url(#m2-arrow)"/>
+<rect x="698" y="164" width="70" height="12" rx="3" fill="#C7743C" stroke="none" stroke-width="1.5"/>
+<rect x="698" y="186" width="70" height="12" rx="3" fill="#C7743C" stroke="none" stroke-width="1.5"/>
+<text x="698" y="158" font-size="11" fill="#4F5666" font-weight="400" text-anchor="start">per species</text>
+<text x="568" y="250" font-size="13.5" fill="#4F5666" font-weight="400" text-anchor="start">named species of the taxon;</text>
+<text x="568" y="269" font-size="13.5" fill="#4F5666" font-weight="400" text-anchor="start">500–2,000 nt; records of one</text>
+<text x="568" y="288" font-size="13.5" fill="#4F5666" font-weight="400" text-anchor="start">species ≥ 98% alike combined</text>
+<rect x="588.9" y="309" width="174.2" height="22" rx="11.0" fill="#E9ECF1" stroke="#B9C0CC" stroke-width="0.8"/>
+<text x="676.0" y="325" font-size="12" fill="#1F2430" font-weight="400" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">references_bold.fasta</text>
+<path d="M802 217.0 H814" fill="none" stroke="#1E8577" stroke-width="2.5" marker-end="url(#m2-arrow)"/>
+<rect x="816" y="92" width="248" height="250" rx="12" fill="#E8F4F2" stroke="#D5DAE2" stroke-width="1"/>
+<circle cx="840" cy="116" r="14" fill="#1E8577"/>
+<text x="840" y="121.5" font-size="15" fill="#FFFFFF" font-weight="700" text-anchor="middle">4</text>
+<text x="862" y="122" font-size="16" fill="#1F2430" font-weight="700" text-anchor="start">Protein check</text>
+<rect x="834" y="146" width="46" height="24" rx="4" fill="#FFFFFF" stroke="#D5DAE2" stroke-width="1.2"/>
+<text x="857" y="163" font-size="13" fill="#1F2430" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">ATG</text>
+<text x="857" y="190" font-size="15" fill="#3E8E5E" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">M</text>
+<rect x="886" y="146" width="46" height="24" rx="4" fill="#FFFFFF" stroke="#D5DAE2" stroke-width="1.2"/>
+<text x="909" y="163" font-size="13" fill="#1F2430" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">GCT</text>
+<text x="909" y="190" font-size="15" fill="#3E8E5E" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">A</text>
+<rect x="938" y="146" width="46" height="24" rx="4" fill="#FFFFFF" stroke="#D5DAE2" stroke-width="1.2"/>
+<text x="961" y="163" font-size="13" fill="#1F2430" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">TTA</text>
+<text x="961" y="190" font-size="15" fill="#3E8E5E" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">L</text>
+<rect x="990" y="146" width="46" height="24" rx="4" fill="#FBE3DC" stroke="#B5543C" stroke-width="1.2"/>
+<text x="1013" y="163" font-size="13" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">TAA</text>
+<text x="1013" y="190" font-size="15" fill="#B5543C" font-weight="700" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">*</text>
+<text x="834" y="220" font-size="12" fill="#B5543C" font-weight="600" text-anchor="start">* = stop codon: fails</text>
+<text x="832" y="250" font-size="13.5" fill="#4F5666" font-weight="400" text-anchor="start">translate (code 5); keep what</text>
+<text x="832" y="269" font-size="13.5" fill="#4F5666" font-weight="400" text-anchor="start">gives ≥ 200 amino acids</text>
+<text x="832" y="288" font-size="13.5" fill="#4F5666" font-weight="400" text-anchor="start">without a stop codon</text>
+<rect x="845.4" y="309" width="189.1" height="22" rx="11.0" fill="#E9ECF1" stroke="#B9C0CC" stroke-width="0.8"/>
+<text x="940.0" y="325" font-size="12" fill="#1F2430" font-weight="400" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">translation_lengths.tsv</text>
+<rect x="24" y="388" width="248" height="250" rx="12" fill="#E8F4F2" stroke="#D5DAE2" stroke-width="1"/>
+<rect x="232" y="400" width="28" height="16" rx="4" fill="#B0578A" stroke="none" stroke-width="1.5"/>
+<circle cx="48" cy="412" r="14" fill="#1E8577"/>
+<text x="48" y="417.5" font-size="15" fill="#FFFFFF" font-weight="700" text-anchor="middle">5</text>
+<text x="70" y="418" font-size="16" fill="#1F2430" font-weight="700" text-anchor="start">Align</text>
+<text x="42" y="452" font-size="14" fill="#1F2430" font-weight="600" text-anchor="start" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">ATGGCT--TTACGA</text>
+<text x="42" y="472" font-size="14" fill="#1F2430" font-weight="600" text-anchor="start" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">ATGGCTAATTACGA</text>
+<text x="42" y="492" font-size="14" fill="#1F2430" font-weight="600" text-anchor="start" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">ATG---AATTACGA</text>
+<text x="42" y="512" font-size="14" fill="#1F2430" font-weight="600" text-anchor="start" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">ATGGCTAATTGCGA</text>
+<text x="40" y="546" font-size="13.5" fill="#4F5666" font-weight="400" text-anchor="start">line up all sequences column</text>
+<text x="40" y="565" font-size="13.5" fill="#4F5666" font-weight="400" text-anchor="start">by column: MAFFT, or kc-align</text>
+<text x="40" y="584" font-size="13.5" fill="#4F5666" font-weight="400" text-anchor="start">codon by codon along the guide</text>
+<rect x="98.1" y="605" width="99.8" height="22" rx="11.0" fill="#E9ECF1" stroke="#B9C0CC" stroke-width="0.8"/>
+<text x="148.0" y="621" font-size="12" fill="#1F2430" font-weight="400" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">*.aln.fasta</text>
+<path d="M274 513.0 H286" fill="none" stroke="#1E8577" stroke-width="2.5" marker-end="url(#m2-arrow)"/>
+<rect x="288" y="388" width="248" height="250" rx="12" fill="#E8F4F2" stroke="#D5DAE2" stroke-width="1"/>
+<circle cx="312" cy="412" r="14" fill="#1E8577"/>
+<text x="312" y="417.5" font-size="15" fill="#FFFFFF" font-weight="700" text-anchor="middle">6</text>
+<text x="334" y="418" font-size="16" fill="#1F2430" font-weight="700" text-anchor="start">Trim</text>
+<text x="306" y="452" font-size="14" fill="#1F2430" font-weight="600" text-anchor="start" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">--GGCTAATTAC--</text>
+<text x="306" y="472" font-size="14" fill="#1F2430" font-weight="600" text-anchor="start" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">--GGCTAATTACGA</text>
+<text x="306" y="492" font-size="14" fill="#1F2430" font-weight="600" text-anchor="start" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">ATGGCTAATTAC--</text>
+<text x="306" y="512" font-size="14" fill="#1F2430" font-weight="600" text-anchor="start" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">--GGCTGATTAC--</text>
+<rect x="304" y="437" width="19" height="78" rx="3" fill="#B5543C26" stroke="#B5543C" stroke-width="1"/>
+<rect x="407" y="437" width="21" height="78" rx="3" fill="#B5543C26" stroke="#B5543C" stroke-width="1"/>
+<text x="304" y="546" font-size="13.5" fill="#4F5666" font-weight="400" text-anchor="start">remove columns that are</text>
+<text x="304" y="565" font-size="13.5" fill="#4F5666" font-weight="400" text-anchor="start">gaps in ≥ 90% of the</text>
+<text x="304" y="584" font-size="13.5" fill="#4F5666" font-weight="400" text-anchor="start">sequences (ClipKIT)</text>
+<rect x="332.3" y="605" width="159.4" height="22" rx="11.0" fill="#E9ECF1" stroke="#B9C0CC" stroke-width="0.8"/>
+<text x="412.0" y="621" font-size="12" fill="#1F2430" font-weight="400" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">*.clipkit.aln.fasta</text>
+<path d="M538 513.0 H550" fill="none" stroke="#1E8577" stroke-width="2.5" marker-end="url(#m2-arrow)"/>
+<rect x="552" y="388" width="248" height="250" rx="12" fill="#E8F4F2" stroke="#D5DAE2" stroke-width="1"/>
+<circle cx="576" cy="412" r="14" fill="#1E8577"/>
+<text x="576" y="417.5" font-size="15" fill="#FFFFFF" font-weight="700" text-anchor="middle">7</text>
+<text x="598" y="418" font-size="16" fill="#1F2430" font-weight="700" text-anchor="start">Tree</text>
+<path d="M570 482 H600 M600 450 V512 M600 450 H650 M600 512 H630 M650 440 V462 M650 440 H700 M650 462 H690 M630 500 V524 M630 500 H670 M630 524 H710" fill="none" stroke="#1F2430" stroke-width="2"/>
+<text x="568" y="546" font-size="13.5" fill="#4F5666" font-weight="400" text-anchor="start">IQ-TREE chooses a model and</text>
+<text x="568" y="565" font-size="13.5" fill="#4F5666" font-weight="400" text-anchor="start">finds the most likely tree;</text>
+<text x="568" y="584" font-size="13.5" fill="#4F5666" font-weight="400" text-anchor="start">no support values yet</text>
+<rect x="629.8" y="605" width="92.4" height="22" rx="11.0" fill="#E9ECF1" stroke="#B9C0CC" stroke-width="0.8"/>
+<text x="676.0" y="621" font-size="12" fill="#1F2430" font-weight="400" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">*.treefile</text>
+<path d="M802 513.0 H814" fill="none" stroke="#1E8577" stroke-width="2.5" marker-end="url(#m2-arrow)"/>
+<rect x="816" y="388" width="248" height="250" rx="12" fill="#E8F4F2" stroke="#D5DAE2" stroke-width="1"/>
+<circle cx="840" cy="412" r="14" fill="#1E8577"/>
+<text x="840" y="417.5" font-size="15" fill="#FFFFFF" font-weight="700" text-anchor="middle">8</text>
+<text x="862" y="418" font-size="16" fill="#1F2430" font-weight="700" text-anchor="start">Figure</text>
+<path d="M834 476 H854 M854 448 V506 M854 448 H894 M854 506 H884 M884 494 V520 M884 494 H914 M884 520 H904" fill="none" stroke="#1F2430" stroke-width="2"/>
+<text x="920" y="452" font-size="11.5" fill="#C7743C" font-weight="600" text-anchor="start">L. niger  ref</text>
+<text x="920" y="498" font-size="11.5" fill="#5D7FCB" font-weight="600" text-anchor="start">L. platythorax  b20 bc1021</text>
+<text x="920" y="524" font-size="11.5" fill="#C7743C" font-weight="600" text-anchor="start">L. platythorax  ref</text>
+<text x="832" y="546" font-size="13.5" fill="#4F5666" font-weight="400" text-anchor="start">tree drawn from its midpoint,</text>
+<text x="832" y="565" font-size="13.5" fill="#4F5666" font-weight="400" text-anchor="start">readable labels, and a table</text>
+<text x="832" y="584" font-size="13.5" fill="#4F5666" font-weight="400" text-anchor="start">saying what each tip is</text>
+<rect x="849.2" y="605" width="181.7" height="22" rx="11.0" fill="#E9ECF1" stroke="#B9C0CC" stroke-width="0.8"/>
+<text x="940.0" y="621" font-size="12" fill="#1F2430" font-weight="400" text-anchor="middle" font-family="'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace">*.figure.pdf, tips.tsv</text>
+<path d="M940.0 344 V364 H148.0 V386" fill="none" stroke="#1E8577" stroke-width="2.5" marker-end="url(#m2-arrow)"/>
+<rect x="24" y="660" width="1052" height="54" rx="10" fill="#F1F2F5" stroke="#6B7385" stroke-width="1.5" stroke-dasharray="7 5"/>
+<text x="40" y="682" font-size="14.5" fill="#1F2430" font-weight="700" text-anchor="start">With a shared archive you run all eight steps on your own computer.</text>
+<text x="40" y="702" font-size="13.5" fill="#4F5666" font-weight="400" text-anchor="start">Steps 1–2 read the archive; steps 3–8 need only the BOLD file (or internet) and, for kc-align, a COI guide. No raw reads, MIDORI or Module 1.</text>
+</svg>

@@ -1,9 +1,10 @@
 # Module 2 · Postprocessing
 
 Module 2 works on **one taxon at a time** (for example the family Tipulidae). It
-takes the reads that Module 1 assigned to that taxon, builds one consensus sequence
-per specimen, adds reference sequences of named species, and produces an
-alignment and a draft tree for you to review.
+takes the clusters that Module 1 assigned to that taxon (consensus sequences and
+single reads, already made per specimen), keeps the main identification of each
+specimen, adds reference sequences of named species, and produces an alignment and
+a draft tree for you to review.
 
 > **If Module 1 used the Arthropoda-only database** (results named `…_sintaxARTH.tsv`):
 > SINTAX can only choose among the names in its database, so reads from fungi, plants,
@@ -64,7 +65,7 @@ relative to the project folder. The sender tells you the analysis path to use.
 
 Only records with a **named species** are used from BOLD. The BOLD file also contains
 other markers (16S, 28S, ITS, COI-3P, CYTB…), and every record whose header contains
-your taxon name is selected, whatever its marker. The protein check (step 5 below)
+your taxon name is selected, whatever its marker. The protein check (step 4 below)
 removes most non-coding markers. **If you do not use kc-align with a COI guide,
 records of other protein-coding markers can stay in the alignment and tree**; remove
 them during review ([details](../data/bold/README.md#other-markers-in-the-bold-file)).
@@ -105,33 +106,37 @@ The run takes minutes to a few hours, mostly for alignment and the tree.
 
 ### What happens, step by step
 
-1. **Export.** Reads whose classification includes the taxon with confidence ≥ 0.8
-   are exported from the chosen samples (`cleaned_TAXON_DATE.fasta`).
-2. **One specimen, one taxon.** Reads are grouped by barcode folder + forward tag
-   (one specimen). Within each group, only the taxon with the most reads is kept;
-   all tied taxa are kept. Example: 37 reads *Tipula tipula*, 10 *T. spectra*, 2
-   *T. nigris* → the 37 *T. tipula* reads continue. Counts are added across reverse
-   tags. The table `extraction_by_barcode_primer_taxon.tsv` records every decision.
-3. **Consensus sequences.** Within each barcode + forward tag + taxon group, reads that
-   are at least 97% identical are combined into a consensus (VSEARCH). A group can
-   give several consensuses when it holds distinct sequences.
-4. **References.** BOLD or NCBI records of the taxon are selected, whole-genome records
+![Module 2 step by step: export, one specimen one taxon, references, protein check, align, trim, tree and figure; steps 1 and 2 read the shared archive or your own Module 1 analysis](figures/module2_steps.svg)
+
+1. **Export.** Clusters whose classification includes the taxon with confidence ≥ 0.8
+   are exported from the chosen samples (`clusters_TAXON_DATE.fasta`). They were made
+   in Module 1: reads of one specimen that are at least 97% identical form one
+   consensus sequence; reads without a close partner stay single reads. Module 2
+   does not cluster them again.
+2. **One specimen, one taxon.** Clusters are grouped by barcode folder + forward tag
+   (one specimen). Within each specimen, only the identification with the most reads
+   is kept, with all its clusters; tied identifications are all kept. Example: 37
+   reads *Tipula tipula*, 10 *T. spectra*, 2 *T. nigris* → the clusters of the 37
+   *T. tipula* reads continue. The table `extraction_by_specimen_taxon.tsv` records
+   every decision.
+3. **References.** BOLD or NCBI records of the taxon are selected, whole-genome records
    removed, lengths outside 500–2,000 nt removed, and records of the same species
    that are at least 98% identical are combined. Different species are never combined.
-5. **Protein check.** Each consensus must translate (genetic code 5, invertebrate
+4. **Protein check.** Each sequence (local cluster or reference consensus) must translate (genetic code 5, invertebrate
    mitochondrial) into at least 200 amino acids without a stop codon in one of its six
    reading frames. This removes many NUMTs (nuclear copies of COI) and other
    non-coding sequences, but not all.
-6. **Alignment.** kc-align (with a guide) or MAFFT. kc-align may reject sequences with
+5. **Alignment.** kc-align (with a guide) or MAFFT. kc-align may reject sequences with
    frameshifts or stop codons; `*.kcalign_selection.tsv` lists them.
-7. **Trimming.** ClipKIT removes alignment columns that are gaps in 90% or more of
+6. **Trimming.** ClipKIT removes alignment columns that are gaps in 90% or more of
    the sequences (`gappy` mode).
-8. **Tree and figure.** IQ-TREE chooses a substitution model and estimates a
-   maximum-likelihood tree, without bootstrap support. Baltic draws it, rooted at the
-   midpoint.
+7. **Tree.** IQ-TREE chooses a substitution model and estimates a
+   maximum-likelihood tree, without bootstrap support.
+8. **Figure.** Baltic draws the tree rooted at the midpoint, and
+   `*.figure.tips.tsv` says what each tip is.
 
 Reads without an assigned forward tag are grouped per barcode under the tag name
-`none`. Such a group can mix specimens; treat its consensuses with caution.
+`none`. Such a group can mix specimens; treat its clusters with caution.
 
 ### If a run stops
 
@@ -165,35 +170,34 @@ until you have checked the alignment.**
 | `*.figure.midpoint.nwk` | The rooted tree, to open in Peartree. |
 | `*.clipkit.aln.fasta` | The trimmed alignment the tree was built from: **check this**. |
 | `*.aln.fasta` | The alignment before trimming. |
-| `extraction_by_barcode_primer_taxon.tsv` | Reads per barcode, tag and taxon, and which taxon was kept. |
-| `vsearch_local_groups.tsv`, `vsearch_local_memberships.tsv` | Which reads made each consensus. |
-| `*.figure.tips.tsv` | What each tree tip is: local consensus or reference, with its IDs. |
+| `extraction_by_specimen_taxon.tsv` | Reads and clusters per specimen and identification, and which identification was kept. |
+| `*.figure.tips.tsv` | What each tree tip is: local cluster or reference, with its IDs and read count. |
 | `bold_reference_metadata.tsv` | Original BOLD process ID and header of each reference. |
 | `postprocessing.log` | Every command run, counts and errors. |
 
 Every file is described in the [output-file reference](../data/postprocessing/README.md).
 
-### Reading the local read headers
+### Reading the local sequence names
 
 The line starting with `>` above each local sequence records where it came from:
 
 ```text
->barcode01-bc1009-bc1122rc-Culicoides_punctatus_12345-nocontamination-0a1b2c3d-…
+>barcode01-bc1009-Culicoides_punctatus_12345-nocontamination-37-0a1b2c3d-…
 ```
 
 | Part | Meaning |
 | --- | --- |
 | `barcode01` | Sample folder. |
 | `bc1009` | Forward tag (the specimen); `none` if no tag was assigned. |
-| `bc1122rc` | Reverse tag; `none` if no tag was assigned. |
 | `Culicoides_punctatus_12345` | Lowest confidently assigned taxon; the number is the NCBI taxid, not a count. |
 | `nocontamination` | Whether that taxon was flagged by Module 1's contamination screen. |
-| `0a1b2c3d-…` | The read ID; it can contain hyphens. |
+| `37` | Number of reads in the cluster (1 for a single read). |
+| `0a1b2c3d-…` | The cluster ID: the read ID of the cluster's centroid (its longest read); it can contain hyphens. |
 
 The first five hyphens separate the fields; hyphens inside a field are written `%2D`.
-Do not rename sequences: the IDs link the tree back to the reads. A consensus keeps
-the header of its first read (the *seed*); its other reads are listed in
-`vsearch_local_memberships.tsv`.
+Do not rename sequences: the names link the tree back to Module 1. To see which reads
+form a cluster, look up the cluster ID in
+`DATASET/barcodeNN/filtered/cluster_members.tsv.gz`.
 
 Reference headers look like `BOLD_000000123__taxon__Tipula_maxima` or
 `AB123456.1__taxon__Tipula_maxima`; look them up in `bold_reference_metadata.tsv` or
@@ -215,7 +219,8 @@ Reference headers look like `BOLD_000000123__taxon__Tipula_maxima` or
 
 Which reads, consensuses and reference species to keep is **your scientific
 decision**. Base it on sequence quality, identification reliability, possible NUMTs,
-overlap and marker. Do not edit `kept_for_module2` in the extraction table: it
+overlap and marker. A single read keeps all its sequencing errors; a consensus of
+many reads is more reliable. Do not edit `kept_for_tree` in the extraction table: it
 records what the pipeline did, it does not control it.
 
 ### C.3 Estimate the final tree with bootstrap support
@@ -241,7 +246,8 @@ correctness of identifications. See the
 Open [Peartree](https://peartree.live/) in a browser and load `*.figure.midpoint.nwk`
 (or your final `.treefile`). Remember:
 
-- A tip is a consensus of reads, not necessarily one read or one specimen.
+- A local tip is one cluster of a specimen: a consensus of reads or a single read.
+  A specimen can give several tips.
 - Branch lengths are DNA substitutions per site, not time.
 - The midpoint root is a drawing choice, not the true ancestor.
 - A local tip next to a reference species is evidence, not proof, of identity.
@@ -253,18 +259,20 @@ For custom figures in Python, use [Baltic](https://phylo-baltic.github.io/baltic
 
 ### Clustering
 
-VSEARCH `--cluster_fast --iddef 2 --strand both`, identity 0.97 for local reads
-(per barcode + forward tag + taxon) and 0.98 for references (per species label).
-Consensus sequences come from `--consout`; seed headers are restored.
+Local reads are clustered in Module 1 (`cluster_specimens.py`): VSEARCH
+`--cluster_fast --iddef 2 --strand both --id 0.97` per barcode + forward tag, on all
+cleaned reads of the specimen before classification. Module 2 clusters only the
+references: the same command with identity 0.98, per species label. Consensus
+sequences come from `--consout`; they are named after their centroid.
 
 ### Protein check (`--min-aa`)
 
-SeqKit translates every consensus in all six frames with `--translation-table`
+SeqKit translates every sequence in all six frames with `--translation-table`
 (default 5). A sequence passes when one frame has at least `--min-aa` (default 200)
 consecutive amino acids without a stop (`*`) or unknown (`X`) residue.
 `translation_lengths.tsv` lists, per
 frame, the translation length and the longest stop-free stretch. 200 amino acids are
-600 nt, and the primer-trimmed barcode region is about 658 nt, so a consensus passes
+600 nt, and the primer-trimmed barcode region is about 658 nt, so a sequence passes
 only when nearly all of it is one uninterrupted reading frame: most frameshifts and
 internal stop codons make it fail.
 
@@ -284,13 +292,15 @@ MAFFT) must be installed.
 
 `clipkit ALIGNMENT -m gappy -s nt`: removes columns with a gap fraction ≥ 0.9. Columns
 are removed from all sequences together; single sequences are never shortened
-individually. The untrimmed alignment is kept.
+individually. A sequence left with no bases at all (it only covered removed columns,
+for example a reference of another COI region) is dropped and named in
+`postprocessing.log`, because IQ-TREE cannot use it. The untrimmed alignment is kept.
 
 ### Tree and figure
 
 `iqtree -m MFP --seed 666` on the trimmed alignment, no bootstrap. At least four
 sequences must remain. The figure is midpoint-rooted with Baltic; tip labels are
-*taxon | read ID | folder | forward tag* for local consensuses, *organism | accession*
+*taxon | folder | forward tag | reads in the cluster* for local clusters, *organism | accession*
 for NCBI and *species | process ID* for BOLD references.
 
 ### Resume rules

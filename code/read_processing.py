@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Module 1, Read processing: primers/tags, cleaning, SINTAX and report tables for one dataset."""
+"""Module 1, Read processing: primers and tags, cleaning, clustering, SINTAX and analysis tables for one dataset."""
 import argparse
 from datetime import datetime
 import os
@@ -33,7 +33,7 @@ def main():
     if args.dry_run:
         return
     from sintax_analysis import run_analysis
-    run_analysis(merged_dir=dataset, sintax_root=sintax_root, output_dir=output/'analysis',
+    run_analysis(dataset=dataset, sintax_root=sintax_root, output_dir=output/'analysis',
                  folders=[p.name for p in folders], allow_missing=True)
     print(f'Read processing complete. Postprocessing --analysis-dir: {output}/analysis')
 

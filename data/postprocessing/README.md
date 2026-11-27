@@ -19,66 +19,41 @@ In the tables below:
 
 ## Which files to open first
 
-For extracted read abundances, open `extraction_by_barcode_primer_taxon.tsv`.
+For the reads and clusters of each specimen, open `extraction_by_specimen_taxon.tsv`.
 For the phylogeny, open `P.figure.pdf` or `P.figure.png`. To inspect aligned bases,
 open `P.aln.fasta` and `P.clipkit.aln.fasta`. For the tree model and inference
 report, open `P.iqtree`. For missing sequences, inspect `translation_lengths.tsv`
 and `P.kcalign_selection.tsv` when those stages were used. For execution errors,
 start with `postprocessing.log` and the relevant stage's log.
 
-Postprocessing reads the cleaned reads and the read tables of the completed Module 1
-analysis; it needs neither the SINTAX outputs nor the MIDORI database.
+Postprocessing reads the cluster tables and cluster sequences of the completed
+Module 1 analysis; it needs neither the SINTAX outputs nor the MIDORI database.
 
-## Local read extraction and clustering
+## Local clusters
 
-| File or directory | Producer | Contents and what you can learn |
+| File | Producer | Contents and what you can learn |
 | --- | --- | --- |
-| `cleaned_TAXON_DATE.fasta` | `export_sintax_fasta.py`, launched by Postprocessing | Selected cleaned, primer-free reads before clustering. Headers retain barcode/folder, forward primer, reverse primer, lowest trusted taxon, contamination flag and cleaned read ID. These are cleaned reads, not raw reads or cluster consensuses. |
-| `extraction_by_barcode_primer_taxon.tsv` | Postprocessing, from the preceding FASTA | All extracted read counts by barcode, forward primer, reverse primer and taxonomic label, plus `kept_for_module2` recording the dominant-label decision. |
-| `extraction_counts.tsv` | Postprocessing | Total extracted reads for each source folder and a TOTAL row. Its total should equal the sum of `read_count` in the grouped extraction table. |
-| `extraction.log` | Exporter, captured by Postprocessing | Selection/extraction messages, per-folder counts and export errors. |
-| `cleaned_TAXON_DATE.dominant.fasta` | Postprocessing | Original local reads retained by dominant-taxon selection before clustering. |
-| `cleaned_TAXON_DATE.vsearch97.fasta` | VSEARCH, with headers restored by Postprocessing | Local cluster consensus sequences. The header identifies the cluster seed; the sequence is a consensus and its count is not the original number of reads. |
-| `vsearch_local_groups.tsv` | Postprocessing | One row per barcode/folder + forward primer + retained trusted-taxon partition; input and consensus counts and the recorded identity setting. |
-| `vsearch_local_memberships.tsv` | VSEARCH UC records combined by Postprocessing | Cluster membership with local group IDs. Trace reads into the clusters used to construct consensuses. |
-| `vsearch_local_groups/` | Postprocessing and VSEARCH | Per-partition input FASTAs, consensus FASTAs, UC membership files and tool logs. These explain the aggregate clustering tables. |
-| `clustering_counts.tsv` | Postprocessing | Selected local and length-filtered reference input/consensus totals and the recorded identity setting; compare the two independently clustered sources. |
+| `clusters_TAXON_DATE.fasta` | `export_clusters.py`, launched by Postprocessing | Every Module 1 cluster (consensus sequence or single read) accepted as the taxon in the chosen folders. The names give folder, forward tag, identification, contamination flag, read count and cluster ID ([details](../../docs/post_processing.md#reading-the-local-sequence-names)). |
+| `extraction.log` | Exporter, captured by Postprocessing | Clusters exported per folder, and export errors. |
+| `extraction_by_specimen_taxon.tsv` | Postprocessing | One row per specimen (`source_folder` + `forward_tag`) and identification (`taxon`): `cluster_count`, `read_count`, and `kept_for_tree` (`true` for the identification with most reads in the specimen). |
+| `clusters_TAXON_DATE.main_taxon.fasta` | Postprocessing | The clusters kept: those of the main identification of each specimen. These go on to the protein check, alignment and tree. |
 
-### Interpreting the grouped extraction table
+### How the main identification is chosen
 
-Local extraction first keeps all requested reads in `cleaned_TAXON_DATE.fasta`.
-The audit table `extraction_by_barcode_primer_taxon.tsv` has columns `barcode`,
-`forward_primer`, `reverse_primer`, `taxonomic_identification`, `read_count` and
-`kept_for_module2` (`true`/`false`). Counts are split by reverse primer, but selection
-sums each taxonomic label across reverse primers within each barcode + forward
-primer. Every label tied for the largest total survives. All reads with any of those
-labels are retained regardless
-of reverse primer or contamination flag; other labels are excluded from downstream
-analyses. Selection uses only the requested taxon's extracted reads, not reads
-outside the extraction. `none`, `unknown` and combined primer annotations remain
-exact distinct forward-primer values, including in `unclassified` when requested.
-`none` means no forward tag was assigned (status ambiguous, too_many_errors, truncated
-or primer_not_found in Module 1); such a group can mix specimens.
+Each PCR well (barcode folder + forward tag) holds one arthropod, whose DNA should
+give most reads. Within each specimen, the identifications of the exported clusters
+are compared by their total reads and the largest is kept, with all its clusters;
+tied identifications are all kept. For example, barcode15/bc1009 with *Tipula
+tipula* (37 reads), *T. spectra* (10) and *T. nigris* (2) keeps the clusters of
+*T. tipula*. The largest identification need not exceed 50% and is not proof of
+identity or of the absence of contamination. Only clusters of the requested taxon
+are compared, not the specimen's other reads (see `specimen_taxa.tsv` in the Module 1
+analysis for those). `none` means no forward tag was assigned; such a group can mix
+specimens.
 
-The assumption is one insect individual per barcode + forward primer, whose DNA
-should dominate. The most abundant label need not exceed 50% and is not proof of
-identity or absence of contamination. For example, barcode15/bc1009 with Tipula
-tipula (37), Tipula spectra (10) and Tipula nigris (2) retains the 37 Tipula tipula
-reads. `cleaned_TAXON_DATE.dominant.fasta` contains the retained original reads;
-the original extraction and every audit-table row remain available.
-
-Counts represent cleaned reads, including separate adapter-split fragments,
-not distinct raw reads or final tree tips. Reverse-primer annotations in a cluster
-header describe its seed; contributing reads may have different reverse primers.
-
-Retained local reads still cluster at 97% within each barcode/forward-primer
-individual: a broad genus or higher-rank assignment can hide multiple species,
-so all reads with that label must not automatically form one consensus. BOLD
-extraction retains species-identified records only; BOLD/NCBI clustering is restricted to the same header
-taxon label to preserve species positions in the tree. Local and reference
-clusters are always separate.
-
-Local clustering uses `--id 0.97` (`.vsearch97.fasta`); references use `--id 0.98` (`.vsearch98.fasta`).
+A specimen can keep several clusters of its main identification: reads less than 97%
+identical to each other, often single reads with many sequencing errors, form
+separate clusters. Each becomes a separate tip.
 
 ## External references: BOLD or NCBI
 
@@ -110,7 +85,7 @@ markers other than COI-5P (see [the BOLD README](../bold/README.md#other-markers
 
 | File | Producer | Contents and what you can learn |
 | --- | --- | --- |
-| `combined_TAXON_DATE.fasta` | Postprocessing | Local consensuses and reference consensuses combined after separate clustering. This is the input to translation screening or unfiltered selection. |
+| `combined_TAXON_DATE.fasta` | Postprocessing | Local clusters and reference consensus sequences together. This is the input to translation screening or unfiltered selection. |
 | `combined_TAXON_DATE.six_frames.faa` | SeqKit `translate` | Six translated reading frames per input representative under the chosen genetic code. Investigate coding potential and rejected sequences here. |
 | `translation_lengths.tsv` | Postprocessing | Translation-screening evidence and keep/reject decisions for each representative; use the headers to inspect the recorded frame/length fields. |
 | `P.fasta` | Postprocessing | Representatives retained for alignment: `nonumt` when screened, or `selected` when translation screening was skipped. The noNUMT name describes a screening heuristic, not proof that every NUMT was excluded. |
@@ -145,7 +120,7 @@ markers other than COI-5P (see [the BOLD README](../bold/README.md#other-markers
 | `P.figure.png` | Same | Raster phylogeny for quick viewing or presentations. Large trees produce tall images. |
 | `P.figure.svg` | Same | Editable vector phylogeny. |
 | `P.figure.midpoint.nwk` | Baltic via `plot_phylogeny.py` | Midpoint-rooted tree used for the figure, with branch lengths. Midpoint rooting does not establish the biological root. |
-| `P.figure.tips.tsv` | `plot_phylogeny.py` | Maps original tree tip IDs to source, taxon/organism, accession or BOLD process ID, local read/folder and display label. This is a tip map, not an abundance table. |
+| `P.figure.tips.tsv` | `plot_phylogeny.py` | Maps tree tip IDs to source, taxon/organism, accession or BOLD process ID, and for local clusters the cluster ID, read count, folder and forward tag. |
 | `P.figure.plot.json` | `plot_phylogeny.py` | Plot provenance: Baltic version, input tree, rooting, number of tips, support-label handling and scale-bar units. |
 | `tree_figure.stdout.log` | Plotting output captured by Postprocessing | Which tree/figure files were used or written, plus plotting diagnostics. |
 
@@ -164,8 +139,9 @@ markers other than COI-5P (see [the BOLD README](../bold/README.md#other-markers
 
 Keep settings, metadata and completion records with their run. They support
 resume and traceability; do not edit them to make an incomplete step appear complete.
-Runs made before November 2026 contain older files (`*.complete.json`,
-`invalidated_stages.json`) and cannot be resumed with the current code.
+Runs made before 24 November 2026 clustered local reads in Module 2 (files
+`cleaned_*.fasta`, `*.vsearch97.fasta`, `vsearch_local_*`) and cannot be resumed with
+the current code.
 
 ## The shared `coi_refs/` folder
 
@@ -191,8 +167,8 @@ appropriate. Keep originals, document changes and re-estimate the tree after
 changing the sequence set or alignment. See the
 [complete review instructions](../../docs/post_processing.md#c-review-the-results).
 
-For a field-by-field explanation of local read headers and tracing a sequence
-through counts, clusters and alignments, see [Reading the local read headers](../../docs/post_processing.md#reading-the-local-read-headers).
+For a field-by-field explanation of local sequence names, see
+[Reading the local sequence names](../../docs/post_processing.md#reading-the-local-sequence-names).
 After reviewing and editing the alignment, estimate the final tree with bootstrap
 support; the initial automatic pipeline run remains without bootstrap. The guide
 provides a separate final IQ-TREE example and links to the

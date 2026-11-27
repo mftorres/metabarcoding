@@ -6,15 +6,15 @@ from importlib.metadata import version
 import json
 import math
 from pathlib import Path
-from urllib.parse import unquote
 
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import baltic as bt
 from baltic.bt_utils import plot_scale_bar
-from sequence_headers import local_fields
+from export_clusters import header_fields
 from reference_labels import reference_names, reference_id
+from sintax_parser import taxon_parts
 
 
 def split_keys(tree):
@@ -64,19 +64,21 @@ def midpoint_with_support(tree):
     return supports
 
 
-# Resolve cluster seed labels from analysis tables or external-source metadata.
-def tip_metadata(tip_ids, analysis_dir, reference_genbank):
+def tip_metadata(tip_ids, reference_genbank):
+    """Describe each tip: local clusters from their sequence names, references from their metadata."""
     references = reference_names(reference_genbank)
     bold_codes = {}
     if Path(reference_genbank).suffix == '.tsv':
         with Path(reference_genbank).open() as handle:
             bold_codes = {row['sequence_id']: row['process_id'] for row in csv.DictReader(handle, delimiter='\t')}
-    metadata, local = {}, {}
+    metadata = {}
     for identifier in tip_ids:
-        parts = local_fields(identifier)
-        if parts is not None:
-            folder, readid = unquote(parts[0]), parts[5]
-            local.setdefault(folder, {})[readid] = identifier
+        fields = header_fields(identifier)
+        if fields is not None:
+            folder, forward, taxon, _, read_count, cluster_id = fields
+            name = taxon_parts(taxon)[0].replace('_', ' ')
+            label = f'{name} | {folder} | {forward} | {read_count} reads'
+            metadata[identifier] = [identifier, 'local', name, '', cluster_id, read_count, folder, forward, label]
         else:
             # efetch FASTA IDs may be accession.version or pipe-separated.
             base_id = reference_id(identifier)
@@ -86,26 +88,12 @@ def tip_metadata(tip_ids, analysis_dir, reference_genbank):
                 raise ValueError(f'No source metadata for reference {identifier}')
             organism = references[accession]
             display_id = bold_codes.get(accession, accession)
-            metadata[identifier] = [identifier, 'bold' if bold_codes else 'reference', organism, display_id, '', '', f'{organism} | {display_id}']
-    for folder, wanted in local.items():
-        path = Path(analysis_dir) / folder / f'{folder}_reads.tsv'
-        with path.open() as handle:
-            for row in csv.DictReader(handle, delimiter='\t'):
-                identifier = wanted.pop(row['readid'], None)
-                if identifier is None:
-                    continue
-                name = row['assigned_name'].replace('_', ' ') or 'unassigned'
-                forward = unquote(local_fields(identifier)[1])
-                label = f"{name} | {row['readid']} | {folder} | {forward}"
-                metadata[identifier] = [identifier, 'local', name, '', row['readid'], folder, label]
-                if not wanted:
-                    break
-        if wanted:
-            raise ValueError(f'{folder}: tree read IDs missing from completed analysis: {list(wanted)[:3]}')
+            metadata[identifier] = [identifier, 'bold' if bold_codes else 'reference', organism, display_id,
+                                    '', '', '', '', f'{organism} | {display_id}']
     return metadata
 
 
-def render(tree_path, analysis_dir, reference_genbank, output_prefix):
+def render(tree_path, reference_genbank, output_prefix):
     prefix = Path(output_prefix)
     outputs = [Path(str(prefix) + suffix) for suffix in
                ('.pdf', '.svg', '.midpoint.nwk', '.tips.tsv', '.plot.json', '.png')]
@@ -116,7 +104,7 @@ def render(tree_path, analysis_dir, reference_genbank, output_prefix):
     ids = [leaf.name for leaf in tree.get_external()]
     if len(ids) != len(set(ids)) or len(ids) < 2:
         raise ValueError('Tree must contain at least two uniquely named tips')
-    metadata = tip_metadata(ids, analysis_dir, reference_genbank)
+    metadata = tip_metadata(ids, reference_genbank)
     supports = midpoint_with_support(tree)
     prefix.parent.mkdir(parents=True, exist_ok=True)
     # Vector figures remain usable when the tree has many tips.
@@ -144,7 +132,8 @@ def render(tree_path, analysis_dir, reference_genbank, output_prefix):
     outputs[2].write_text(tree.to_string(traits=['label']) + '\n')
     with outputs[3].open('w', newline='') as handle:
         writer = csv.writer(handle, delimiter='\t')
-        writer.writerow(['tree_tip_id', 'source', 'taxon_or_organism', 'accession', 'readid', 'source_folder', 'display_label'])
+        writer.writerow(['tree_tip_id', 'source', 'taxon_or_organism', 'accession', 'cluster_id', 'read_count',
+                         'source_folder', 'forward_tag', 'display_label'])
         writer.writerows(metadata[key] for key in ids)
     outputs[4].write_text(json.dumps({'baltic_version': version('baltic'), 'tree_type': 'divergence',
         'rooting': 'midpoint', 'tip_count': len(ids), 'supported_splits': len(supports),
@@ -157,11 +146,10 @@ def render(tree_path, analysis_dir, reference_genbank, output_prefix):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--tree', type=Path, required=True)
-    parser.add_argument('--analysis-dir', type=Path, required=True)
     parser.add_argument('--reference-genbank', '--reference-metadata', dest='reference_genbank', type=Path, required=True, help='GenBank XML or BOLD reference metadata TSV')
     parser.add_argument('--output-prefix', type=Path, required=True)
     args = parser.parse_args()
-    render(args.tree, args.analysis_dir, args.reference_genbank, args.output_prefix)
+    render(args.tree, args.reference_genbank, args.output_prefix)
 
 
 if __name__ == '__main__':
